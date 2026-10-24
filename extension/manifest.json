@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "Office MIS Claim Assistant",
+  "version": "1.2.0",
+  "description": "Extracts insurance claim details from Sompo, HDFC, Bajaj, ICICI and all portals directly into Master MIS Excel.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://localhost:5055/*",
+    "http://127.0.0.1:5055/*",
+    "*://*.universalsompo.com/*",
+    "*://*/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*/*"
+      ],
+      "all_frames": true,
+      "match_about_blank": true,
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

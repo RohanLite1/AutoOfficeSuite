@@ -1,0 +1,314 @@
+{
+  "master_excel_path": "C:\\Users\\bigma\\Downloads\\2.mis-2026-2027-.xlsx",
+  "selected_sheet": "MIS-2026-2027 (2)",
+  "auto_increment_ref": true,
+  "default_survey_date_today": true,
+  "create_backup": true,
+  "estimate_excel_path": "C:\\Users\\bigma\\Downloads\\0000000-new format psu-big font- - Copy - Copy - Copy - Copy - Copy - Copy - Copy - Copy - Copy.xls",
+  "estimate_selected_sheet": "Sheet1",
+  "estimate_start_row": 172,
+  "templates": [
+    {
+      "id": "bajaj",
+      "name": "Bajaj General / Bajaj Allianz",
+      "ins_co_code": "BAJAJ",
+      "keywords": [
+        "bajaj general insurance",
+        "bajaj allianz",
+        "bajaj caringly yours"
+      ],
+      "fields": {
+        "policy_no": {
+          "anchors": [
+            "Policy Reference Number",
+            "Policy Number",
+            "Policy No"
+          ],
+          "regex": "OG[-\\d]+"
+        },
+        "claim_no": {
+          "anchors": [
+            "Claim Reference Number",
+            "Claim Number",
+            "Claim No"
+          ],
+          "regex": "[A-Z0-9]{2}[-\\d]+"
+        },
+        "insured_name": {
+          "anchors": [
+            "Policy Holder\\Insured Name",
+            "Policy Holder / Insured Name",
+            "Policy Holder",
+            "Insured Name"
+          ]
+        },
+        "date_of_loss": {
+          "anchors": [
+            "Date of Loss",
+            "Loss Date"
+          ],
+          "is_date": true
+        },
+        "policy_start_date": {
+          "anchors": [
+            "Policy Inception Date",
+            "Policy Start Date",
+            "Period of Insurance From"
+          ],
+          "is_date": true
+        },
+        "ncb": {
+          "anchors": [
+            "No Claim Bonus",
+            "NCB"
+          ],
+          "regex": "\\b(\\d{1,2})\\b"
+        },
+        "driver_relation": {
+          "anchors": [
+            "Driver Relation with Insured",
+            "Driver Relation"
+          ]
+        },
+        "vehicle_no": {
+          "anchors": [
+            "Vehicle Registration Number",
+            "Registration Number",
+            "Reg No",
+            "Vehicle No"
+          ]
+        },
+        "vehicle_make": {
+          "anchors": [
+            "Vehicle Make",
+            "Make"
+          ]
+        },
+        "vehicle_model": {
+          "anchors": [
+            "Vehicle Model",
+            "Model"
+          ]
+        },
+        "make_model": {
+          "anchors": [
+            "Vehicle Make & Model",
+            "Make & Model",
+            "Make/Model"
+          ]
+        },
+        "workshop": {
+          "anchors": [
+            "Inspection Address",
+            "Workshop Name",
+            "Garage Name",
+            "Repairer Name",
+            "Dealer Name"
+          ]
+        },
+        "survey_done_by": {
+          "anchors": [
+            "Survey Done By",
+            "Surveyor Name",
+            "Deputed Surveyor",
+            "Surveyor"
+          ]
+        },
+        "advisor_name": {
+          "anchors": [
+            "Advisor Name",
+            "Service Advisor",
+            "Claim Advisor"
+          ]
+        },
+        "assign_to": {
+          "anchors": [
+            "Assign To",
+            "Assigned To",
+            "Aassign To"
+          ]
+        },
+        "tat": {
+          "anchors": [
+            "Turn Around Time",
+            "TAT Days"
+          ],
+          "regex": "\\b(\\d+)\\b"
+        },
+        "proximate_days": {
+          "anchors": [
+            "Proximate Days"
+          ]
+        },
+        "idv": {
+          "anchors": [
+            "IDV",
+            "Insured Declared Value"
+          ],
+          "regex": "([0-9,]+(?:/-)?)"
+        }
+      }
+    },
+    {
+      "id": "nia",
+      "name": "New India Assurance (NIA)",
+      "ins_co_code": "NIA",
+      "keywords": [
+        "new india assurance",
+        "the new india",
+        "nia"
+      ],
+      "fields": {
+        "policy_no": {
+          "anchors": [
+            "Policy Number",
+            "Policy No.",
+            "Policy No"
+          ],
+          "regex": "([A-Z0-9\\/-]{10,})"
+        },
+        "claim_no": {
+          "anchors": [
+            "Claim Number",
+            "Claim No.",
+            "Claim No"
+          ],
+          "regex": "([A-Z0-9\\/-]{10,})"
+        },
+        "insured_name": {
+          "anchors": [
+            "Name of Insured",
+            "Insured Name",
+            "Policyholder Name"
+          ]
+        },
+        "date_of_loss": {
+          "anchors": [
+            "Date of Accident",
+            "Date of Loss",
+            "Time & Date of Loss"
+          ],
+          "is_date": true
+        },
+        "policy_start_date": {
+          "anchors": [
+            "Policy Inception Date",
+            "Period of Insurance From",
+            "Policy From"
+          ],
+          "is_date": true
+        },
+        "vehicle_no": {
+          "anchors": [
+            "Registration No.",
+            "Vehicle No",
+            "Regn. No"
+          ]
+        },
+        "idv": {
+          "anchors": [
+            "IDV",
+            "Insured Declared Value"
+          ],
+          "regex": "([0-9,]+)"
+        }
+      }
+    },
+    {
+      "id": "liberty",
+      "name": "Liberty General Insurance",
+      "ins_co_code": "LIBERTY",
+      "keywords": [
+        "liberty general insurance",
+        "liberty videokon",
+        "liberty"
+      ],
+      "fields": {
+        "policy_no": {
+          "anchors": [
+            "Policy Number",
+            "Policy No"
+          ],
+          "regex": "([0-9]{15,})"
+        },
+        "claim_no": {
+          "anchors": [
+            "Claim Number",
+            "Claim No"
+          ],
+          "regex": "([0-9]{15,})"
+        },
+        "insured_name": {
+          "anchors": [
+            "Insured Name",
+            "Customer Name",
+            "Name of Insured"
+          ]
+        },
+        "date_of_loss": {
+          "anchors": [
+            "Date of Loss",
+            "Date of Accident"
+          ],
+          "is_date": true
+        },
+        "policy_start_date": {
+          "anchors": [
+            "Policy Start Date",
+            "Period of Insurance From"
+          ],
+          "is_date": true
+        },
+        "vehicle_no": {
+          "anchors": [
+            "Registration No",
+            "Vehicle Registration Number"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sompo",
+      "name": "Universal Sompo",
+      "ins_co_code": "SOMPO",
+      "keywords": [
+        "universal sompo",
+        "sompo"
+      ],
+      "fields": {
+        "policy_no": {
+          "anchors": [
+            "Policy Number",
+            "Policy No"
+          ]
+        },
+        "claim_no": {
+          "anchors": [
+            "Claim Number",
+            "Claim No"
+          ]
+        },
+        "insured_name": {
+          "anchors": [
+            "Insured Name",
+            "Name of Insured"
+          ]
+        },
+        "date_of_loss": {
+          "anchors": [
+            "Date of Loss",
+            "Date of Accident"
+          ],
+          "is_date": true
+        },
+        "policy_start_date": {
+          "anchors": [
+            "Policy Start Date",
+            "Inception Date"
+          ],
+          "is_date": true
+        }
+      }
+    }
+  ]
+}

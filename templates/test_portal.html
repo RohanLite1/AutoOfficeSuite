@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Sompo General Insurance - Surveyor Portal (Test)</title>
+    <style>
+        :root {
+            --us-navy: #0f2744;
+            --us-red: #c92a2a;
+            --us-gold: #f59f00;
+            --bg-page: #f1f5f9;
+            --surface: #ffffff;
+            --text-dark: #1e293b;
+            --text-muted: #64748b;
+            --border: #cbd5e1;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-page);
+            color: var(--text-dark);
+        }
+
+        /* Top Bar */
+        .portal-header {
+            background: var(--us-navy);
+            color: white;
+            padding: 14px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 12px rgba(15, 39, 68, 0.15);
+        }
+
+        .portal-logo-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .portal-logo-badge {
+            background: linear-gradient(135deg, #c92a2a, #e03131);
+            color: white;
+            font-weight: 900;
+            font-size: 16px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            letter-spacing: 1px;
+        }
+
+        .portal-title {
+            font-size: 17px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+
+        .portal-subtitle {
+            font-size: 11px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        .test-notice-pill {
+            background: rgba(245, 159, 0, 0.18);
+            border: 1px solid var(--us-gold);
+            color: #fef08a;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Breadcrumb / Sub-bar */
+        .sub-nav {
+            background: white;
+            border-bottom: 1px solid var(--border);
+            padding: 10px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+        }
+
+        .claim-switcher {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-switch {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn-switch:hover {
+            background: #e2e8f0;
+        }
+
+        .btn-switch.active {
+            background: var(--us-navy);
+            color: white;
+            border-color: var(--us-navy);
+        }
+
+        /* Container */
+        .portal-container {
+            max-width: 1200px;
+            margin: 24px auto;
+            padding: 0 20px;
+        }
+
+        .status-strip {
+            background: linear-gradient(90deg, #1e3a8a, #2563eb);
+            color: white;
+            padding: 14px 20px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        .claim-meta-item {
+            font-size: 12px;
+        }
+
+        .claim-meta-item strong {
+            font-size: 15px;
+            display: block;
+            margin-top: 2px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+
+        /* Grid */
+        .portal-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .portal-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+        }
+
+        .card-header {
+            background: #f8fafc;
+            border-bottom: 1px solid var(--border);
+            padding: 12px 18px;
+            font-size: 13.5px;
+            font-weight: 700;
+            color: var(--us-navy);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .portal-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .portal-table td {
+            padding: 10px 18px;
+            font-size: 13px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .portal-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .label-cell {
+            color: var(--text-muted);
+            font-weight: 600;
+            width: 40%;
+            background: #fafafa;
+        }
+
+        .val-cell {
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+
+        .val-cell.highlight {
+            color: #2563eb;
+            font-family: monospace;
+            font-size: 13.5px;
+        }
+
+        .back-bar {
+            margin-top: 24px;
+            text-align: center;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: #2563eb;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 8px 16px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }
+
+        .back-link:hover {
+            background: #f8fafc;
+        }
+    </style>
+</head>
+<body>
+
+    <header class="portal-header">
+        <div class="portal-logo-area">
+            <div class="portal-logo-badge">SOMPO</div>
+            <div>
+                <div class="portal-title">Universal Sompo General Insurance Co. Ltd.</div>
+                <div class="portal-subtitle">Surveyor & Loss Assessor Intranet Portal</div>
+            </div>
+        </div>
+        <div class="test-notice-pill">
+            🧪 <strong>Simulated Live Claim Portal for Testing Extension</strong>
+        </div>
+    </header>
+
+    <div class="sub-nav">
+        <div>
+            Home &gt; Motor Claims &gt; Assessment View &gt; <strong id="crumb-claim">CL-2026-USGI-009841</strong>
+        </div>
+        <div class="claim-switcher">
+            <span style="font-size:12px; font-weight:600; color:var(--text-muted);">Switch Test Sample:</span>
+            <button class="btn-switch active" onclick="loadSample(1)">Claim 1 (Swift)</button>
+            <button class="btn-switch" onclick="loadSample(2)">Claim 2 (Creta)</button>
+            <button class="btn-switch" onclick="loadSample(3)">Claim 3 (BMW 3 Series)</button>
+        </div>
+    </div>
+
+    <div class="portal-container">
+
+        <div class="status-strip">
+            <div class="claim-meta-item">
+                Claim Number
+                <strong id="meta-claim">CL-2026-USGI-009841</strong>
+            </div>
+            <div class="claim-meta-item">
+                Policy Number
+                <strong id="meta-policy">OG-24-1102-1801-00004582</strong>
+            </div>
+            <div class="claim-meta-item">
+                Registration No
+                <strong id="meta-reg">DL 01 AB 1234</strong>
+            </div>
+            <div class="claim-meta-item">
+                Claim Status
+                <strong>SURVEY DEPUTED / IN PROGRESS</strong>
+            </div>
+        </div>
+
+        <div class="portal-grid">
+
+            <!-- Card 1: Policy Information -->
+            <div class="portal-card">
+                <div class="card-header">📄 Policy Information</div>
+                <table class="portal-table">
+                    <tr>
+                        <td class="label-cell">Policy Number:</td>
+                        <td class="val-cell highlight" id="cell-policy">OG-24-1102-1801-00004582</td>
+                    </tr>
+                    <tr>
+                        <td class="label-cell">Policy Inception Date:</td>
+                        <td class="val-cell" id="cell-start-date">12-JAN-2026</td>
+                    </tr>
+                    <tr>
+                        <td class="label-cell">Period of Insurance From:</td>
+                        <td class="val-cell" id="cell-from-date">12-JAN-2026 to 11-JAN-2027</td>
+                    </tr>
+                    <tr>
+                        <td class="label-cell">Insured Declared Value (IDV):</td>
+                        <td class="val-cell" id="cell-idv">₹ 6,45,000</td>
+                    </tr>
+                    <tr>
+                        <td class="label-cell">No Claim Bonus (NCB):</td>
+                        <td class="val-cell" id="cell-ncb">20%</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Card 2: Claim & Intimation Details -->
+            <div class="portal-card">
+                <div class="card-header">🚨 Claim & Intimation Details</div>
+                <table class="portal-table">
+                    <tr>
+                        <td class="label-cell">Claim Number:</td>
+                        <td class="val-cell highlight" id="cell-claim">CL-2026-USGI-009841</td>
+                    </tr>
+                    <tr>
+                        <td class="label-cell">Date of Loss:</td>
+                        <td class="val-cell" id="cell-loss-date">18-OCT-2026</td>
+                    </tr>
+                    <tr>
+                        <td class="label-cell">Time & Date of Loss:</td>
+                        <td class="val-cell">18-OCT-2026 14:30 HRS</td>
+                    </tr>
+                    <tr>
+                        <td class="label-cell">Cause of Loss:</td>
+                        <td class="val-cell" id="cell-cause">Rear-end collision with transport truck on expressway</td>
+                    </tr>
+                    <tr>
+                        <td class="label-cell">Driver Relation with Insured:</td>
+                        <td class="val-cell" id="cell-relation">Self</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Card 3: Insured & Surveyor Details -->
+            <div class="portal-card">
+                <div class="card-header">👤 Insured & Surveyor Details</div>
+                <table class="portal-table">
+                    <tr>
+                        <td class="label-cell">Name of Insured:</td>
+                        <td class="val-cell" id="cell-name">Rajesh Kumar Sharma</td>
+                    </tr>
+                    <tr>
+                        <td class="label-cell">Contact Phone:</td>
+                        <td class="val-cell">+91 98112 34567</td>
+                    </tr>
+                    <tr>
+                        <td class="label-cell">Deputed Surveyor:</td>
+                        <td class="val-cell" id="cell-surveyor">S. P. Singh</td>
+                    </tr>
+                    <tr>
+                        <td class="label-cell">Claim Advisor:</td>
+                        <td class="val-cell" id="cell-advisor">Amit Verma</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Card 4: Vehicle & Garage Information -->
+            <div class="portal-card">
+                <div class="card-header">🚗 Vehicle & Garage Information</div>
+                <table class="portal-table">
+                    <tr>
+                        <td class="label-cell">Vehicle Registration Number:</td>
+                        <td class="val-cell highlight" id="cell-veh">DL 01 AB 1234</td>
+                    </tr>
+                    <tr>
+                        <td class="label-cell">Vehicle Make & Model:</td>
+                        <td class="val-cell" id="cell-make">Maruti Suzuki Swift Dzire VXI</td>
+                    </tr>
+                    <tr>
+                        <td class="label-cell">Workshop Name:</td>
+                        <td class="val-cell" id="cell-workshop">Frontline Motors Workshop, Okhla Phase 3, New Delhi</td>
+                    </tr>
+                    <tr>
+                        <td class="label-cell">Inspection Address:</td>
+                        <td class="val-cell">Plot 45, Industrial Area, Okhla Phase 3</td>
+                    </tr>
+                </table>
+            </div>
+
+        </div>
+
+        <div class="back-bar">
+            <a href="/" class="back-link">
+                ← Return to Office MIS Application Dashboard
+            </a>
+        </div>
+
+    </div>
+
+    <script>
+        const samples = {
+            1: {
+                claim: "CL-2026-USGI-009841",
+                policy: "OG-24-1102-1801-00004582",
+                veh: "DL 01 AB 1234",
+                name: "Rajesh Kumar Sharma",
+                loss: "18-OCT-2026",
+                start: "12-JAN-2026",
+                make: "Maruti Suzuki Swift Dzire VXI",
+                workshop: "Frontline Motors Workshop, Okhla Phase 3, New Delhi",
+                surveyor: "S. P. Singh",
+                advisor: "Amit Verma",
+                idv: "₹ 6,45,000",
+                ncb: "20%",
+                relation: "Self"
+            },
+            2: {
+                claim: "CL-2026-USGI-004419",
+                policy: "OG-24-1102-1801-00008819",
+                veh: "HR 26 DQ 5678",
+                name: "Sunita Mehra",
+                loss: "21-OCT-2026",
+                start: "05-MAR-2026",
+                make: "Hyundai Creta SX 1.5 Petrol",
+                workshop: "Blue Hyndai Authorized Service, Sector 14, Gurgaon",
+                surveyor: "Rajiv Nambiar",
+                advisor: "Deepak Sharma",
+                idv: "₹ 11,80,000",
+                ncb: "35%",
+                relation: "Spouse"
+            },
+            3: {
+                claim: "CL-2026-USGI-007732",
+                policy: "OG-24-1102-1801-00009941",
+                veh: "UP 16 AX 9900",
+                name: "Vikramaditya Oberoi",
+                loss: "23-OCT-2026",
+                start: "01-FEB-2026",
+                make: "BMW 3 Series 330i M Sport",
+                workshop: "Deutsche Motoren Workshop, Mathura Road, Faridabad",
+                surveyor: "Deputed Specialist",
+                advisor: "Gaurav Malhotra",
+                idv: "₹ 44,50,000",
+                ncb: "50%",
+                relation: "Self"
+            }
+        };
+
+        function loadSample(id) {
+            const s = samples[id];
+            if (!s) return;
+
+            document.querySelectorAll(".btn-switch").forEach((btn, idx) => {
+                btn.classList.toggle("active", (idx + 1) === id);
+            });
+
+            document.getElementById("crumb-claim").innerText = s.claim;
+            document.getElementById("meta-claim").innerText = s.claim;
+            document.getElementById("meta-policy").innerText = s.policy;
+            document.getElementById("meta-reg").innerText = s.veh;
+
+            document.getElementById("cell-policy").innerText = s.policy;
+            document.getElementById("cell-start-date").innerText = s.start;
+            document.getElementById("cell-from-date").innerText = `${s.start} to Next Year`;
+            document.getElementById("cell-idv").innerText = s.idv;
+            document.getElementById("cell-ncb").innerText = s.ncb;
+
+            document.getElementById("cell-claim").innerText = s.claim;
+            document.getElementById("cell-loss-date").innerText = s.loss;
+            document.getElementById("cell-relation").innerText = s.relation;
+
+            document.getElementById("cell-name").innerText = s.name;
+            document.getElementById("cell-surveyor").innerText = s.surveyor;
+            document.getElementById("cell-advisor").innerText = s.advisor;
+
+            document.getElementById("cell-veh").innerText = s.veh;
+            document.getElementById("cell-make").innerText = s.make;
+            document.getElementById("cell-workshop").innerText = s.workshop;
+        }
+    </script>
+</body>
+</html>

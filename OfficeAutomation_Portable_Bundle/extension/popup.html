@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Office MIS Assistant</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --success: #10b981;
+            --surface: #ffffff;
+            --background: #f8fafc;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            width: 320px;
+            background: var(--background);
+            color: var(--text-main);
+            padding: 14px;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 12px;
+        }
+
+        .title-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .icon-badge {
+            width: 28px;
+            height: 28px;
+            background: var(--primary);
+            color: white;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .title {
+            font-size: 13.5px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            background: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #94a3b8;
+        }
+
+        .status-dot.connected {
+            background: var(--success);
+            box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+        }
+
+        .claim-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .field-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 12px;
+            border-bottom: 1px dashed #f1f5f9;
+        }
+
+        .field-row:last-child {
+            border-bottom: none;
+        }
+
+        .field-name {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .field-val {
+            font-weight: 600;
+            color: var(--text-main);
+            text-align: right;
+            max-width: 170px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .btn {
+            width: 100%;
+            height: 36px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.15s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+            margin-bottom: 8px;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+        }
+
+        .btn-outline {
+            background: white;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .btn-outline:hover {
+            background: #f1f5f9;
+            color: var(--text-main);
+        }
+
+        .alert-box {
+            display: none;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 11.5px;
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+
+        .alert-success {
+            background: #dcfce7;
+            color: #15803d;
+            border: 1px solid #bbf7d0;
+        }
+
+        .alert-error {
+            background: #fee2e2;
+            color: #b91c1c;
+            border: 1px solid #fecaca;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="title-group">
+            <div class="icon-badge">📋</div>
+            <div class="title">MIS Assistant</div>
+        </div>
+        <div class="status-pill" id="conn-pill">
+            <div class="status-dot" id="conn-dot"></div>
+            <span id="conn-label">Checking...</span>
+        </div>
+    </div>
+
+    <div id="alert-box" class="alert-box"></div>
+
+    <div class="claim-card">
+        <div class="field-row">
+            <span class="field-name">Insurer</span>
+            <span class="field-val" id="prev-ins">--</span>
+        </div>
+        <div class="field-row">
+            <span class="field-name">Claim No</span>
+            <span class="field-val" id="prev-claim" style="color:var(--primary);">--</span>
+        </div>
+        <div class="field-row">
+            <span class="field-name">Policy No</span>
+            <span class="field-val" id="prev-policy">--</span>
+        </div>
+        <div class="field-row">
+            <span class="field-name">Vehicle No</span>
+            <span class="field-val" id="prev-veh" style="font-weight:700; color:#1e40af;">--</span>
+        </div>
+        <div class="field-row">
+            <span class="field-name">Make / Model</span>
+            <span class="field-val" id="prev-model">--</span>
+        </div>
+        <div class="field-row">
+            <span class="field-name">Workshop / Garage</span>
+            <span class="field-val" id="prev-workshop">--</span>
+        </div>
+        <div class="field-row">
+            <span class="field-name">Insured</span>
+            <span class="field-val" id="prev-name">--</span>
+        </div>
+    </div>
+
+    <button id="send-btn" class="btn btn-primary">
+        ⚡ Send Claim to MIS Excel
+    </button>
+
+    <button id="dashboard-btn" class="btn btn-outline">
+        📂 Open Office MIS App
+    </button>
+
+    <script src="popup.js"></script>
+</body>
+</html>

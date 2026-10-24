@@ -1,0 +1,3030 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Office Automation Suite - MIS Claims & Estimate Parts</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --primary-light: #eff6ff;
+            --primary-border: #bfdbfe;
+            --accent: #4f46e5;
+            --success: #16a34a;
+            --success-hover: #15803d;
+            --success-light: #f0fdf4;
+            --danger: #dc2626;
+            --danger-light: #fef2f2;
+            --warning: #d97706;
+            --warning-light: #fffbeb;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --border-hover: #cbd5e1;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --text-light: #94a3b8;
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 14px;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top Clean Navbar */
+        .top-navbar {
+            background-color: #0f172a;
+            color: white;
+            padding: 12px 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #1e293b;
+        }
+
+        .brand-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-badge {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: #1e293b;
+            color: #94a3b8;
+            padding: 3px 8px;
+            border-radius: var(--radius-sm);
+            border: 1px solid #334155;
+        }
+
+        .brand-title {
+            font-size: 17px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+            color: #ffffff;
+        }
+
+        /* Mode Switcher Pills */
+        .mode-pills {
+            display: inline-flex;
+            background-color: #1e293b;
+            padding: 3px;
+            border-radius: var(--radius-md);
+            border: 1px solid #334155;
+            gap: 4px;
+        }
+
+        .pill-btn {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            padding: 7px 18px;
+            border-radius: 7px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.15s ease-in-out;
+        }
+
+        .pill-btn:hover {
+            color: #f8fafc;
+        }
+
+        .pill-btn.active {
+            background: var(--primary);
+            color: #ffffff;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .pill-btn.active.estimate-mode {
+            background: var(--accent);
+        }
+
+        .pill-btn.active.web-mode {
+            background: #0284c7;
+        }
+
+        /* Right Header Controls */
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .active-file-indicator {
+            font-size: 12px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #cbd5e1;
+            padding: 5px 12px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            max-width: 320px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .dot-pulse {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+
+        .btn-header-open {
+            background: #334155;
+            border: 1px solid #475569;
+            color: #f8fafc;
+            padding: 6px 12px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.15s;
+        }
+
+        .btn-header-open:hover {
+            background: #475569;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1440px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 20px 24px;
+            flex: 1;
+        }
+
+        /* Toast / Alert */
+        .alert {
+            padding: 12px 18px;
+            border-radius: var(--radius-md);
+            font-size: 13.5px;
+            font-weight: 500;
+            margin-bottom: 18px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .alert-success {
+            background-color: var(--success-light);
+            border: 1px solid #bbf7d0;
+            color: #14532d;
+        }
+
+        .alert-error {
+            background-color: var(--danger-light);
+            border: 1px solid #fecaca;
+            color: #991b1b;
+        }
+
+        .alert-warning {
+            background-color: var(--warning-light);
+            border: 1px solid #fde68a;
+            color: #92400e;
+        }
+
+        .alert-btn {
+            background: white;
+            border: 1px solid currentColor;
+            padding: 4px 10px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-left: 12px;
+            color: inherit;
+        }
+
+        /* Views */
+        .view-panel {
+            display: none;
+        }
+
+        .view-panel.active {
+            display: block;
+        }
+
+        /* Clean Cards */
+        .clean-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 18px 20px;
+            margin-bottom: 18px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* Compact Target Excel Bar */
+        .target-excel-bar {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 12px 16px;
+            margin-bottom: 18px;
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px 16px;
+        }
+
+        .target-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .target-label {
+            font-size: 11.5px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .form-select, .form-input {
+            height: 36px;
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            color: var(--text-main);
+            background-color: #ffffff;
+            outline: none;
+            transition: border-color 0.15s, box-shadow 0.15s;
+            box-sizing: border-box;
+            min-width: 0;
+        }
+
+        .form-select {
+            max-width: 100%;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .form-select:focus, .form-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+        }
+
+        .active-excel-pill {
+            height: 36px;
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: #ffffff;
+            color: var(--text-main);
+            font-size: 13px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .btn-clean {
+            height: 36px;
+            padding: 0 14px;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 600;
+            border: 1px solid transparent;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            transition: all 0.15s;
+        }
+
+        .btn-clean-primary {
+            background-color: var(--primary);
+            color: #ffffff;
+        }
+
+        .btn-clean-primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-clean-accent {
+            background-color: var(--accent);
+            color: #ffffff;
+        }
+
+        .btn-clean-accent:hover {
+            background-color: #4338ca;
+        }
+
+        .btn-clean-outline {
+            background: white;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+        }
+
+        .btn-clean-outline:hover {
+            border-color: var(--border-hover);
+            background: #f8fafc;
+        }
+
+        .btn-clean-success {
+            background-color: var(--success);
+            color: #ffffff;
+        }
+
+        .btn-clean-success:hover {
+            background-color: var(--success-hover);
+        }
+
+        /* Clean Dropzone */
+        .clean-dropzone {
+            border: 2px dashed #cbd5e1;
+            border-radius: var(--radius-md);
+            background-color: #f8fafc;
+            padding: 28px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.15s ease-in-out;
+            margin-bottom: 18px;
+        }
+
+        .clean-dropzone:hover, .clean-dropzone.dragover {
+            border-color: var(--primary);
+            background-color: #eff6ff;
+        }
+
+        .clean-dropzone.estimate-zone:hover, .clean-dropzone.estimate-zone.dragover {
+            border-color: var(--accent);
+            background-color: #eef2ff;
+        }
+
+        .dropzone-icon {
+            font-size: 28px;
+            margin-bottom: 6px;
+            display: inline-block;
+        }
+
+        .dropzone-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 4px;
+        }
+
+        .dropzone-subtitle {
+            font-size: 12.5px;
+            color: var(--text-muted);
+        }
+
+        .dropzone-file-status {
+            margin-top: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        /* Compact Metadata Bar for Estimate */
+        .meta-pill-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            background: #f1f5f9;
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
+            margin-bottom: 16px;
+            font-size: 13px;
+            align-items: center;
+        }
+
+        .meta-tag {
+            background: white;
+            border: 1px solid #e2e8f0;
+            padding: 4px 10px;
+            border-radius: 4px;
+            color: #334155;
+        }
+
+        .meta-tag strong {
+            color: #0f172a;
+        }
+
+        /* Tables */
+        .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: white;
+            margin-bottom: 16px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12.5px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f8fafc;
+            color: #475569;
+            font-weight: 700;
+            padding: 9px 12px;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 7px 10px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
+        }
+
+        tr:hover td {
+            background-color: #fbfcfe;
+        }
+
+        .td-input {
+            width: 100%;
+            height: 30px;
+            padding: 4px 8px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            font-size: 12.5px;
+            color: var(--text-main);
+            background: transparent;
+            transition: border-color 0.15s, background-color 0.15s;
+        }
+
+        .td-input:hover {
+            border-color: #cbd5e1;
+            background: #ffffff;
+        }
+
+        .td-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: #ffffff;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+        }
+
+        .item-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        .badge-part {
+            background-color: #dcfce7;
+            color: #15803d;
+        }
+
+        .badge-labour {
+            background-color: #f3e8ff;
+            color: #7e22ce;
+        }
+
+        /* Bottom Action Bar */
+        .bottom-action-bar {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 12px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 14px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .action-stats {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 13px;
+            color: #475569;
+        }
+
+        .action-stats strong {
+            color: var(--text-main);
+            font-size: 14px;
+        }
+
+        .action-btns {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-remove {
+            background: none;
+            border: none;
+            color: var(--text-light);
+            cursor: pointer;
+            font-size: 14px;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .btn-remove:hover {
+            color: var(--danger);
+            background: var(--danger-light);
+        }
+
+        /* Checkbox styling */
+        .check-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12.5px;
+            font-weight: 500;
+            color: #334155;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .check-pill input {
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        /* Excel Live Status Strip */
+        .excel-live-status-card {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 9px 14px;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            font-size: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+            transition: all 0.2s ease;
+        }
+
+        .excel-live-status-card.updated {
+            border-color: #10b981;
+            background: #f0fdf4;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+        }
+
+        .excel-status-main {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .excel-status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 700;
+            font-size: 11.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .live-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+
+        .live-dot.online {
+            background: #10b981;
+            box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+        }
+
+        .live-dot.warning {
+            background: #f59e0b;
+            box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+        }
+
+        .live-dot.offline {
+            background: #ef4444;
+            box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
+        }
+
+        .excel-path-display {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 3px 8px;
+            border-radius: 4px;
+            max-width: 540px;
+        }
+
+        .excel-path-text {
+            font-family: monospace;
+            font-size: 11.5px;
+            color: #1e293b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-weight: 600;
+        }
+
+        .excel-meta-display {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #64748b;
+            font-size: 11.5px;
+        }
+
+        .excel-meta-display strong {
+            color: #0f172a;
+        }
+
+        .excel-status-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+        }
+
+        .btn-micro {
+            background: white;
+            border: 1px solid #cbd5e1;
+            color: #475569;
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn-micro:hover {
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+
+        /* Post-Save Audit Confirmation Card */
+        .audit-confirmation-banner {
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+            border: 1.5px solid #86efac;
+            border-radius: var(--radius-md);
+            padding: 14px 20px;
+            margin-bottom: 18px;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.15);
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+            animation: fadeIn 0.2s ease-in-out;
+        }
+
+        .audit-icon-box {
+            width: 38px;
+            height: 38px;
+            background: #dcfce7;
+            border: 1px solid #86efac;
+            color: #15803d;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .audit-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #166534;
+            margin-bottom: 6px;
+        }
+
+        .audit-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 12.5px;
+            color: #374151;
+        }
+
+        .audit-lbl {
+            font-weight: 600;
+            color: #4b5563;
+        }
+
+        .audit-path {
+            background: #ffffff;
+            border: 1px solid #bbf7d0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-weight: 600;
+            color: #166534;
+            word-break: break-all;
+        }
+
+        .audit-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            align-self: center;
+            flex-wrap: wrap;
+        }
+
+        /* High-End Universal Progress Overlay */
+        .progress-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: progressFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes progressFadeIn {
+            from { opacity: 0; transform: scale(0.97); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .progress-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: var(--radius-lg);
+            box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+            width: 90%;
+            max-width: 460px;
+            padding: 24px 26px;
+            position: relative;
+        }
+
+        .progress-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 16px;
+        }
+
+        .progress-icon-wrap {
+            width: 44px;
+            height: 44px;
+            border-radius: var(--radius-md);
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .progress-spinner {
+            width: 22px;
+            height: 22px;
+            border: 2.5px solid #bfdbfe;
+            border-top-color: #2563eb;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .progress-title-wrap {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .progress-title-wrap h4 {
+            font-size: 15px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 3px;
+            letter-spacing: -0.2px;
+        }
+
+        .progress-title-wrap p {
+            font-size: 12.5px;
+            color: #64748b;
+            line-height: 1.3;
+        }
+
+        .progress-percent-badge {
+            font-size: 14px;
+            font-weight: 800;
+            color: #2563eb;
+            font-variant-numeric: tabular-nums;
+            background: #eff6ff;
+            padding: 4px 10px;
+            border-radius: var(--radius-sm);
+            border: 1px solid #bfdbfe;
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 10px;
+            background: #f1f5f9;
+            border-radius: 999px;
+            overflow: hidden;
+            position: relative;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 12px;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #2563eb, #3b82f6, #60a5fa, #2563eb);
+            background-size: 250% 100%;
+            border-radius: 999px;
+            transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            animation: progressShimmer 2s infinite linear;
+        }
+
+        @keyframes progressShimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .progress-steps-log {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #475569;
+            font-weight: 500;
+        }
+
+        .step-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #2563eb;
+            animation: stepPulse 1.2s infinite;
+            flex-shrink: 0;
+        }
+
+        @keyframes stepPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.35; transform: scale(0.8); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Global Progress Modal Overlay -->
+    <div id="progress-modal-overlay" class="progress-overlay" style="display: none;">
+        <div class="progress-card">
+            <div class="progress-header">
+                <div class="progress-icon-wrap" id="progress-icon">
+                    <div class="progress-spinner"></div>
+                </div>
+                <div class="progress-title-wrap">
+                    <h4 id="progress-title">Writing into Excel...</h4>
+                    <p id="progress-subtitle">Preparing workbook and checking file locks...</p>
+                </div>
+                <div class="progress-percent-badge" id="progress-percent">0%</div>
+            </div>
+            <div class="progress-track">
+                <div class="progress-bar-fill" id="progress-bar-fill" style="width: 0%;"></div>
+            </div>
+            <div class="progress-steps-log">
+                <span class="step-dot"></span>
+                <span id="progress-step-text">Starting operation...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Native file inputs -->
+    <input type="file" id="master-file-picker" accept=".xlsx,.xls,.xlsm" style="display:none;" onchange="handleMasterExcelFile(this.files)">
+    <input type="file" id="estimate-excel-picker" accept=".xlsx,.xls,.xlsm" style="display:none;" onchange="handleEstimateExcelFile(this.files)">
+
+    <!-- Top Navbar -->
+    <header class="top-navbar">
+        <div class="brand-group">
+            <span class="brand-title">Office Automation</span>
+            <span class="brand-badge">MIS & Estimates</span>
+        </div>
+
+        <!-- Mode Switcher -->
+        <div class="mode-pills">
+            <button class="pill-btn active" id="btn-mode-mis" onclick="switchMode('mis')">
+                <span>📋</span> MIS Claims
+            </button>
+            <button class="pill-btn estimate-mode" id="btn-mode-estimate" onclick="switchMode('estimate')">
+                <span>🧾</span> Estimate Parts
+            </button>
+            <button class="pill-btn web-mode" id="btn-mode-web" onclick="switchMode('web')">
+                <span>🌐</span> MIS from Web
+            </button>
+        </div>
+
+        <!-- Right Indicators -->
+        <div class="header-actions">
+            <div class="active-file-indicator" id="header-file-chip" title="Active Target Excel Spreadsheet">
+                <span class="dot-pulse"></span>
+                <span id="header-file-text">Loading spreadsheet...</span>
+            </div>
+            <button class="btn-header-open" onclick="openActiveExcel()" title="Open currently linked spreadsheet in Microsoft Excel">
+                📂 Open in Excel
+            </button>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <!-- Global Toast Alert -->
+        <div id="alert-banner" class="alert">
+            <span id="alert-text">Message</span>
+            <div id="alert-actions"></div>
+        </div>
+
+        <!-- Global Post-Save Audit Confirmation Banner -->
+        <div id="audit-confirmation-box" style="display:none;"></div>
+
+        <!-- ======================================================== -->
+        <!-- VIEW 1: MIS CLAIM UPDATER                                -->
+        <!-- ======================================================== -->
+        <div id="view-mis" class="view-panel active">
+
+            <!-- Compact Target Excel Bar -->
+            <div class="target-excel-bar">
+                <div class="target-item" style="flex: 1 1 360px; min-width: 260px; max-width: 560px;">
+                    <span class="target-label">Master Excel:</span>
+                    <div class="active-excel-pill" id="mis-active-filename" title="Currently linked Master Excel spreadsheet">
+                        No Master Excel selected
+                    </div>
+                    <button type="button" class="btn-clean btn-clean-outline" onclick="triggerExcelBrowse('master')" title="Browse computer for Excel file" style="flex-shrink: 0;">
+                        📁 Browse
+                    </button>
+                    <label class="check-pill" style="margin-left: 4px; white-space: nowrap;" title="Keep this file saved as default Master Excel so you don't have to browse again">
+                        <input type="checkbox" id="chk-set-master-excel" checked> Set this as master excel
+                    </label>
+                </div>
+
+                <div class="target-item" style="flex: 0 1 160px; min-width: 130px;">
+                    <span class="target-label">Sheet:</span>
+                    <select id="cfg-sheet-select" class="form-select" style="flex: 1; min-width: 0;" onchange="saveMisSheet(this.value)">
+                        <option value="">-- Sheet --</option>
+                    </select>
+                </div>
+
+                <div class="target-item" style="flex: 0 0 auto;">
+                    <span class="target-label">Next Ref:</span>
+                    <input type="number" id="starting-ref-input" class="form-input" style="width: 75px; text-align: center; font-weight: 700; color: var(--primary);" oninput="applyStartingRef(this.value)" min="1">
+                    <button type="button" class="btn-clean btn-clean-outline" style="padding: 0 8px; flex-shrink: 0;" onclick="rescanExcelRef()" title="Re-scan Column A for latest sequential reference number">
+                        🔄
+                    </button>
+                </div>
+
+                <div class="target-item" style="margin-left: auto; flex-shrink: 0;">
+                    <label class="check-pill" title="Automatically increment reference number sequentially">
+                        <input type="checkbox" id="cfg-auto-ref" checked onchange="saveMisOptions()"> Auto-increment
+                    </label>
+                    <label class="check-pill" title="Default date of survey to today if missing">
+                        <input type="checkbox" id="cfg-survey-today" checked onchange="saveMisOptions()"> Today's Date
+                    </label>
+                </div>
+            </div>
+
+            <!-- Active Master Excel Live Status Card -->
+            <div class="excel-live-status-card" id="mis-live-status-card">
+                <div class="excel-status-main">
+                    <div class="excel-status-indicator">
+                        <span class="live-dot online" id="mis-live-dot"></span>
+                        <span id="mis-live-status-text">Target Excel Verified</span>
+                    </div>
+                    <div class="excel-path-display">
+                        <span class="excel-path-icon">📄</span>
+                        <span class="excel-path-text" id="mis-live-path-text">Scanning for Master Excel...</span>
+                        <button type="button" class="btn-micro" onclick="copyFilePath('master')" title="Copy absolute file path">📋 Copy</button>
+                    </div>
+                    <div class="excel-meta-display" id="mis-live-meta-text">
+                        <span>Sheet: <strong id="mis-meta-sheet">--</strong></span>
+                        <span>•</span>
+                        <span>Saved: <strong id="mis-meta-mtime">--</strong></span>
+                        <span>•</span>
+                        <span>Size: <strong id="mis-meta-size">--</strong></span>
+                    </div>
+                </div>
+                <div class="excel-status-actions">
+                    <button type="button" class="btn-clean btn-clean-outline" style="height: 30px; font-size: 12px;" onclick="openActiveExcel('master')">
+                        📂 Open in Excel
+                    </button>
+                    <button type="button" class="btn-clean btn-clean-outline" style="height: 30px; font-size: 12px;" onclick="showActiveFileInFolder('master')">
+                        📁 Show in Explorer
+                    </button>
+                    <button type="button" class="btn-clean btn-clean-outline" style="height: 30px; font-size: 12px;" onclick="promptManualExcelPath('master')" title="Manually type or paste file path">
+                        ✏️ Paste Path
+                    </button>
+                    <button type="button" class="btn-clean btn-clean-outline" style="height: 30px; font-size: 12px; padding: 0 8px;" onclick="refreshExcelFileStatus('master')" title="Re-check file status on disk">
+                        🔄
+                    </button>
+                </div>
+            </div>
+
+            <!-- PDF Upload Dropzone -->
+            <div class="clean-dropzone" id="mis-drop-area" onclick="document.getElementById('mis-file-input').click()">
+                <input type="file" id="mis-file-input" multiple accept=".pdf" style="display:none" onchange="handleMisFileSelect(this.files)">
+                <div class="dropzone-icon">📥</div>
+                <div class="dropzone-title">Drop Claim Intimation PDFs here or click to browse</div>
+                <div class="dropzone-subtitle">Supports single or batch uploads (Bajaj, NIA, Liberty, Universal Sompo intimation PDFs)</div>
+                <div id="mis-file-summary" class="dropzone-file-status"></div>
+            </div>
+
+            <!-- Extracted Claims Preview Table -->
+            <div id="mis-preview-card" style="display:none;">
+                <div class="clean-card" style="padding: 0; overflow: hidden; margin-bottom: 14px;">
+                    <div style="padding: 12px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-weight: 700; font-size: 14px;">Extracted Claims Preview</span>
+                        <div style="display:flex; gap: 8px;">
+                            <button type="button" class="btn-clean btn-clean-outline" style="height:30px; font-size:12px;" onclick="addNewEmptyMisRow()">+ Add Row</button>
+                            <button type="button" class="btn-clean btn-clean-outline" style="height:30px; font-size:12px; color:var(--danger);" onclick="clearMisPreview()">Clear</button>
+                        </div>
+                    </div>
+
+                    <div class="table-wrap" style="border: none; margin: 0;">
+                        <table id="mis-records-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 65px;">Ref (A)</th>
+                                    <th style="width: 80px;">Insurer (B)</th>
+                                    <th style="width: 140px;">Policy No (L)</th>
+                                    <th style="width: 140px;">Claim No (O)</th>
+                                    <th style="width: 95px;">Loss Date (N)</th>
+                                    <th style="width: 95px;">Policy Start (M)</th>
+                                    <th style="width: 140px;">Insured (Q)</th>
+                                    <th style="width: 110px;">Vehicle No (R)</th>
+                                    <th style="width: 130px;">Make & Model (S)</th>
+                                    <th style="width: 150px;">Workshop (T)</th>
+                                    <th style="width: 110px;">Surveyor (U)</th>
+                                    <th style="width: 110px;">Advisor (V)</th>
+                                    <th style="width: 95px;">Survey Date (P)</th>
+                                    <th style="width: 35px; text-align: center;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="mis-records-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Bottom Action Bar -->
+                <div class="bottom-action-bar">
+                    <div class="action-stats">
+                        <span>Total Claims: <strong id="mis-stat-count">0</strong></span>
+                        <span>Latest Master Ref: <strong id="mis-stat-scanned-ref">--</strong></span>
+                    </div>
+
+                    <div class="action-btns">
+                        <button class="btn-clean btn-clean-success" id="mis-append-btn" onclick="appendRowsToMasterExcel()" style="padding: 0 20px; font-size: 14px;">
+                            ✅ Append Rows to Master Excel (<span id="append-btn-summary">Ref --</span>)
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+
+        <!-- ======================================================== -->
+        <!-- VIEW 2: ESTIMATE PARTS UPDATER                            -->
+        <!-- ======================================================== -->
+        <div id="view-estimate" class="view-panel">
+
+            <!-- Compact Target Excel Bar -->
+            <div class="target-excel-bar">
+                <div class="target-item" style="flex: 1 1 360px; min-width: 260px; max-width: 560px;">
+                    <span class="target-label">Target Excel:</span>
+                    <div class="active-excel-pill" id="estimate-active-filename" title="Currently linked Assessment Excel spreadsheet">
+                        No Excel selected
+                    </div>
+                    <button type="button" class="btn-clean btn-clean-outline" onclick="triggerEstimateExcelBrowse()" title="Browse computer for Excel file" style="flex-shrink: 0;">
+                        📁 Browse
+                    </button>
+                    <label class="check-pill" style="margin-left: 4px; white-space: nowrap;" title="Keep this file saved as default Assessment Excel so you don't have to browse again">
+                        <input type="checkbox" id="chk-set-estimate-excel" checked> Set as default estimate excel
+                    </label>
+                </div>
+
+                <div class="target-item" style="flex: 0 1 160px; min-width: 130px;">
+                    <span class="target-label">Sheet:</span>
+                    <select id="cfg-estimate-sheet-select" class="form-select" style="flex: 1; min-width: 0;" onchange="saveEstimateSheet(this.value)">
+                        <option value="">-- Select Sheet --</option>
+                    </select>
+                </div>
+
+                <div class="target-item" style="flex: 0 0 auto;">
+                    <span class="target-label">Start Row:</span>
+                    <input type="number" id="cfg-estimate-start-row" class="form-input" style="width: 72px; text-align: center; font-weight: 700; color: var(--primary);" value="171" min="1" onchange="saveEstimateStartRow(this.value)">
+                </div>
+
+                <div class="target-item" style="flex: 0 1 180px; min-width: 140px;">
+                    <span class="target-label">Bill No:</span>
+                    <input type="text" id="cfg-estimate-bill-no" class="form-input" style="flex: 1; min-width: 0;" placeholder="Optional">
+                </div>
+
+                <div class="target-item" style="margin-left: auto; flex-shrink: 0;">
+                    <label class="check-pill" title="Use the same master Excel workbook configured in MIS Claims">
+                        <input type="checkbox" id="chk-use-mis-excel" onchange="toggleUseMisExcel(this.checked)"> Use MIS Excel
+                    </label>
+                </div>
+            </div>
+
+            <!-- Active Estimate Excel Live Status Card -->
+            <div class="excel-live-status-card" id="estimate-live-status-card">
+                <div class="excel-status-main">
+                    <div class="excel-status-indicator">
+                        <span class="live-dot online" id="est-live-dot"></span>
+                        <span id="est-live-status-text">Target Excel Verified</span>
+                    </div>
+                    <div class="excel-path-display">
+                        <span class="excel-path-icon">📄</span>
+                        <span class="excel-path-text" id="est-live-path-text">Scanning for Assessment Excel...</span>
+                        <button type="button" class="btn-micro" onclick="copyFilePath('estimate')" title="Copy absolute file path">📋 Copy</button>
+                    </div>
+                    <div class="excel-meta-display" id="est-live-meta-text">
+                        <span>Sheet: <strong id="est-meta-sheet">--</strong></span>
+                        <span>•</span>
+                        <span>Saved: <strong id="est-meta-mtime">--</strong></span>
+                        <span>•</span>
+                        <span>Size: <strong id="est-meta-size">--</strong></span>
+                    </div>
+                </div>
+                <div class="excel-status-actions">
+                    <button type="button" class="btn-clean btn-clean-outline" style="height: 30px; font-size: 12px;" onclick="openActiveExcel('estimate')">
+                        📂 Open in Excel
+                    </button>
+                    <button type="button" class="btn-clean btn-clean-outline" style="height: 30px; font-size: 12px;" onclick="showActiveFileInFolder('estimate')">
+                        📁 Show in Explorer
+                    </button>
+                    <button type="button" class="btn-clean btn-clean-outline" style="height: 30px; font-size: 12px;" onclick="promptManualExcelPath('estimate')" title="Manually type or paste file path">
+                        ✏️ Paste Path
+                    </button>
+                    <button type="button" class="btn-clean btn-clean-outline" style="height: 30px; font-size: 12px; padding: 0 8px;" onclick="refreshExcelFileStatus('estimate')" title="Re-check file status on disk">
+                        🔄
+                    </button>
+                </div>
+            </div>
+
+            <!-- PDF Upload Dropzone -->
+            <div class="clean-dropzone estimate-zone" id="estimate-drop-area" onclick="document.getElementById('estimate-pdf-picker').click()">
+                <input type="file" id="estimate-pdf-picker" accept=".pdf" style="display:none" onchange="handleEstimatePdf(this.files)">
+                <div class="dropzone-icon">🧾</div>
+                <div class="dropzone-title">Drop Dealer Bill / Repair Estimate PDF here or click to browse</div>
+                <div class="dropzone-subtitle">Extracts parts (Particular) and amounts into Columns C & D (BMW, Maruti, Hyundai, etc.)</div>
+                <div id="estimate-file-summary" class="dropzone-file-status" style="color: var(--accent);"></div>
+            </div>
+
+            <!-- Detected Bill Metadata Pills -->
+            <div id="estimate-meta-banner" class="meta-pill-bar" style="display:none;">
+                <span class="meta-tag">🏢 <strong id="meta-dealer">--</strong></span>
+                <span class="meta-tag">📝 Bill: <strong id="meta-inv">--</strong></span>
+                <span class="meta-tag">🚗 Reg: <strong id="meta-reg">--</strong></span>
+                <span class="meta-tag">📅 Date: <strong id="meta-date">--</strong></span>
+                <span class="meta-tag">👤 Advisor: <strong id="meta-advisor">--</strong></span>
+            </div>
+
+            <!-- Extracted Parts Table -->
+            <div id="estimate-parts-card" style="display:none;">
+                <div class="clean-card" style="padding: 0; overflow: hidden; margin-bottom: 14px;">
+                    <div style="padding: 12px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-weight: 700; font-size: 14px;">Extracted Parts Computation</span>
+                        <div style="display:flex; gap: 8px;">
+                            <button type="button" class="btn-clean btn-clean-outline" style="height:30px; font-size:12px;" onclick="addManualEstimatePart()">+ Add Part</button>
+                            <button type="button" class="btn-clean btn-clean-outline" style="height:30px; font-size:12px; color:var(--danger);" onclick="clearEstimateParts()">Clear</button>
+                        </div>
+                    </div>
+
+                    <div class="table-wrap" style="border: none; margin: 0;">
+                        <table id="estimate-parts-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px; text-align: center;">
+                                        <input type="checkbox" id="select-all-parts" checked onchange="toggleAllEstimateItems(this.checked)">
+                                    </th>
+                                    <th style="width: 45px;">Es.</th>
+                                    <th style="width: 140px;">Part Code</th>
+                                    <th>Particular (Part Description) [Col C]</th>
+                                    <th style="width: 90px;">Qty</th>
+                                    <th style="width: 70px;">Type</th>
+                                    <th style="width: 140px; text-align: right;">Estimate Amount (₹) [Col D]</th>
+                                    <th style="width: 35px; text-align: center;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="estimate-parts-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Bottom Action Bar -->
+                <div class="bottom-action-bar">
+                    <div class="action-stats">
+                        <span>Selected: <strong id="stat-selected-count" style="color: var(--accent);">0 Parts</strong></span>
+                        <span style="color: #cbd5e1;">|</span>
+                        <span>Total Estimate: <strong id="stat-selected-sum" style="color: var(--success);">₹0.00</strong></span>
+                    </div>
+
+                    <div class="action-btns">
+                        <button class="btn-clean btn-clean-accent" id="write-parts-btn" onclick="writePartsToEstimateExcel()" style="padding: 0 20px; font-size: 14px;">
+                            ✅ Write Parts to Selected Excel
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+
+        <!-- ======================================================== -->
+        <!-- VIEW 3: MIS FROM WEB (PORTAL & EXTENSION)                 -->
+        <!-- ======================================================== -->
+        <div id="view-web" class="view-panel">
+
+            <!-- Compact Target Excel Bar (Linked to Master Excel) -->
+            <div class="target-excel-bar">
+                <div class="target-item" style="flex: 1 1 360px; min-width: 260px; max-width: 560px;">
+                    <span class="target-label">Master Excel:</span>
+                    <div class="active-excel-pill" id="web-active-filename" title="Currently linked Master Excel spreadsheet">
+                        No Master Excel selected
+                    </div>
+                    <button type="button" class="btn-clean btn-clean-outline" onclick="triggerExcelBrowse('master')" title="Browse computer for Excel file" style="flex-shrink: 0;">
+                        📁 Browse
+                    </button>
+                    <label class="check-pill" style="margin-left: 4px; white-space: nowrap;" title="Keep this file saved as default Master Excel so you don't have to browse again">
+                        <input type="checkbox" id="chk-web-set-master-excel" checked onchange="const m = document.getElementById('chk-set-master-excel'); if (m) m.checked = this.checked;"> Set this as master excel
+                    </label>
+                </div>
+
+                <div class="target-item" style="flex: 0 1 160px; min-width: 130px;">
+                    <span class="target-label">Sheet:</span>
+                    <select id="cfg-web-sheet-select" class="form-select" style="flex: 1; min-width: 0;" onchange="saveMisSheet(this.value)">
+                        <option value="">-- Sheet --</option>
+                    </select>
+                </div>
+
+                <div class="target-item" style="flex: 0 0 auto;">
+                    <span class="target-label">Next Ref:</span>
+                    <input type="number" id="web-starting-ref-input" class="form-input" style="width: 75px; text-align: center; font-weight: 700; color: var(--primary);" oninput="applyWebStartingRef(this.value)" min="1">
+                    <button type="button" class="btn-clean btn-clean-outline" style="padding: 0 8px; flex-shrink: 0;" onclick="rescanExcelRef()" title="Re-scan Column A for latest sequential reference number">
+                        🔄
+                    </button>
+                </div>
+
+                <div class="target-item" style="margin-left: auto; flex-shrink: 0;">
+                    <label class="check-pill" title="Automatically increment reference number sequentially">
+                        <input type="checkbox" id="cfg-web-auto-ref" checked onchange="saveMisOptions()"> Auto-increment
+                    </label>
+                    <label class="check-pill" title="Default date of survey to today if missing">
+                        <input type="checkbox" id="cfg-web-survey-today" checked onchange="saveMisOptions()"> Today's Date
+                    </label>
+                </div>
+            </div>
+
+            <!-- Active Web Master Excel Live Status Card -->
+            <div class="excel-live-status-card" id="web-live-status-card">
+                <div class="excel-status-main">
+                    <div class="excel-status-indicator">
+                        <span class="live-dot online" id="web-live-dot"></span>
+                        <span id="web-live-status-text">Target Excel Verified</span>
+                    </div>
+                    <div class="excel-path-display">
+                        <span class="excel-path-icon">📄</span>
+                        <span class="excel-path-text" id="web-live-path-text">Scanning for Master Excel...</span>
+                        <button type="button" class="btn-micro" onclick="copyFilePath('master')" title="Copy absolute file path">📋 Copy</button>
+                    </div>
+                    <div class="excel-meta-display" id="web-live-meta-text">
+                        <span>Sheet: <strong id="web-meta-sheet">--</strong></span>
+                        <span>•</span>
+                        <span>Saved: <strong id="web-meta-mtime">--</strong></span>
+                        <span>•</span>
+                        <span>Size: <strong id="web-meta-size">--</strong></span>
+                    </div>
+                </div>
+                <div class="excel-status-actions">
+                    <button type="button" class="btn-clean btn-clean-outline" style="height: 30px; font-size: 12px;" onclick="openActiveExcel('master')">
+                        📂 Open in Excel
+                    </button>
+                    <button type="button" class="btn-clean btn-clean-outline" style="height: 30px; font-size: 12px;" onclick="showActiveFileInFolder('master')">
+                        📁 Show in Explorer
+                    </button>
+                    <button type="button" class="btn-clean btn-clean-outline" style="height: 30px; font-size: 12px;" onclick="promptManualExcelPath('master')" title="Manually type or paste file path">
+                        ✏️ Paste Path
+                    </button>
+                    <button type="button" class="btn-clean btn-clean-outline" style="height: 30px; font-size: 12px; padding: 0 8px;" onclick="refreshExcelFileStatus('master')" title="Re-check file status on disk">
+                        🔄
+                    </button>
+                </div>
+            </div>
+
+            <!-- Assistant Launch & Extension Guidance Banner -->
+            <div class="clean-card" style="background: linear-gradient(135deg, #f0fdf4 0%, #eff6ff 100%); border: 1px solid #bfdbfe;">
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 20px;">🌐</span>
+                            <strong style="font-size: 15px; color: #1e3a8a;">Web Claim Extractor (Universal Sompo & Insurance Portals)</strong>
+                            <span style="background: #2563eb; color: white; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px;">Live Receiver Active</span>
+                        </div>
+                        <div style="font-size: 12.5px; color: #475569; margin-top: 4px;">
+                            Click below to test with a simulated live Sompo portal, or use the 1-Click Chrome Extension on real insurance portals!
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <a href="/test-portal" target="_blank" class="btn-clean btn-clean-primary" style="text-decoration: none; padding: 0 16px; background: #0284c7;">
+                            🚀 Open Test Insurance Portal (Sompo Mock)
+                        </a>
+                        <button type="button" class="btn-clean btn-clean-outline" onclick="toggleExtensionGuide()">
+                            🧩 How to Load Extension (30 Sec)
+                        </button>
+                        <button type="button" class="btn-clean btn-clean-outline" onclick="fetchWebClaims()" title="Refresh incoming web claims queue">
+                            🔄 Check Incoming
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Collapsible Extension Setup Steps -->
+                <div id="extension-guide-panel" style="display: none; margin-top: 14px; padding-top: 14px; border-top: 1px dashed #bfdbfe; font-size: 13px; color: #334155;">
+                    <div style="font-weight: 700; color: #1e3a8a; margin-bottom: 6px;">How to load the Extension into Google Chrome (Takes 30 seconds):</div>
+                    <ol style="margin-left: 20px; line-height: 1.6;">
+                        <li>Open Google Chrome and navigate to <code style="background: white; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1;">chrome://extensions</code></li>
+                        <li>Toggle <strong>Developer mode</strong> ON (switch in the top-right corner of Chrome)</li>
+                        <li>Click the <strong>Load unpacked</strong> button in the top-left, and select the folder:<br>
+                            <code style="background: white; padding: 3px 8px; border-radius: 4px; border: 1px solid #93c5fd; color: #1d4ed8; font-weight: 600;">c:\Users\bigma\Desktop\flolder\code\office\extension</code>
+                        </li>
+                        <li>Done! When viewing any Sompo or claim portal page, you will see the floating <strong>⚡ Send Claim to MIS</strong> button!</li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- Manual Scrape / Paste Helper Card -->
+            <div class="clean-card" style="padding: 12px 18px; margin-bottom: 18px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;" onclick="toggleManualWebScrape()">
+                    <span style="font-size: 13px; font-weight: 700; color: #475569;">
+                        📝 Or Paste Sompo / Portal Webpage Text Manually
+                    </span>
+                    <span id="manual-web-toggle-icon" style="font-size: 13px; color: var(--text-muted);">▼ Click to expand</span>
+                </div>
+                <div id="manual-web-scrape-area" style="display: none; margin-top: 12px;">
+                    <textarea id="manual-web-text" class="form-input" style="width: 100%; height: 90px; resize: vertical; font-size: 12.5px;" placeholder="Copy and paste text from the Sompo claim webpage here (e.g. Policy No: OG-..., Claim No: CL-..., Insured: ..., Vehicle: ...)"></textarea>
+                    <div style="margin-top: 8px; display: flex; justify-content: flex-end; gap: 8px;">
+                        <button type="button" class="btn-clean btn-clean-outline" onclick="document.getElementById('manual-web-text').value = ''">Clear</button>
+                        <button type="button" class="btn-clean btn-clean-primary" style="background:#0284c7;" onclick="extractManualWebText()">⚡ Parse & Add to Table</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Incoming Web Claims Preview Card -->
+            <div class="clean-card" id="web-claims-card">
+                <div class="card-header-bar">
+                    <div class="card-title">
+                        <span>🌐</span> Incoming Web Claims Queue (<span id="web-stat-count">0</span>)
+                    </div>
+                    <div class="card-header-actions">
+                        <button class="btn-clean btn-clean-outline" onclick="addManualWebRow()" style="font-size: 12px; height: 32px;">
+                            ➕ Add Blank Row
+                        </button>
+                        <button class="btn-clean btn-clean-outline" onclick="clearWebClaims()" style="font-size: 12px; height: 32px; color: #dc2626;">
+                            🗑️ Clear Queue
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="clean-table" id="web-claims-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 65px;">Ref #</th>
+                                <th style="width: 90px;">Ins Co</th>
+                                <th style="width: 140px;">Policy No</th>
+                                <th style="width: 140px;">Claim No</th>
+                                <th style="width: 110px;">Loss Date</th>
+                                <th style="width: 160px;">Insured Name</th>
+                                <th style="width: 120px;">Vehicle No</th>
+                                <th style="width: 150px;">Make / Model</th>
+                                <th style="width: 180px;">Workshop</th>
+                                <th style="width: 130px;">Surveyor</th>
+                                <th style="width: 110px;">IDV</th>
+                                <th style="width: 110px;">Survey Date</th>
+                                <th style="width: 50px; text-align: center;">✕</th>
+                            </tr>
+                        </thead>
+                        <tbody id="web-records-body">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Footer Summary and Action Buttons -->
+                <div class="table-footer-bar">
+                    <div class="table-stats">
+                        <span>Queued: <strong id="web-stat-queued" style="color: var(--primary);">0 Claims</strong></span>
+                        <span style="color: #cbd5e1;">|</span>
+                        <span>Auto-Ref Sequence: <strong id="web-stat-scanned-ref" style="color: var(--success);">Ref --</strong></span>
+                    </div>
+
+                    <div class="action-btns">
+                        <button class="btn-clean btn-clean-success" id="web-append-btn" onclick="appendWebClaimsToMasterExcel()" style="padding: 0 20px; font-size: 14px;">
+                            ✅ Append Web Claims to Master Excel (<span id="web-append-btn-summary">Ref --</span>)
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        // Global State
+        let currentMode = "mis";
+        let appConfig = {};
+        let misRecords = [];
+        let webRecords = [];
+        let estimateData = { header: {}, items: [] };
+        let localExcelFiles = [];
+
+        function updateActiveFilenameDisplay(type, filePath) {
+            const fname = filePath ? filePath.split(/[/\\]/).pop() : "";
+            if (type === 'master') {
+                const misEl = document.getElementById("mis-active-filename");
+                const webEl = document.getElementById("web-active-filename");
+                const displayText = fname ? `📄 ${fname}` : "No Master Excel selected";
+                if (misEl) {
+                    misEl.innerText = displayText;
+                    misEl.title = filePath || "";
+                }
+                if (webEl) {
+                    webEl.innerText = displayText;
+                    webEl.title = filePath || "";
+                }
+            } else {
+                const estEl = document.getElementById("estimate-active-filename");
+                if (estEl) {
+                    estEl.innerText = fname ? `📄 ${fname}` : "No Excel selected";
+                    estEl.title = filePath || "";
+                }
+            }
+        }
+
+        // Initialization
+        window.addEventListener("DOMContentLoaded", async () => {
+            await loadAppConfig();
+            setupDragAndDrop();
+            await refreshExcelFileStatus('master');
+            await refreshExcelFileStatus('estimate');
+            // Start background polling for web claims from extension
+            setInterval(() => {
+                if (currentMode === "web") fetchWebClaims(true);
+            }, 3000);
+        });
+
+        // Mode Switcher
+        function switchMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll(".pill-btn").forEach(b => b.classList.remove("active"));
+            document.querySelectorAll(".view-panel").forEach(v => v.classList.remove("active"));
+
+            if (mode === "mis") {
+                document.getElementById("btn-mode-mis").classList.add("active");
+                document.getElementById("view-mis").classList.add("active");
+                updateHeaderChip(appConfig.master_excel_path, appConfig.selected_sheet, "MIS");
+                refreshExcelFileStatus('master');
+            } else if (mode === "web") {
+                document.getElementById("btn-mode-web").classList.add("active");
+                document.getElementById("view-web").classList.add("active");
+                updateHeaderChip(appConfig.master_excel_path, appConfig.selected_sheet, "MIS");
+                syncWebExcelDropdowns();
+                fetchWebClaims();
+                refreshExcelFileStatus('master');
+            } else {
+                document.getElementById("btn-mode-estimate").classList.add("active");
+                document.getElementById("view-estimate").classList.add("active");
+                updateHeaderChip(appConfig.estimate_excel_path, appConfig.estimate_selected_sheet, "Estimate");
+                refreshExcelFileStatus('estimate');
+            }
+        }
+
+        function updateHeaderChip(filePath, sheet, label) {
+            const chip = document.getElementById("header-file-text");
+            if (filePath) {
+                const fname = filePath.split(/[/\\]/).pop();
+                chip.innerText = `${fname} [${sheet || 'Default'}]`;
+                chip.parentElement.title = `${label} Excel: ${filePath}`;
+            } else {
+                chip.innerText = `No ${label} Excel Linked`;
+                chip.parentElement.title = `Please select a ${label} spreadsheet`;
+            }
+        }
+
+        // Universal High-End Progress Controller
+        function showProgress(title, subtitle = "Processing...", initialPercent = 10) {
+            const overlay = document.getElementById("progress-modal-overlay");
+            const titleEl = document.getElementById("progress-title");
+            const subEl = document.getElementById("progress-subtitle");
+            const stepEl = document.getElementById("progress-step-text");
+            const fillEl = document.getElementById("progress-bar-fill");
+            const pctEl = document.getElementById("progress-percent");
+
+            if (titleEl) titleEl.innerText = title;
+            if (subEl) subEl.innerText = subtitle;
+            if (stepEl) stepEl.innerText = subtitle;
+            if (fillEl) fillEl.style.width = `${initialPercent}%`;
+            if (pctEl) pctEl.innerText = `${initialPercent}%`;
+
+            if (overlay) overlay.style.display = "flex";
+        }
+
+        function updateProgress(percent, stepText, subtitle = null) {
+            const fillEl = document.getElementById("progress-bar-fill");
+            const pctEl = document.getElementById("progress-percent");
+            const stepEl = document.getElementById("progress-step-text");
+            const subEl = document.getElementById("progress-subtitle");
+
+            const clamped = Math.max(0, Math.min(100, Math.round(percent)));
+            if (fillEl) fillEl.style.width = `${clamped}%`;
+            if (pctEl) pctEl.innerText = `${clamped}%`;
+            if (stepText && stepEl) stepEl.innerText = stepText;
+            if (subtitle && subEl) subEl.innerText = subtitle;
+        }
+
+        function hideProgress() {
+            const overlay = document.getElementById("progress-modal-overlay");
+            if (overlay) overlay.style.display = "none";
+        }
+
+        function showAlert(msg, type = "success", actionBtnHtml = "") {
+            const banner = document.getElementById("alert-banner");
+            const textEl = document.getElementById("alert-text");
+            const actionsEl = document.getElementById("alert-actions");
+
+            banner.className = `alert alert-${type}`;
+            textEl.innerHTML = msg;
+            actionsEl.innerHTML = actionBtnHtml;
+            banner.style.display = "flex";
+
+            if (type !== "error") {
+                setTimeout(() => { banner.style.display = "none"; }, 8000);
+            }
+        }
+
+        function showSaveConfirmationModal(info) {
+            const box = document.getElementById("audit-confirmation-box");
+            if (!box) return;
+
+            const countText = info.inserted_count 
+                ? `${info.inserted_count} claim row(s) appended` 
+                : `${info.written_count} part(s) written`;
+            const rowsRange = (info.start_row && info.end_row) ? `Rows ${info.start_row} to ${info.end_row}` : "";
+            const typeArg = info.type === 'estimate' ? 'estimate' : 'master';
+            const actionSummary = info.type === 'estimate'
+                ? `Wrote ${countText} into Assessment Sheet (${rowsRange})`
+                : `Appended ${countText} into Master MIS Sheet (${rowsRange})`;
+
+            box.innerHTML = `
+                <div class="audit-confirmation-banner">
+                    <div style="display: flex; gap: 14px; align-items: flex-start; flex: 1 1 500px;">
+                        <div class="audit-icon-box">✓</div>
+                        <div style="flex: 1; min-width: 0;">
+                            <div class="audit-title">EXCEL SPREADSHEET VERIFIED & UPDATED ON DISK</div>
+                            <div class="audit-grid">
+                                <div><span class="audit-lbl">Update:</span> <strong>${actionSummary}</strong></div>
+                                <div><span class="audit-lbl">File:</span> <span class="audit-path" title="${info.file_path || ''}">${info.filename || (info.file_path ? info.file_path.split(/[/\\]/).pop() : 'Excel')}</span></div>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span class="audit-lbl">Path:</span>
+                                    <code style="font-size: 11px; color: #1e293b; background: #fff; padding: 2px 6px; border: 1px solid #cbd5e1; border-radius: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 500px;" title="${info.file_path || ''}">${info.file_path || '--'}</code>
+                                </div>
+                                <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 2px;">
+                                    <span><span class="audit-lbl">Sheet:</span> <strong>${info.sheet || '--'}</strong></span>
+                                    <span><span class="audit-lbl">Saved At:</span> <strong style="color: #15803d;">${info.last_modified || new Date().toLocaleTimeString()}</strong></span>
+                                    <span><span class="audit-lbl">Size:</span> <strong>${info.file_size || '--'}</strong></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="audit-actions">
+                        <button type="button" class="btn-clean btn-clean-success" onclick="openActiveExcel('${typeArg}')" style="font-weight: 700; height: 34px;">
+                            📂 Open in Excel
+                        </button>
+                        <button type="button" class="btn-clean btn-clean-outline" onclick="showActiveFileInFolder('${typeArg}')" style="height: 34px;">
+                            📁 Show in Explorer
+                        </button>
+                        <button type="button" class="btn-clean btn-clean-outline" onclick="copyFilePath('${typeArg}')" style="height: 34px;">
+                            📋 Copy Path
+                        </button>
+                        <button type="button" class="btn-clean btn-clean-outline" onclick="document.getElementById('audit-confirmation-box').style.display='none'" style="height: 34px; color: #64748b;">
+                            ✕ Dismiss
+                        </button>
+                    </div>
+                </div>
+            `;
+            box.style.display = "block";
+            box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        async function refreshExcelFileStatus(type = 'master') {
+            try {
+                const res = await fetch(`/api/excel-file-status?type=${type}`);
+                const data = await res.json();
+                if (!data.success) return;
+
+                if (type === 'master') {
+                    const isOnline = data.exists;
+                    const statusLabel = isOnline ? "Active Master Excel (Live)" : "File Not Found on Disk";
+                    const dotClass = isOnline ? "live-dot online" : "live-dot offline";
+
+                    const misDot = document.getElementById("mis-live-dot");
+                    const misStatus = document.getElementById("mis-live-status-text");
+                    const misPath = document.getElementById("mis-live-path-text");
+                    const misSheet = document.getElementById("mis-meta-sheet");
+                    const misMtime = document.getElementById("mis-meta-mtime");
+                    const misSize = document.getElementById("mis-meta-size");
+
+                    const webDot = document.getElementById("web-live-dot");
+                    const webStatus = document.getElementById("web-live-status-text");
+                    const webPath = document.getElementById("web-live-path-text");
+                    const webSheet = document.getElementById("web-meta-sheet");
+                    const webMtime = document.getElementById("web-meta-mtime");
+                    const webSize = document.getElementById("web-meta-size");
+
+                    [misDot, webDot].forEach(el => { if (el) el.className = dotClass; });
+                    [misStatus, webStatus].forEach(el => { if (el) el.innerText = statusLabel; });
+                    [misPath, webPath].forEach(el => { 
+                        if (el) { 
+                            el.innerText = data.file_path ? `${data.filename} (${data.folder})` : "No Master Excel linked"; 
+                            el.title = data.file_path || ""; 
+                        } 
+                    });
+                    [misSheet, webSheet].forEach(el => { if (el) el.innerText = data.sheet || "--"; });
+                    [misMtime, webMtime].forEach(el => { if (el) el.innerText = data.last_modified || "--"; });
+                    [misSize, webSize].forEach(el => { if (el) el.innerText = data.file_size || "--"; });
+
+                } else if (type === 'estimate') {
+                    const isOnline = data.exists;
+                    const estDot = document.getElementById("est-live-dot");
+                    const estStatus = document.getElementById("est-live-status-text");
+                    const estPath = document.getElementById("est-live-path-text");
+                    const estSheet = document.getElementById("est-meta-sheet");
+                    const estMtime = document.getElementById("est-meta-mtime");
+                    const estSize = document.getElementById("est-meta-size");
+
+                    if (estDot) estDot.className = isOnline ? "live-dot online" : "live-dot offline";
+                    if (estStatus) estStatus.innerText = isOnline ? "Active Assessment Excel (Live)" : "File Not Found on Disk";
+                    if (estPath) { 
+                        estPath.innerText = data.file_path ? `${data.filename} (${data.folder})` : "No Assessment Excel linked"; 
+                        estPath.title = data.file_path || ""; 
+                    }
+                    if (estSheet) estSheet.innerText = data.sheet || "--";
+                    if (estMtime) estMtime.innerText = data.last_modified || "--";
+                    if (estSize) estSize.innerText = data.file_size || "--";
+                }
+            } catch (err) {
+                console.error("Failed refreshing excel file status:", err);
+            }
+        }
+
+        async function showActiveFileInFolder(type = 'master') {
+            try {
+                const res = await fetch("/api/show-in-folder", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ type: type })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showAlert(`Highlighted file in Explorer: <strong>${data.filename}</strong> (${data.folder})`, "success");
+                } else {
+                    showAlert(data.error || "Could not show file in Explorer.", "error");
+                }
+            } catch (err) {
+                showAlert("Error opening folder in Explorer.", "error");
+            }
+        }
+
+        function copyFilePath(type = 'master') {
+            const p = type === 'estimate' ? (appConfig.estimate_excel_path || '') : (appConfig.master_excel_path || '');
+            if (!p) {
+                showAlert("No file path currently linked to copy.", "warning");
+                return;
+            }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(p).then(() => {
+                    showAlert(`Copied path to clipboard: <code>${p}</code>`, "success");
+                }).catch(() => fallbackCopy(p));
+            } else {
+                fallbackCopy(p);
+            }
+        }
+
+        function fallbackCopy(text) {
+            const ta = document.createElement("textarea");
+            ta.value = text;
+            ta.style.position = "fixed";
+            ta.style.opacity = "0";
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand("copy");
+            document.body.removeChild(ta);
+            showAlert(`Copied path to clipboard: <code>${text}</code>`, "success");
+        }
+
+        async function promptManualExcelPath(type = 'master') {
+            const current = type === 'estimate' ? (appConfig.estimate_excel_path || '') : (appConfig.master_excel_path || '');
+            const label = type === 'estimate' ? 'Estimate Assessment' : 'Master MIS';
+            const entered = window.prompt(
+                `Enter or paste the full disk path to your ${label} Excel spreadsheet:\n(e.g. C:\\Users\\Name\\Desktop\\file.xlsx or D:\\Office\\MIS.xlsx)`,
+                current
+            );
+            if (entered && entered.trim()) {
+                const cleanPath = entered.trim().replace(/^["']|["']$/g, '');
+                await linkExcelByPath(cleanPath, type);
+            }
+        }
+
+        async function linkExcelByPath(filePath, type = 'master', saveAsMaster = null) {
+            if (!filePath) return;
+            if (saveAsMaster === null) {
+                saveAsMaster = (type === 'master')
+                    ? (document.getElementById('chk-set-master-excel')?.checked !== false)
+                    : (document.getElementById('chk-set-estimate-excel')?.checked !== false);
+            }
+            const fname = filePath.split(/[/\\]/).pop();
+            showAlert(`Linking <strong>${fname}</strong>...`, "warning");
+            try {
+                const res = await fetch("/api/set-excel-path", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ 
+                        file_path: filePath, 
+                        type: type,
+                        save_as_master: saveAsMaster,
+                        save_as_estimate: saveAsMaster
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    appConfig = data.config || appConfig;
+                    if (type === 'master') {
+                        if (saveAsMaster) {
+                            appConfig.master_excel_path = data.file_path;
+                        }
+                        updateActiveFilenameDisplay('master', data.file_path);
+                        populateDropdown("cfg-sheet-select", data.sheets, data.selected_sheet);
+                        populateDropdown("cfg-web-sheet-select", data.sheets, data.selected_sheet);
+                        if (data.next_ref_no) {
+                            document.getElementById("mis-stat-scanned-ref").innerText = `#${data.last_ref_no} (Next: #${data.next_ref_no})`;
+                            const startInput = document.getElementById("starting-ref-input");
+                            if (startInput) startInput.value = data.next_ref_no;
+                            const webStartInput = document.getElementById("web-starting-ref-input");
+                            if (webStartInput) webStartInput.value = data.next_ref_no;
+                            const webScanned = document.getElementById("web-stat-scanned-ref");
+                            if (webScanned) webScanned.innerText = `#${data.last_ref_no} (Next: #${data.next_ref_no})`;
+                        }
+                        updateHeaderChip(data.file_path, data.selected_sheet, "MIS");
+                    } else {
+                        if (saveAsMaster) {
+                            appConfig.estimate_excel_path = data.file_path;
+                        }
+                        updateActiveFilenameDisplay('estimate', data.file_path);
+                        populateDropdown("cfg-estimate-sheet-select", data.sheets, data.selected_sheet);
+                        if (data.data_start_row) {
+                            const rowInput = document.getElementById("cfg-estimate-start-row");
+                            if (rowInput) rowInput.value = data.data_start_row;
+                        }
+                        updateHeaderChip(data.file_path, data.selected_sheet, "Estimate");
+                    }
+                    await refreshExcelFileStatus(type);
+                    const savedNotice = saveAsMaster ? " (Saved as default in settings)" : "";
+                    showAlert(`Successfully linked <strong>${data.filename}</strong>${savedNotice}!`, "success");
+                } else {
+                    showAlert(data.error || "Failed to link Excel file.", "error");
+                }
+            } catch (err) {
+                console.error("Error setting Excel path:", err);
+                showAlert("Error connecting to Excel file.", "error");
+            }
+        }
+
+        async function triggerExcelBrowse(type = 'master') {
+            const saveAsMaster = (type === 'master')
+                ? (document.getElementById('chk-set-master-excel')?.checked !== false)
+                : (document.getElementById('chk-set-estimate-excel')?.checked !== false);
+
+            // 1. Try pywebview native desktop API if running in standalone window
+            if (window.pywebview && window.pywebview.api && window.pywebview.api.browse_excel) {
+                try {
+                    showAlert("Opening file browser...", "warning");
+                    const selectedPath = await window.pywebview.api.browse_excel(type);
+                    if (selectedPath) {
+                        await linkExcelByPath(selectedPath, type, saveAsMaster);
+                        return;
+                    } else {
+                        showAlert("File selection cancelled.", "warning");
+                        return;
+                    }
+                } catch (e) {
+                    console.warn("pywebview browse failed, trying server endpoint:", e);
+                }
+            }
+
+            // 2. Try server native file dialog endpoint (/api/browse-native-excel)
+            try {
+                showAlert("Opening Windows File Browser...", "warning");
+                const res = await fetch("/api/browse-native-excel", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ 
+                        type: type,
+                        save_as_master: saveAsMaster,
+                        save_as_estimate: saveAsMaster
+                    })
+                });
+                const data = await res.json();
+                if (data.success && data.file_path) {
+                    await linkExcelByPath(data.file_path, type, saveAsMaster);
+                    return;
+                } else if (data.cancelled) {
+                    showAlert("File selection cancelled.", "warning");
+                    return;
+                } else if (data.error) {
+                    console.warn("Native browse error:", data.error);
+                }
+            } catch (err) {
+                console.warn("Failed calling /api/browse-native-excel:", err);
+            }
+
+            // 3. Fallback: browser file picker
+            const pickerId = type === 'estimate' ? "estimate-excel-picker" : "master-file-picker";
+            const picker = document.getElementById(pickerId);
+            if (picker) {
+                picker.value = "";
+                picker.click();
+            } else {
+                promptManualExcelPath(type);
+            }
+        }
+
+        function triggerEstimateExcelBrowse() {
+            triggerExcelBrowse('estimate');
+        }
+
+        async function openActiveExcel(type) {
+            const targetType = type || (currentMode === "estimate" ? "estimate" : "master");
+            const endpoint = targetType === "estimate" ? "/api/open-estimate-excel" : "/api/open-excel";
+            try {
+                const res = await fetch(endpoint, { method: "POST" });
+                const data = await res.json();
+                if (!data.success) showAlert(data.error || "Could not open Excel file.", "error");
+                else showAlert(`Opened <strong>${data.filename || 'Excel'}</strong>!`, "success");
+            } catch (err) {
+                showAlert("Error opening Excel file.", "error");
+            }
+        }
+
+        async function openSpecificExcel(filePath) {
+            try {
+                const res = await fetch("/api/open-estimate-excel", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ file_path: filePath })
+                });
+                const data = await res.json();
+                if (!data.success) showAlert(data.error || "Could not open Excel file.", "error");
+            } catch (err) {
+                showAlert("Error opening Excel file.", "error");
+            }
+        }
+
+        async function loadAppConfig() {
+            try {
+                const res = await fetch("/api/config");
+                const data = await res.json();
+                appConfig = data.config || {};
+
+                // Update active filename badges from saved config
+                if (appConfig.master_excel_path) {
+                    updateActiveFilenameDisplay('master', appConfig.master_excel_path);
+                }
+                if (appConfig.estimate_excel_path) {
+                    updateActiveFilenameDisplay('estimate', appConfig.estimate_excel_path);
+                }
+
+                // MIS State
+                document.getElementById("cfg-auto-ref").checked = appConfig.auto_increment_ref !== false;
+                document.getElementById("cfg-survey-today").checked = appConfig.default_survey_date_today !== false;
+
+                if (data.excel_status && data.excel_status.success) {
+                    populateDropdown("cfg-sheet-select", data.excel_status.sheets, data.excel_status.selected_sheet);
+                    populateDropdown("cfg-web-sheet-select", data.excel_status.sheets, data.excel_status.selected_sheet);
+                    document.getElementById("mis-stat-scanned-ref").innerText = `#${data.excel_status.last_ref_no} (Next: #${data.excel_status.next_ref_no})`;
+                    document.getElementById("starting-ref-input").value = data.excel_status.next_ref_no;
+                    const webStartInput = document.getElementById("web-starting-ref-input");
+                    if (webStartInput) webStartInput.value = data.excel_status.next_ref_no;
+                    const webScanned = document.getElementById("web-stat-scanned-ref");
+                    if (webScanned) webScanned.innerText = `#${data.excel_status.last_ref_no} (Next: #${data.excel_status.next_ref_no})`;
+                }
+
+                // Estimate State
+                document.getElementById("cfg-estimate-start-row").value = appConfig.estimate_start_row || 171;
+
+                if (data.estimate_status && data.estimate_status.success) {
+                    populateDropdown("cfg-estimate-sheet-select", data.estimate_status.sheets, data.estimate_status.selected_sheet);
+                }
+
+                updateHeaderChip(appConfig.master_excel_path, appConfig.selected_sheet, "MIS");
+            } catch (err) {
+                console.error("Failed to load config:", err);
+            }
+        }
+
+        function populateDropdown(elementId, items, selectedValue) {
+            const select = document.getElementById(elementId);
+            if (!select) return;
+            select.innerHTML = "";
+            (items || []).forEach(item => {
+                const opt = document.createElement("option");
+                opt.value = item;
+                opt.innerText = item;
+                if (item === selectedValue) opt.selected = true;
+                select.appendChild(opt);
+            });
+        }
+
+        async function loadExcelLists() {
+            // Automatic disk scanning removed to prevent lags, locks, and crashes.
+            return;
+        }
+
+        // ========================================================
+        //  MIS UPDATER
+        // ========================================================
+
+        async function handleMasterExcelFile(files) {
+            if (!files || files.length === 0) return;
+            const file = files[0];
+            showAlert(`Linking ${file.name} as Master MIS Excel...`, "warning");
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            try {
+                const res = await fetch("/api/upload-master-excel", { method: "POST", body: formData });
+                const data = await res.json();
+                if (data.success) {
+                    appConfig = data.config;
+                    populateDropdown("cfg-sheet-select", data.excel_status.sheets, data.excel_status.selected_sheet);
+                    populateDropdown("cfg-web-sheet-select", data.excel_status.sheets, data.excel_status.selected_sheet);
+                    document.getElementById("mis-stat-scanned-ref").innerText = `#${data.excel_status.last_ref_no} (Next: #${data.excel_status.next_ref_no})`;
+                    document.getElementById("starting-ref-input").value = data.excel_status.next_ref_no;
+                    updateHeaderChip(data.file_path, data.excel_status.selected_sheet, "MIS");
+                    updateActiveFilenameDisplay('master', data.file_path);
+                    showAlert(`Linked Master MIS Excel: <strong>${data.filename}</strong>!`, "success");
+                    await refreshExcelFileStatus('master');
+                } else {
+                    showAlert(data.error || "Failed to link Excel file.", "error");
+                }
+            } catch (err) {
+                showAlert("Error linking Excel file.", "error");
+            }
+        }
+
+        async function selectMisExcelFromDropdown(selectedPath) {
+            if (!selectedPath) return;
+            showAlert("Inspecting Master Excel...", "warning");
+
+            try {
+                const res = await fetch("/api/detect-excel", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ file_path: selectedPath })
+                });
+                const info = await res.json();
+                if (info.success) {
+                    populateDropdown("cfg-sheet-select", info.sheets, info.selected_sheet);
+                    populateDropdown("cfg-web-sheet-select", info.sheets, info.selected_sheet);
+                    document.getElementById("mis-stat-scanned-ref").innerText = `#${info.last_ref_no} (Next: #${info.next_ref_no})`;
+                    document.getElementById("starting-ref-input").value = info.next_ref_no;
+
+                    // Save to config
+                    await fetch("/api/config", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            master_excel_path: selectedPath,
+                            selected_sheet: info.selected_sheet
+                        })
+                    });
+                    appConfig.master_excel_path = selectedPath;
+                    appConfig.selected_sheet = info.selected_sheet;
+                    updateHeaderChip(selectedPath, info.selected_sheet, "MIS");
+                    updateActiveFilenameDisplay('master', selectedPath);
+                    showAlert(`Linked: <strong>${selectedPath.split(/[/\\]/).pop()}</strong>!`, "success");
+                    await refreshExcelFileStatus('master');
+                } else {
+                    showAlert(info.error || "Failed to inspect Excel file.", "error");
+                }
+            } catch (err) {
+                showAlert("Error verifying Excel file.", "error");
+            }
+        }
+
+        async function saveMisSheet(sheetName) {
+            if (!sheetName) return;
+            appConfig.selected_sheet = sheetName;
+            updateHeaderChip(appConfig.master_excel_path, sheetName, "MIS");
+            await fetch("/api/config", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ selected_sheet: sheetName })
+            });
+            await rescanExcelRef();
+            await refreshExcelFileStatus('master');
+        }
+
+        async function saveMisOptions() {
+            const payload = {
+                auto_increment_ref: document.getElementById("cfg-auto-ref").checked,
+                default_survey_date_today: document.getElementById("cfg-survey-today").checked
+            };
+            await fetch("/api/config", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+        }
+
+        async function rescanExcelRef() {
+            try {
+                const res = await fetch("/api/rescan-ref");
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById("mis-stat-scanned-ref").innerText = `#${data.last_ref_no} (Next: #${data.next_ref_no})`;
+                    document.getElementById("starting-ref-input").value = data.next_ref_no;
+                    applyStartingRef(data.next_ref_no);
+                }
+            } catch (err) {
+                console.error("Failed to rescan ref:", err);
+            }
+        }
+
+        function applyStartingRef(startVal) {
+            const startNum = parseInt(startVal);
+            if (isNaN(startNum) || startNum < 1) return;
+            misRecords.forEach((rec, idx) => {
+                rec.ref_no = startNum + idx;
+            });
+            renderMisRecordsTable();
+            updateMisSummary();
+        }
+
+        async function handleMisFileSelect(files) {
+            if (!files || files.length === 0) return;
+            const pdfFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith(".pdf"));
+            if (pdfFiles.length === 0) {
+                showAlert("Please select PDF files.", "warning");
+                return;
+            }
+
+            document.getElementById("mis-file-summary").innerText = `Processing ${pdfFiles.length} PDF(s)...`;
+            showProgress("Extracting Claim Details", `Reading ${pdfFiles.length} intimation PDF(s)...`, 20);
+
+            const formData = new FormData();
+            pdfFiles.forEach(f => formData.append("files", f));
+
+            try {
+                updateProgress(45, "Matching insurance templates & anchor keywords...");
+                const res = await fetch("/api/extract", { method: "POST", body: formData });
+                updateProgress(85, "Formatting extracted claim details...");
+                const data = await res.json();
+                if (data.success && data.records && data.records.length > 0) {
+                    updateProgress(100, `Extracted ${data.records.length} claim(s) successfully!`);
+                    await new Promise(r => setTimeout(r, 200));
+                    hideProgress();
+
+                    misRecords = data.records;
+                    renderMisRecordsTable();
+                    document.getElementById("mis-preview-card").style.display = "block";
+                    document.getElementById("mis-file-summary").innerText = `Extracted ${data.records.length} claim(s) successfully!`;
+                    showAlert(`Extracted ${data.records.length} claim records!`, "success");
+                    updateMisSummary();
+                } else {
+                    hideProgress();
+                    showAlert(data.error || "No claims could be extracted.", "error");
+                    document.getElementById("mis-file-summary").innerText = "";
+                }
+            } catch (err) {
+                hideProgress();
+                showAlert("Error processing claim PDFs.", "error");
+                document.getElementById("mis-file-summary").innerText = "";
+            }
+        }
+
+        function renderMisRecordsTable() {
+            const tbody = document.getElementById("mis-records-body");
+            tbody.innerHTML = "";
+
+            misRecords.forEach((rec, idx) => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td><input type="number" class="td-input" style="font-weight:700; color:var(--primary); width:60px;" value="${rec.ref_no || ''}" onchange="updateMisRecord(${idx}, 'ref_no', this.value)"></td>
+                    <td><input type="text" class="td-input" style="font-weight:600;" value="${rec.ins_co || ''}" onchange="updateMisRecord(${idx}, 'ins_co', this.value)"></td>
+                    <td><input type="text" class="td-input" value="${rec.policy_no || ''}" onchange="updateMisRecord(${idx}, 'policy_no', this.value)"></td>
+                    <td><input type="text" class="td-input" value="${rec.claim_no || ''}" onchange="updateMisRecord(${idx}, 'claim_no', this.value)"></td>
+                    <td><input type="text" class="td-input" value="${rec.date_of_loss || ''}" onchange="updateMisRecord(${idx}, 'date_of_loss', this.value)"></td>
+                    <td><input type="text" class="td-input" value="${rec.policy_start_date || ''}" onchange="updateMisRecord(${idx}, 'policy_start_date', this.value)"></td>
+                    <td><input type="text" class="td-input" value="${rec.insured_name || ''}" onchange="updateMisRecord(${idx}, 'insured_name', this.value)"></td>
+                    <td><input type="text" class="td-input" style="font-weight:600;" value="${rec.vehicle_no || ''}" onchange="updateMisRecord(${idx}, 'vehicle_no', this.value)"></td>
+                    <td><input type="text" class="td-input" value="${rec.make_model || ''}" onchange="updateMisRecord(${idx}, 'make_model', this.value)"></td>
+                    <td><input type="text" class="td-input" value="${rec.workshop || ''}" onchange="updateMisRecord(${idx}, 'workshop', this.value)"></td>
+                    <td><input type="text" class="td-input" value="${rec.survey_done_by || ''}" onchange="updateMisRecord(${idx}, 'survey_done_by', this.value)"></td>
+                    <td><input type="text" class="td-input" value="${rec.advisor_name || ''}" onchange="updateMisRecord(${idx}, 'advisor_name', this.value)"></td>
+                    <td><input type="text" class="td-input" value="${rec.date_of_survey || ''}" onchange="updateMisRecord(${idx}, 'date_of_survey', this.value)"></td>
+                    <td style="text-align:center;">
+                        <button class="btn-remove" onclick="deleteMisRecord(${idx})" title="Remove row">✕</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            updateMisSummary();
+        }
+
+        function updateMisRecord(idx, key, val) {
+            if (misRecords[idx]) misRecords[idx][key] = val;
+            updateMisSummary();
+        }
+
+        function deleteMisRecord(idx) {
+            misRecords.splice(idx, 1);
+            renderMisRecordsTable();
+            if (misRecords.length === 0) {
+                document.getElementById("mis-preview-card").style.display = "none";
+                document.getElementById("mis-file-summary").innerText = "";
+            }
+        }
+
+        function clearMisPreview() {
+            misRecords = [];
+            document.getElementById("mis-preview-card").style.display = "none";
+            document.getElementById("mis-file-summary").innerText = "";
+            updateMisSummary();
+        }
+
+        function addNewEmptyMisRow() {
+            const startInputVal = parseInt(document.getElementById("starting-ref-input").value);
+            let nextRef = 1;
+            if (misRecords.length > 0) nextRef = (parseInt(misRecords[misRecords.length - 1].ref_no) || 0) + 1;
+            else if (!isNaN(startInputVal) && startInputVal > 0) nextRef = startInputVal;
+
+            const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-');
+            misRecords.push({
+                ref_no: nextRef,
+                ins_co: "BAJAJ",
+                policy_no: "",
+                claim_no: "",
+                date_of_loss: "",
+                policy_start_date: "",
+                insured_name: "",
+                vehicle_no: "",
+                make_model: "",
+                workshop: "",
+                survey_done_by: "",
+                advisor_name: "",
+                assign_to: "",
+                driver_relation: "",
+                ncb: "0",
+                idv: "",
+                date_of_survey: today
+            });
+            renderMisRecordsTable();
+            document.getElementById("mis-preview-card").style.display = "block";
+        }
+
+        function updateMisSummary() {
+            const count = misRecords.length;
+            document.getElementById("mis-stat-count").innerText = count;
+            const summary = document.getElementById("append-btn-summary");
+            if (!summary) return;
+            if (count === 0) { summary.innerText = "Ref --"; return; }
+            const first = misRecords[0].ref_no;
+            const last = misRecords[count - 1].ref_no;
+            summary.innerText = count === 1 ? `Ref #${first}` : `Ref #${first} to #${last}`;
+        }
+
+        async function appendRowsToMasterExcel() {
+            if (misRecords.length === 0) { showAlert("No records to append.", "warning"); return; }
+            const btn = document.getElementById("mis-append-btn");
+            btn.disabled = true;
+            btn.innerText = "Appending to Excel...";
+
+            showProgress("Appending Claims to Master Excel", "Preparing safety backup of workbook...", 15);
+
+            try {
+                updateProgress(35, "Validating column headers & formatting rows...");
+                await new Promise(r => setTimeout(r, 120));
+
+                updateProgress(65, `Appending ${misRecords.length} claim(s) into Excel sheet...`);
+
+                const res = await fetch("/api/append", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ rows: misRecords })
+                });
+
+                updateProgress(90, "Verifying saved workbook and updating indices...");
+                const data = await res.json();
+
+                if (data.success) {
+                    updateProgress(100, "Successfully appended records!");
+                    await new Promise(r => setTimeout(r, 250));
+                    hideProgress();
+
+                    showSaveConfirmationModal({
+                        type: 'master',
+                        file_path: data.file_path,
+                        filename: data.filename,
+                        sheet: data.sheet,
+                        start_row: data.start_row,
+                        end_row: data.end_row,
+                        inserted_count: data.inserted_count,
+                        last_modified: data.last_modified,
+                        file_size: data.file_size
+                    });
+                    const actionBtn = `<button class="alert-btn" onclick="openActiveExcel('master')">📂 Open in Excel</button>`;
+                    showAlert(`Appended <strong>${data.inserted_count}</strong> rows into Excel (Rows ${data.start_row} to ${data.end_row})!`, "success", actionBtn);
+                    clearMisPreview();
+                    if (data.file_path) updateHeaderChip(data.file_path, data.sheet, "MIS");
+                    Promise.all([loadAppConfig(), refreshExcelFileStatus('master')]).catch(() => {});
+                } else {
+                    hideProgress();
+                    showAlert(data.error || "Failed to append rows.", "error");
+                }
+            } catch (err) {
+                hideProgress();
+                showAlert(`Error appending rows to Excel: ${err.message || err}`, "error");
+            } finally {
+                btn.disabled = false;
+                updateMisSummary();
+            }
+        }
+
+
+        // ========================================================
+        //  ESTIMATE PARTS UPDATER
+        // ========================================================
+
+        async function handleEstimateExcelFile(files) {
+            if (!files || files.length === 0) return;
+            const file = files[0];
+            showAlert(`Linking ${file.name} as Target Estimate Excel...`, "warning");
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            try {
+                const res = await fetch("/api/upload-estimate-excel", { method: "POST", body: formData });
+                const data = await res.json();
+                if (data.success) {
+                    appConfig = data.config;
+                    populateDropdown("cfg-estimate-sheet-select", data.excel_status.sheets, data.excel_status.selected_sheet);
+                    document.getElementById("cfg-estimate-start-row").value = data.excel_status.data_start_row || 171;
+                    updateHeaderChip(data.file_path, data.excel_status.selected_sheet, "Estimate");
+                    updateActiveFilenameDisplay('estimate', data.file_path);
+                    showAlert(`Linked Estimate Excel: <strong>${data.filename}</strong> (Sheet: ${data.excel_status.selected_sheet})!`, "success");
+                    await refreshExcelFileStatus('estimate');
+                } else {
+                    showAlert(data.error || "Failed to load Estimate Excel file.", "error");
+                }
+            } catch (err) {
+                showAlert("Error linking Estimate Excel file.", "error");
+            }
+        }
+
+        async function selectEstimateExcelFromDropdown(selectedPath) {
+            if (!selectedPath) return;
+            showAlert("Inspecting Estimate Excel...", "warning");
+
+            try {
+                const res = await fetch("/api/inspect-estimate-excel", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ file_path: selectedPath })
+                });
+                const info = await res.json();
+                if (info.success) {
+                    populateDropdown("cfg-estimate-sheet-select", info.sheets, info.selected_sheet);
+                    document.getElementById("cfg-estimate-start-row").value = info.data_start_row || 171;
+
+                    // Save to config immediately
+                    await fetch("/api/config", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            estimate_excel_path: selectedPath,
+                            estimate_selected_sheet: info.selected_sheet,
+                            estimate_start_row: info.data_start_row || 171
+                        })
+                    });
+                    appConfig.estimate_excel_path = selectedPath;
+                    appConfig.estimate_selected_sheet = info.selected_sheet;
+                    updateHeaderChip(selectedPath, info.selected_sheet, "Estimate");
+                    updateActiveFilenameDisplay('estimate', selectedPath);
+                    showAlert(`Linked: <strong>${selectedPath.split(/[/\\]/).pop()}</strong> (Sheet: ${info.selected_sheet})!`, "success");
+                    await refreshExcelFileStatus('estimate');
+                } else {
+                    showAlert(info.error || "Failed to inspect Excel file.", "error");
+                }
+            } catch (err) {
+                showAlert("Error verifying Estimate Excel file.", "error");
+            }
+        }
+
+        async function saveEstimateSheet(sheetName) {
+            if (!sheetName) return;
+            appConfig.estimate_selected_sheet = sheetName;
+            updateHeaderChip(appConfig.estimate_excel_path, sheetName, "Estimate");
+            await fetch("/api/config", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ estimate_selected_sheet: sheetName })
+            });
+            await refreshExcelFileStatus('estimate');
+        }
+
+        async function saveEstimateStartRow(val) {
+            const rowNum = parseInt(val) || 171;
+            await fetch("/api/config", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ estimate_start_row: rowNum })
+            });
+        }
+
+        async function toggleUseMisExcel(isChecked) {
+            if (isChecked) {
+                if (!appConfig.master_excel_path) {
+                    showAlert("No MIS Master Excel linked yet. Please browse or select one first.", "warning");
+                    document.getElementById("chk-use-mis-excel").checked = false;
+                    return;
+                }
+                const saveAsEst = document.getElementById("chk-set-estimate-excel")?.checked !== false;
+                await linkExcelByPath(appConfig.master_excel_path, 'estimate', saveAsEst);
+            }
+        }
+
+        async function handleEstimatePdf(files) {
+            if (!files || files.length === 0) return;
+            const file = files[0];
+            if (!file.name.toLowerCase().endsWith(".pdf")) {
+                showAlert("Please upload a PDF bill estimate.", "warning");
+                return;
+            }
+
+            document.getElementById("estimate-file-summary").innerText = `Extracting parts & amounts from ${file.name}...`;
+            showProgress("Extracting Estimate Parts", `Reading ${file.name}...`, 20);
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            try {
+                updateProgress(50, "Scanning line items, part descriptions & rates...");
+                const res = await fetch("/api/extract-estimate", { method: "POST", body: formData });
+                updateProgress(85, "Filtering parts and compiling invoice totals...");
+                const data = await res.json();
+
+                if (data.success && data.items && data.items.length > 0) {
+                    updateProgress(100, `Extracted ${data.total_parts} part(s) successfully!`);
+                    await new Promise(r => setTimeout(r, 200));
+                    hideProgress();
+
+                    estimateData = data;
+                    
+                    // Metadata Banner
+                    const h = data.header || {};
+                    document.getElementById("meta-dealer").innerText = h.dealer_name || "BMW / Dealership";
+                    document.getElementById("meta-inv").innerText = h.invoice_no || "--";
+                    document.getElementById("meta-reg").innerText = h.registration_no || "--";
+                    document.getElementById("meta-date").innerText = h.invoice_date || "--";
+                    document.getElementById("meta-advisor").innerText = h.service_advisor || "--";
+                    document.getElementById("estimate-meta-banner").style.display = "flex";
+
+                    // Pre-fill Bill No
+                    if (h.invoice_no && !document.getElementById("cfg-estimate-bill-no").value) {
+                        document.getElementById("cfg-estimate-bill-no").value = h.invoice_no;
+                    }
+
+                    renderEstimatePartsTable();
+                    document.getElementById("estimate-parts-card").style.display = "block";
+                    document.getElementById("estimate-file-summary").innerText = 
+                        `Extracted ${data.total_parts} part(s) totaling ₹${data.total_estimate_sum.toLocaleString('en-IN', {minimumFractionDigits:2})}!`;
+                    showAlert(`Extracted ${data.total_parts} parts from <strong>${file.name}</strong>!`, "success");
+                } else {
+                    hideProgress();
+                    showAlert(data.error || "No items could be extracted from bill PDF.", "error");
+                    document.getElementById("estimate-file-summary").innerText = "";
+                }
+            } catch (err) {
+                hideProgress();
+                showAlert("Error extracting bill estimate.", "error");
+                document.getElementById("estimate-file-summary").innerText = "";
+            }
+        }
+
+        function renderEstimatePartsTable() {
+            const tbody = document.getElementById("estimate-parts-body");
+            tbody.innerHTML = "";
+
+            const items = estimateData.items || [];
+            let itemIndex = 1;
+
+            items.forEach((it, idx) => {
+                const tr = document.createElement("tr");
+                const badge = it.item_type === "Part" ? `<span class="item-badge badge-part">Part</span>` : `<span class="item-badge badge-labour">Labour</span>`;
+
+                tr.innerHTML = `
+                    <td style="text-align:center;">
+                        <input type="checkbox" ${it.selected ? 'checked' : ''} onchange="toggleEstimateItem(${idx}, this.checked)">
+                    </td>
+                    <td style="font-weight:700; color:#475569;">${itemIndex++}</td>
+                    <td><input type="text" class="td-input" value="${it.code || ''}" onchange="updateEstimateItem(${idx}, 'code', this.value)" style="font-family:monospace; font-size:12px;"></td>
+                    <td><input type="text" class="td-input" value="${it.particular || ''}" onchange="updateEstimateItem(${idx}, 'particular', this.value)" style="font-weight:600;"></td>
+                    <td><input type="text" class="td-input" value="${it.qty || ''}" onchange="updateEstimateItem(${idx}, 'qty', this.value)"></td>
+                    <td>${badge}</td>
+                    <td><input type="number" step="0.01" class="td-input" value="${it.amount || 0}" oninput="updateEstimateItem(${idx}, 'amount', this.value)" style="font-weight:700; color:var(--primary); text-align:right;"></td>
+                    <td style="text-align:center;">
+                        <button class="btn-remove" onclick="deleteEstimateItem(${idx})" title="Remove item">✕</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            updateEstimateSummary();
+        }
+
+        function updateEstimateItem(idx, key, val) {
+            if (estimateData.items[idx]) {
+                estimateData.items[idx][key] = (key === "amount") ? parseFloat(val) || 0 : val;
+                updateEstimateSummary();
+            }
+        }
+
+        function toggleEstimateItem(idx, isChecked) {
+            if (estimateData.items[idx]) {
+                estimateData.items[idx].selected = isChecked;
+                updateEstimateSummary();
+            }
+        }
+
+        function toggleAllEstimateItems(isChecked) {
+            (estimateData.items || []).forEach(it => { it.selected = isChecked; });
+            renderEstimatePartsTable();
+        }
+
+        function updateEstimateSummary() {
+            const selected = (estimateData.items || []).filter(it => it.selected);
+            const sum = selected.reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
+            document.getElementById("stat-selected-count").innerText = `${selected.length} Part(s)`;
+            document.getElementById("stat-selected-sum").innerText = `₹${sum.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        }
+
+        function deleteEstimateItem(idx) {
+            estimateData.items.splice(idx, 1);
+            renderEstimatePartsTable();
+            if (estimateData.items.length === 0) {
+                document.getElementById("estimate-parts-card").style.display = "none";
+                document.getElementById("estimate-file-summary").innerText = "";
+            }
+        }
+
+        function clearEstimateParts() {
+            estimateData = { header: {}, items: [] };
+            document.getElementById("estimate-parts-card").style.display = "none";
+            document.getElementById("estimate-file-summary").innerText = "";
+            document.getElementById("estimate-meta-banner").style.display = "none";
+        }
+
+        function addManualEstimatePart() {
+            estimateData.items.push({
+                code: "",
+                particular: "",
+                hsn: "",
+                qty: "1 PCS",
+                unit_price: 0,
+                amount: 0,
+                item_type: "Part",
+                selected: true
+            });
+            renderEstimatePartsTable();
+            document.getElementById("estimate-parts-card").style.display = "block";
+        }
+
+        async function writePartsToEstimateExcel() {
+            const selected = (estimateData.items || []).filter(it => it.selected);
+            if (selected.length === 0) {
+                showAlert("Please select at least one part to write.", "warning");
+                return;
+            }
+
+            let excelPath = appConfig.estimate_excel_path || appConfig.master_excel_path;
+            const sheet = document.getElementById("cfg-estimate-sheet-select").value.trim() || appConfig.estimate_selected_sheet;
+            const startRow = parseInt(document.getElementById("cfg-estimate-start-row").value) || 171;
+            const billNo = document.getElementById("cfg-estimate-bill-no").value.trim();
+
+            if (!excelPath) {
+                showAlert("Please browse and select a target Assessment Excel spreadsheet first.", "error");
+                return;
+            }
+
+            const btn = document.getElementById("write-parts-btn");
+            btn.disabled = true;
+            btn.innerText = "Writing into Excel...";
+
+            showProgress("Writing Parts to Assessment Excel", "Validating workbook and checking file locks...", 15);
+
+            try {
+                updateProgress(40, `Scanning target sheet "${sheet || 'default'}" for visible start row ${startRow}...`);
+                await new Promise(r => setTimeout(r, 120));
+
+                updateProgress(70, `Writing ${selected.length} part(s) and amounts into columns C & D...`);
+
+                const res = await fetch("/api/write-estimate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        file_path: excelPath,
+                        sheet_name: sheet,
+                        parts: selected,
+                        start_row: startRow,
+                        bill_no: billNo
+                    })
+                });
+
+                updateProgress(90, "Creating safety backup and saving spreadsheet...");
+                const data = await res.json();
+
+                if (data.success) {
+                    updateProgress(100, "Parts successfully written to Excel!");
+                    await new Promise(r => setTimeout(r, 250));
+                    hideProgress();
+
+                    showSaveConfirmationModal({
+                        type: 'estimate',
+                        file_path: data.file_path,
+                        filename: data.filename,
+                        sheet: data.sheet,
+                        start_row: data.start_row,
+                        end_row: data.end_row,
+                        written_count: data.written_count,
+                        last_modified: data.last_modified,
+                        file_size: data.file_size
+                    });
+                    const fname = data.file_path ? data.file_path.split(/[/\\]/).pop() : "Excel";
+                    const openBtn = `<button class="alert-btn" onclick="openActiveExcel('estimate')">📂 Open in Excel</button>`;
+                    showAlert(`Successfully wrote <strong>${data.written_count}</strong> parts into <strong>${data.sheet}</strong> of <strong>${fname}</strong> (Rows ${data.start_row} to ${data.end_row})!`, "success", openBtn);
+                    document.getElementById("cfg-estimate-start-row").value = data.end_row + 1;
+                    appConfig.estimate_excel_path = data.file_path;
+                    appConfig.estimate_selected_sheet = data.sheet;
+                    updateHeaderChip(data.file_path, data.sheet, "Estimate");
+                    await refreshExcelFileStatus('estimate');
+                } else {
+                    hideProgress();
+                    showAlert(data.error || "Failed to write parts to Excel.", "error");
+                }
+            } catch (err) {
+                hideProgress();
+                showAlert(`Error writing parts to Excel: ${err.message || err}`, "error");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "✅ Write Parts to Selected Excel";
+            }
+        }
+
+        // ========================================================
+        //  WEB CLAIM PORTAL & EXTENSION HANDLERS
+        // ========================================================
+
+        function toggleExtensionGuide() {
+            const panel = document.getElementById("extension-guide-panel");
+            if (panel) panel.style.display = panel.style.display === "none" ? "block" : "none";
+        }
+
+        function toggleManualWebScrape() {
+            const area = document.getElementById("manual-web-scrape-area");
+            const icon = document.getElementById("manual-web-toggle-icon");
+            if (area) {
+                if (area.style.display === "none") {
+                    area.style.display = "block";
+                    if (icon) icon.innerText = "▲ Hide";
+                } else {
+                    area.style.display = "none";
+                    if (icon) icon.innerText = "▼ Click to expand";
+                }
+            }
+        }
+
+        function syncWebExcelDropdowns() {
+            const misActive = document.getElementById("mis-active-filename");
+            const webActive = document.getElementById("web-active-filename");
+            if (misActive && webActive) {
+                webActive.innerText = misActive.innerText;
+                webActive.title = misActive.title;
+            }
+
+            const misSheet = document.getElementById("cfg-sheet-select");
+            const webSheet = document.getElementById("cfg-web-sheet-select");
+            if (misSheet && webSheet) {
+                webSheet.innerHTML = misSheet.innerHTML;
+                webSheet.value = misSheet.value;
+            }
+
+            const misStartRef = document.getElementById("starting-ref-input");
+            const webStartRef = document.getElementById("web-starting-ref-input");
+            if (misStartRef && webStartRef && !webStartRef.value) {
+                webStartRef.value = misStartRef.value;
+            }
+
+            const scannedRef = document.getElementById("mis-stat-scanned-ref");
+            const webScannedRef = document.getElementById("web-stat-scanned-ref");
+            if (scannedRef && webScannedRef) {
+                webScannedRef.innerText = scannedRef.innerText;
+            }
+        }
+
+        async function fetchWebClaims(isPolling = false) {
+            try {
+                const res = await fetch("/api/web-claims");
+                const data = await res.json();
+                if (data.success) {
+                    const prevCount = webRecords.length;
+                    const newCount = (data.records || []).length;
+                    
+                    // If polling and new claims arrived, notify user!
+                    if (isPolling && newCount > prevCount) {
+                        const latest = data.records[newCount - 1];
+                        showAlert(`⚡ New Web Claim Received: <strong>${latest.claim_no || 'Ref #' + latest.ref_no}</strong> (${latest.insured_name || 'Sompo'})!`, "success");
+                    }
+                    
+                    webRecords = data.records || [];
+                    renderWebClaimsTable();
+                    updateWebSummary();
+                }
+            } catch (err) {
+                if (!isPolling) console.error("Failed to fetch web claims:", err);
+            }
+        }
+
+        function renderWebClaimsTable() {
+            const tbody = document.getElementById("web-records-body");
+            if (!tbody) return;
+            tbody.innerHTML = "";
+
+            if (webRecords.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="13" style="text-align: center; padding: 40px 20px; color: var(--text-muted);">
+                            <div style="font-size: 28px; margin-bottom: 8px;">🌐</div>
+                            <div style="font-weight: 700; font-size: 14px; color: #334155; margin-bottom: 4px;">No Web Claims Received Yet</div>
+                            <div style="font-size: 12.5px;">Click <strong>"🚀 Open Test Insurance Portal"</strong> above to test with the extension, or paste webpage text below.</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            webRecords.forEach((rec, idx) => {
+                const tr = document.createElement("tr");
+                const today = new Date().toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'}).replace(/ /g, '-').toUpperCase();
+                tr.innerHTML = `
+                    <td><input type="number" class="td-input" style="font-weight:700; color:var(--primary); width:60px;" value="${rec.ref_no || ''}" onchange="updateWebRecord(${idx}, 'ref_no', this.value)"></td>
+                    <td><input type="text" class="td-input" style="font-weight:600; color:#0284c7;" value="${rec.ins_co || 'SOMPO'}" onchange="updateWebRecord(${idx}, 'ins_co', this.value)"></td>
+                    <td><input type="text" class="td-input" value="${rec.policy_no || ''}" onchange="updateWebRecord(${idx}, 'policy_no', this.value)"></td>
+                    <td><input type="text" class="td-input" style="font-weight:700;" value="${rec.claim_no || ''}" onchange="updateWebRecord(${idx}, 'claim_no', this.value)"></td>
+                    <td><input type="text" class="td-input" value="${rec.date_of_loss || ''}" onchange="updateWebRecord(${idx}, 'date_of_loss', this.value)"></td>
+                    <td><input type="text" class="td-input" style="font-weight:600;" value="${rec.insured_name || ''}" onchange="updateWebRecord(${idx}, 'insured_name', this.value)"></td>
+                    <td><input type="text" class="td-input" style="font-weight:700; color:#1e40af;" value="${rec.vehicle_no || ''}" onchange="updateWebRecord(${idx}, 'vehicle_no', this.value)"></td>
+                    <td><input type="text" class="td-input" value="${rec.make_model || ''}" onchange="updateWebRecord(${idx}, 'make_model', this.value)"></td>
+                    <td><input type="text" class="td-input" value="${rec.workshop || ''}" onchange="updateWebRecord(${idx}, 'workshop', this.value)"></td>
+                    <td><input type="text" class="td-input" value="${rec.survey_done_by || ''}" onchange="updateWebRecord(${idx}, 'survey_done_by', this.value)"></td>
+                    <td><input type="text" class="td-input" value="${rec.idv || ''}" onchange="updateWebRecord(${idx}, 'idv', this.value)"></td>
+                    <td><input type="text" class="td-input" value="${rec.date_of_survey || today}" onchange="updateWebRecord(${idx}, 'date_of_survey', this.value)"></td>
+                    <td style="text-align:center;">
+                        <button class="btn-remove" onclick="deleteWebRecord(${idx})" title="Remove claim">✕</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateWebRecord(idx, key, val) {
+            if (webRecords[idx]) {
+                webRecords[idx][key] = val;
+                updateWebSummary();
+            }
+        }
+
+        function deleteWebRecord(idx) {
+            webRecords.splice(idx, 1);
+            renderWebClaimsTable();
+            updateWebSummary();
+        }
+
+        async function clearWebClaims() {
+            if (!confirm("Clear all received claims from the web queue?")) return;
+            try {
+                await fetch("/api/clear-web-claims", { method: "POST" });
+                webRecords = [];
+                renderWebClaimsTable();
+                updateWebSummary();
+                showAlert("Cleared incoming web claims queue.", "success");
+            } catch (err) {
+                console.error("Failed to clear web claims:", err);
+            }
+        }
+
+        function addManualWebRow() {
+            let nextRef = 1;
+            if (webRecords.length > 0) {
+                nextRef = (parseInt(webRecords[webRecords.length - 1].ref_no) || 0) + 1;
+            } else {
+                nextRef = parseInt(document.getElementById("web-starting-ref-input").value) || 1;
+            }
+
+            const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-').toUpperCase();
+            webRecords.push({
+                ref_no: nextRef,
+                ins_co: "SOMPO",
+                policy_no: "",
+                claim_no: "",
+                date_of_loss: "",
+                policy_start_date: "",
+                insured_name: "",
+                vehicle_no: "",
+                make_model: "",
+                workshop: "",
+                survey_done_by: "",
+                advisor_name: "",
+                assign_to: "",
+                driver_relation: "Self",
+                ncb: "0",
+                idv: "",
+                date_of_survey: today
+            });
+            renderWebClaimsTable();
+            updateWebSummary();
+        }
+
+        function applyWebStartingRef(startVal) {
+            const startNum = parseInt(startVal);
+            if (isNaN(startNum) || startNum < 1) return;
+            webRecords.forEach((rec, idx) => {
+                rec.ref_no = startNum + idx;
+            });
+            renderWebClaimsTable();
+            updateWebSummary();
+        }
+
+        function updateWebSummary() {
+            const count = webRecords.length;
+            const countEl = document.getElementById("web-stat-count");
+            const queuedEl = document.getElementById("web-stat-queued");
+            const summaryEl = document.getElementById("web-append-btn-summary");
+
+            if (countEl) countEl.innerText = count;
+            if (queuedEl) queuedEl.innerText = `${count} Claims`;
+            if (summaryEl) {
+                if (count === 0) {
+                    summaryEl.innerText = "Ref --";
+                } else {
+                    const first = webRecords[0].ref_no;
+                    const last = webRecords[count - 1].ref_no;
+                    summaryEl.innerText = count === 1 ? `Ref #${first}` : `Ref #${first} to #${last}`;
+                }
+            }
+        }
+
+        async function extractManualWebText() {
+            const text = (document.getElementById("manual-web-text").value || "").trim();
+            if (!text) {
+                showAlert("Please paste some webpage text to parse.", "warning");
+                return;
+            }
+
+            const cleanDate = (str) => {
+                if (!str) return "";
+                const m = str.match(/(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/);
+                return m ? m[1] : str.trim();
+            };
+
+            const getVal = (anchors) => {
+                for (const a of anchors) {
+                    const m = text.match(new RegExp(`(?:${a})[^\\w\\n]*([^\\r\\n]+)`, "i"));
+                    if (m && m[1]) return m[1].trim();
+                }
+                return "";
+            };
+
+            let insCo = "SOMPO";
+            if (/sompo|universal/i.test(text)) insCo = "SOMPO";
+            else if (/hdfc|ergo/i.test(text)) insCo = "HDFC";
+            else if (/bajaj|allianz/i.test(text)) insCo = "BAJAJ";
+            else if (/icici|lombard/i.test(text)) insCo = "ICICI";
+            else if (/tata|aig/i.test(text)) insCo = "TATA AIG";
+            else if (/nia|new\s*india/i.test(text)) insCo = "NIA";
+            else if (/chola/i.test(text)) insCo = "CHOLA";
+            else if (/liberty/i.test(text)) insCo = "LIBERTY";
+            else if (/digit/i.test(text)) insCo = "DIGIT";
+
+            let makeModel = getVal(["Make & Model", "Make / Model", "Make Model"]);
+            if (!makeModel) {
+                const mk = getVal(["Make", "Vehicle Make"]);
+                const mdl = getVal(["Model", "Vehicle Model"]);
+                if (mk && mdl) makeModel = `${mk} ${mdl}`;
+                else makeModel = mk || mdl || "";
+            }
+
+            let vehNo = getVal(["Registration Number", "Reg No", "Reg. No", "Regn No", "Regn. No", "Vehicle Registration", "Vehicle No"]);
+            if (!vehNo) {
+                const vm = text.match(/\b([A-Z]{2}[-\s]?[0-9]{1,2}[-\s]?[A-Z]{0,3}[-\s]?[0-9]{4})\b/i);
+                if (vm) vehNo = vm[1].toUpperCase();
+            }
+
+            const record = {
+                ins_co: insCo,
+                policy_no: getVal(["Policy Number", "Policy No", "Policy Ref", "Policy#", "Certificate Number"]),
+                claim_no: getVal(["Insurer Claim Number", "Claim Number", "Claim No", "Claim Ref", "Child Claim Number", "Intimation Number"]),
+                insured_name: getVal(["Name of Insured", "Insured Name", "Customer Name", "Policyholder Name"]),
+                date_of_loss: cleanDate(getVal(["Accident Date Time", "Accident Date", "Date of Loss", "Loss Date"])),
+                policy_start_date: cleanDate(getVal(["Policy Start Date", "Policy Inception Date", "From Date"])),
+                vehicle_no: vehNo,
+                make_model: makeModel,
+                workshop: getVal(["Garage Name", "Workshop Name", "Inspection Address", "Dealer Name"]),
+                survey_done_by: getVal(["Survey Done By", "Surveyor Name", "Deputed Surveyor"]),
+                advisor_name: getVal(["Advisor Name", "Service Advisor"]),
+                idv: getVal(["IDV", "Insured Declared Value"]),
+                driver_relation: getVal(["Driver Relation with Insured", "Driver Relation"]) || "Self"
+            };
+
+            try {
+                const res = await fetch("/api/web-claim", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ record })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showAlert(`Parsed and added Claim: <strong>${data.record.claim_no || 'Ref #' + data.ref_no}</strong> to queue!`, "success");
+                    document.getElementById("manual-web-text").value = "";
+                    await fetchWebClaims();
+                } else {
+                    showAlert(data.error || "Failed to parse web claim.", "error");
+                }
+            } catch (err) {
+                showAlert("Error submitting parsed claim.", "error");
+            }
+        }
+
+        async function appendWebClaimsToMasterExcel() {
+            if (webRecords.length === 0) {
+                showAlert("No web claims in queue to append.", "warning");
+                return;
+            }
+
+            const btn = document.getElementById("web-append-btn");
+            btn.disabled = true;
+            btn.innerText = "Appending to Excel...";
+
+            showProgress("Appending Web Claims to Master Excel", "Preparing safety backup of workbook...", 15);
+
+            try {
+                updateProgress(35, "Validating column headers & formatting rows...");
+                await new Promise(r => setTimeout(r, 120));
+
+                updateProgress(65, `Appending ${webRecords.length} web claim(s) into Excel sheet...`);
+
+                const res = await fetch("/api/append", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ rows: webRecords })
+                });
+
+                updateProgress(90, "Verifying saved workbook and updating indices...");
+                const data = await res.json();
+
+                if (data.success) {
+                    updateProgress(100, "Successfully appended web claims!");
+                    await new Promise(r => setTimeout(r, 250));
+                    hideProgress();
+
+                    showSaveConfirmationModal({
+                        type: 'master',
+                        file_path: data.file_path,
+                        filename: data.filename,
+                        sheet: data.sheet,
+                        start_row: data.start_row,
+                        end_row: data.end_row,
+                        inserted_count: data.inserted_count,
+                        last_modified: data.last_modified,
+                        file_size: data.file_size
+                    });
+                    const actionBtn = `<button class="alert-btn" onclick="openActiveExcel('master')">📂 Open in Excel</button>`;
+                    showAlert(`Appended <strong>${data.inserted_count}</strong> web claims into Excel (Rows ${data.start_row} to ${data.end_row})!`, "success", actionBtn);
+                    await fetch("/api/clear-web-claims", { method: "POST" });
+                    webRecords = [];
+                    renderWebClaimsTable();
+                    updateWebSummary();
+                    if (data.file_path) updateHeaderChip(data.file_path, data.sheet, "MIS");
+                    Promise.all([loadAppConfig(), refreshExcelFileStatus('master')]).catch(() => {});
+                } else {
+                    hideProgress();
+                    showAlert(data.error || "Failed to append web claims to Excel.", "error");
+                }
+            } catch (err) {
+                hideProgress();
+                showAlert(`Error appending web claims to Excel: ${err.message || err}`, "error");
+            } finally {
+                btn.disabled = false;
+                updateWebSummary();
+            }
+        }
+
+        // Drag and Drop
+        function setupDragAndDrop() {
+            // MIS Dropzone
+            const misDrop = document.getElementById("mis-drop-area");
+            ["dragenter", "dragover"].forEach(eventName => {
+                misDrop.addEventListener(eventName, e => { e.preventDefault(); misDrop.classList.add("dragover"); }, false);
+            });
+            ["dragleave", "drop"].forEach(eventName => {
+                misDrop.addEventListener(eventName, e => { e.preventDefault(); misDrop.classList.remove("dragover"); }, false);
+            });
+            misDrop.addEventListener("drop", e => {
+                if (e.dataTransfer.files) handleMisFileSelect(e.dataTransfer.files);
+            }, false);
+
+            // Estimate Dropzone
+            const estDrop = document.getElementById("estimate-drop-area");
+            ["dragenter", "dragover"].forEach(eventName => {
+                estDrop.addEventListener(eventName, e => { e.preventDefault(); estDrop.classList.add("dragover"); }, false);
+            });
+            ["dragleave", "drop"].forEach(eventName => {
+                estDrop.addEventListener(eventName, e => { e.preventDefault(); estDrop.classList.remove("dragover"); }, false);
+            });
+            estDrop.addEventListener("drop", e => {
+                if (e.dataTransfer.files) handleEstimatePdf(e.dataTransfer.files);
+            }, false);
+        }
+    </script>
+</body>
+</html>

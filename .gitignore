@@ -1,0 +1,22 @@
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyInstaller temporary build artifacts
+build/
+dist/
+
+# Test copies and backups
+*.bak_*
+test_append_copy.xlsx
+test_est_copy.*
+
+# OS files
+Thumbs.db
+.DS_Store
