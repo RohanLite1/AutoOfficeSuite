@@ -28,6 +28,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const wsEl = document.getElementById("prev-workshop");
         if (wsEl) wsEl.innerText = data.workshop || "--";
+
+        const phoneEl = document.getElementById("prev-phone");
+        if (phoneEl) phoneEl.innerText = data.phone || "--";
+
+        const ncbEl = document.getElementById("prev-ncb");
+        if (ncbEl) ncbEl.innerText = (data.ncb !== undefined && data.ncb !== "") ? `${data.ncb}%` : "0%";
     }
 
     // 1. Check local server connection

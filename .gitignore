@@ -20,3 +20,6 @@ test_est_copy.*
 # OS files
 Thumbs.db
 .DS_Store
+
+# Temporary scratch folder
+scratch/

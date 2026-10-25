@@ -1453,10 +1453,12 @@
                                 <th style="width: 140px;">Claim No</th>
                                 <th style="width: 110px;">Loss Date</th>
                                 <th style="width: 160px;">Insured Name</th>
+                                <th style="width: 120px;">Phone No</th>
                                 <th style="width: 120px;">Vehicle No</th>
                                 <th style="width: 150px;">Make / Model</th>
                                 <th style="width: 180px;">Workshop</th>
                                 <th style="width: 130px;">Surveyor</th>
+                                <th style="width: 75px;">NCB %</th>
                                 <th style="width: 110px;">IDV</th>
                                 <th style="width: 110px;">Survey Date</th>
                                 <th style="width: 50px; text-align: center;">✕</th>
@@ -2702,23 +2704,46 @@
             }
         }
 
+        let webRecordSyncTimers = {};
+
         async function fetchWebClaims(isPolling = false) {
             try {
+                // If user is currently focused or typing in any input inside the web table, do NOT re-render during polling!
+                const activeEl = document.activeElement;
+                const isEditingInTable = activeEl && activeEl.closest && activeEl.closest("#web-records-body");
+                if (isPolling && isEditingInTable) {
+                    return;
+                }
+
                 const res = await fetch("/api/web-claims");
                 const data = await res.json();
                 if (data.success) {
+                    const serverRecords = data.records || [];
                     const prevCount = webRecords.length;
-                    const newCount = (data.records || []).length;
-                    
-                    // If polling and new claims arrived, notify user!
-                    if (isPolling && newCount > prevCount) {
-                        const latest = data.records[newCount - 1];
-                        showAlert(`⚡ New Web Claim Received: <strong>${latest.claim_no || 'Ref #' + latest.ref_no}</strong> (${latest.insured_name || 'Sompo'})!`, "success");
+                    const newCount = serverRecords.length;
+
+                    if (isPolling) {
+                        if (newCount > prevCount) {
+                            // Only append newly arrived claims so existing user edits are never overwritten!
+                            const newClaims = serverRecords.slice(prevCount);
+                            const latest = newClaims[newClaims.length - 1];
+                            showAlert(`⚡ New Web Claim Received: <strong>${latest.claim_no || 'Ref #' + latest.ref_no}</strong> (${latest.insured_name || 'Sompo'})!`, "success");
+                            webRecords.push(...newClaims);
+                            renderWebClaimsTable();
+                            updateWebSummary();
+                        } else if (newCount < prevCount && newCount === 0) {
+                            // Queue was cleared externally
+                            webRecords = [];
+                            renderWebClaimsTable();
+                            updateWebSummary();
+                        }
+                        // If counts match, do NOT overwrite webRecords or re-render table!
+                    } else {
+                        // Manual explicit reload requested
+                        webRecords = serverRecords;
+                        renderWebClaimsTable();
+                        updateWebSummary();
                     }
-                    
-                    webRecords = data.records || [];
-                    renderWebClaimsTable();
-                    updateWebSummary();
                 }
             } catch (err) {
                 if (!isPolling) console.error("Failed to fetch web claims:", err);
@@ -2733,7 +2758,7 @@
             if (webRecords.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="13" style="text-align: center; padding: 40px 20px; color: var(--text-muted);">
+                        <td colspan="15" style="text-align: center; padding: 40px 20px; color: var(--text-muted);">
                             <div style="font-size: 28px; margin-bottom: 8px;">🌐</div>
                             <div style="font-weight: 700; font-size: 14px; color: #334155; margin-bottom: 4px;">No Web Claims Received Yet</div>
                             <div style="font-size: 12.5px;">Click <strong>"🚀 Open Test Insurance Portal"</strong> above to test with the extension, or paste webpage text below.</div>
@@ -2747,18 +2772,20 @@
                 const tr = document.createElement("tr");
                 const today = new Date().toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'}).replace(/ /g, '-').toUpperCase();
                 tr.innerHTML = `
-                    <td><input type="number" class="td-input" style="font-weight:700; color:var(--primary); width:60px;" value="${rec.ref_no || ''}" onchange="updateWebRecord(${idx}, 'ref_no', this.value)"></td>
-                    <td><input type="text" class="td-input" style="font-weight:600; color:#0284c7;" value="${rec.ins_co || 'SOMPO'}" onchange="updateWebRecord(${idx}, 'ins_co', this.value)"></td>
-                    <td><input type="text" class="td-input" value="${rec.policy_no || ''}" onchange="updateWebRecord(${idx}, 'policy_no', this.value)"></td>
-                    <td><input type="text" class="td-input" style="font-weight:700;" value="${rec.claim_no || ''}" onchange="updateWebRecord(${idx}, 'claim_no', this.value)"></td>
-                    <td><input type="text" class="td-input" value="${rec.date_of_loss || ''}" onchange="updateWebRecord(${idx}, 'date_of_loss', this.value)"></td>
-                    <td><input type="text" class="td-input" style="font-weight:600;" value="${rec.insured_name || ''}" onchange="updateWebRecord(${idx}, 'insured_name', this.value)"></td>
-                    <td><input type="text" class="td-input" style="font-weight:700; color:#1e40af;" value="${rec.vehicle_no || ''}" onchange="updateWebRecord(${idx}, 'vehicle_no', this.value)"></td>
-                    <td><input type="text" class="td-input" value="${rec.make_model || ''}" onchange="updateWebRecord(${idx}, 'make_model', this.value)"></td>
-                    <td><input type="text" class="td-input" value="${rec.workshop || ''}" onchange="updateWebRecord(${idx}, 'workshop', this.value)"></td>
-                    <td><input type="text" class="td-input" value="${rec.survey_done_by || ''}" onchange="updateWebRecord(${idx}, 'survey_done_by', this.value)"></td>
-                    <td><input type="text" class="td-input" value="${rec.idv || ''}" onchange="updateWebRecord(${idx}, 'idv', this.value)"></td>
-                    <td><input type="text" class="td-input" value="${rec.date_of_survey || today}" onchange="updateWebRecord(${idx}, 'date_of_survey', this.value)"></td>
+                    <td><input type="number" class="td-input" style="font-weight:700; color:var(--primary); width:60px;" value="${rec.ref_no || ''}" oninput="updateWebRecord(${idx}, 'ref_no', this.value)"></td>
+                    <td><input type="text" class="td-input" style="font-weight:600; color:#0284c7;" value="${rec.ins_co || 'SOMPO'}" oninput="updateWebRecord(${idx}, 'ins_co', this.value)"></td>
+                    <td><input type="text" class="td-input" value="${rec.policy_no || ''}" oninput="updateWebRecord(${idx}, 'policy_no', this.value)"></td>
+                    <td><input type="text" class="td-input" style="font-weight:700;" value="${rec.claim_no || ''}" oninput="updateWebRecord(${idx}, 'claim_no', this.value)"></td>
+                    <td><input type="text" class="td-input" value="${rec.date_of_loss || ''}" oninput="updateWebRecord(${idx}, 'date_of_loss', this.value)"></td>
+                    <td><input type="text" class="td-input" style="font-weight:600;" value="${rec.insured_name || ''}" oninput="updateWebRecord(${idx}, 'insured_name', this.value)"></td>
+                    <td><input type="text" class="td-input" style="font-weight:600; color:#0f766e; width:110px;" value="${rec.phone || ''}" oninput="updateWebRecord(${idx}, 'phone', this.value)"></td>
+                    <td><input type="text" class="td-input" style="font-weight:700; color:#1e40af;" value="${rec.vehicle_no || ''}" oninput="updateWebRecord(${idx}, 'vehicle_no', this.value)"></td>
+                    <td><input type="text" class="td-input" value="${rec.make_model || ''}" oninput="updateWebRecord(${idx}, 'make_model', this.value)"></td>
+                    <td><input type="text" class="td-input" value="${rec.workshop || ''}" oninput="updateWebRecord(${idx}, 'workshop', this.value)"></td>
+                    <td><input type="text" class="td-input" value="${rec.survey_done_by || ''}" oninput="updateWebRecord(${idx}, 'survey_done_by', this.value)"></td>
+                    <td><input type="text" class="td-input" style="font-weight:600; width:65px; color:#047857;" value="${rec.ncb !== undefined ? rec.ncb : '0'}" oninput="updateWebRecord(${idx}, 'ncb', this.value)"></td>
+                    <td><input type="text" class="td-input" value="${rec.idv || ''}" oninput="updateWebRecord(${idx}, 'idv', this.value)"></td>
+                    <td><input type="text" class="td-input" value="${rec.date_of_survey || today}" oninput="updateWebRecord(${idx}, 'date_of_survey', this.value)"></td>
                     <td style="text-align:center;">
                         <button class="btn-remove" onclick="deleteWebRecord(${idx})" title="Remove claim">✕</button>
                     </td>
@@ -2770,14 +2797,33 @@
         function updateWebRecord(idx, key, val) {
             if (webRecords[idx]) {
                 webRecords[idx][key] = val;
+                webRecords[idx]._user_edited = true;
                 updateWebSummary();
+
+                // Live sync to server queue with light debounce so polling never rolls back user edits
+                const syncKey = idx + "_" + key;
+                clearTimeout(webRecordSyncTimers[syncKey]);
+                webRecordSyncTimers[syncKey] = setTimeout(() => {
+                    fetch("/api/update-web-claim", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ index: idx, key: key, value: val })
+                    }).catch(() => {});
+                }, 200);
             }
         }
 
-        function deleteWebRecord(idx) {
+        async function deleteWebRecord(idx) {
             webRecords.splice(idx, 1);
             renderWebClaimsTable();
             updateWebSummary();
+            try {
+                await fetch("/api/delete-web-claim", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ index: idx })
+                });
+            } catch (e) {}
         }
 
         async function clearWebClaims() {
@@ -2810,6 +2856,7 @@
                 date_of_loss: "",
                 policy_start_date: "",
                 insured_name: "",
+                phone: "",
                 vehicle_no: "",
                 make_model: "",
                 workshop: "",
@@ -2863,8 +2910,18 @@
 
             const cleanDate = (str) => {
                 if (!str) return "";
-                const m = str.match(/(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/);
-                return m ? m[1] : str.trim();
+                const m = str.match(/\b(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})\b/);
+                return m ? m[1] : "";
+            };
+
+            const cleanPhone = (str) => {
+                if (!str) return "";
+                const digits = str.replace(/[^\d]/g, "");
+                if (digits.length === 10) return digits;
+                if (digits.length === 11 && digits.startsWith("0")) return digits.substring(1);
+                if (digits.length === 12 && digits.startsWith("91")) return digits.substring(2);
+                if (digits.length >= 7 && digits.length <= 13) return digits;
+                return "";
             };
 
             const getVal = (anchors) => {
@@ -2876,7 +2933,9 @@
             };
 
             let insCo = "SOMPO";
-            if (/sompo|universal/i.test(text)) insCo = "SOMPO";
+            const isUiic = /united|uiic/i.test(text);
+            if (isUiic) insCo = "UIIC";
+            else if (/sompo|universal/i.test(text)) insCo = "SOMPO";
             else if (/hdfc|ergo/i.test(text)) insCo = "HDFC";
             else if (/bajaj|allianz/i.test(text)) insCo = "BAJAJ";
             else if (/icici|lombard/i.test(text)) insCo = "ICICI";
@@ -2894,26 +2953,148 @@
                 else makeModel = mk || mdl || "";
             }
 
-            let vehNo = getVal(["Registration Number", "Reg No", "Reg. No", "Regn No", "Regn. No", "Vehicle Registration", "Vehicle No"]);
+            let vehNo = getVal(["Registration Number", "Reg No", "Reg. No", "Regn No", "Regn. No", "Vehicle Registration Number", "Vehicle Registration", "Vehicle No"]);
             if (!vehNo) {
                 const vm = text.match(/\b([A-Z]{2}[-\s]?[0-9]{1,2}[-\s]?[A-Z]{0,3}[-\s]?[0-9]{4})\b/i);
                 if (vm) vehNo = vm[1].toUpperCase();
             }
 
+            let policyNo = getVal(["Policy Number", "Policy No", "Policy Ref", "Policy#", "Certificate Number"]);
+            if (/^(survey done|fla done|done|pending|approved|rejected|closed)/i.test(policyNo) || !/\d/.test(policyNo)) {
+                policyNo = "";
+            }
+
+            let claimNo = getVal(["Insurer Claim Number", "Claim Number", "Claim No", "Claim Ref", "Child Claim Number", "Intimation Number"]);
+            let insuredName = getVal(["Name of Insured", "Insured Name", "Customer Name", "Policyholder Name"]);
+            let phone = cleanPhone(getVal(["Insured Contact No", "Contact Number", "Contact No", "Mobile Number", "Mobile No", "Customer Mobile", "Phone No", "Phone"]));
+            let lossDate = cleanDate(getVal(["Loss Date", "Accident Date Time", "Accident Date", "Date of Loss"]));
+            let workshop = getVal(["Workshop Name", "Garage Name", "Inspection Address", "Dealer Name"]);
+            let idv = getVal(["IDV", "Insured Declared Value"]);
+
+            let driverRelation = "";
+
+            // Dedicated UIIC Parser
+            if (isUiic) {
+                const uiicClaim = text.match(/\bClaim\s*No\.?\s*:\s*([A-Z0-9]+)\b/i);
+                if (uiicClaim) claimNo = uiicClaim[1].trim();
+
+                const uiicPolicy = text.match(/\bPolicy\s*No\.?\s*:\s*([A-Z0-9]+)\b/i);
+                if (uiicPolicy) policyNo = uiicPolicy[1].trim();
+
+                const uiicName = text.match(/\bInsured\s*Name\s*:\s*([^:\r\n]+?)(?=\s*(?:Intimation|Contact|Email|Loss|Estimated|Assessed|Claim|Vehicle|Engine|Chassis|Workshop|$))/i);
+                if (uiicName) insuredName = uiicName[1].trim();
+
+                const uiicContact = text.match(/\bInsured\s*Contact\s*No\.?\s*:\s*([0-9\+\-\s]+)/i);
+                if (uiicContact) phone = cleanPhone(uiicContact[1]);
+
+                const uiicLoss = text.match(/\bLoss\s*Date\s*:\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})\b/i);
+                if (uiicLoss) lossDate = uiicLoss[1];
+
+                const uiicVeh = text.match(/\bVehicle\s*Registration\s*Number\s*:\s*([A-Z0-9\-]+)\b/i);
+                if (uiicVeh) vehNo = uiicVeh[1].toUpperCase();
+
+                const uiicWs = text.match(/\bWorkshop\s*Name\s*:\s*([^:\r\n]+?)(?=\s*(?:Workshop\s*Phone|Workshop\s*Address|Claim\s*Type|Engine|Chassis|$))/i);
+                if (uiicWs) workshop = uiicWs[1].trim();
+
+                // Assessed Amount check: if 0 or empty, leave IDV empty
+                const uiicAssessed = text.match(/\bAssessed\s*Amount(?:\s*\(₹\))?\s*:\s*([0-9,\.]*)/i);
+                const assessedVal = uiicAssessed ? uiicAssessed[1].trim() : "";
+                if (!assessedVal || assessedVal === "0" || assessedVal === "0.00") {
+                    idv = "";
+                } else {
+                    idv = assessedVal;
+                }
+            }
+
+            // Dedicated NIA Parser
+            const isNia = (insCo === "NIA") || /nia|new\s*india/i.test(text);
+            if (isNia) {
+                insCo = "NIA";
+                const niaClaim = text.match(/\bClaim\s*Number\s*:\s*([0-9]{15,25})\b/i) || text.match(/\bClaim\s*No\.?\s*:\s*([0-9]{15,25})\b/i);
+                if (niaClaim) claimNo = niaClaim[1].trim();
+
+                const niaPolicy = text.match(/\bPolicy\s*Number\s*:\s*([0-9]{15,25})\b/i) || text.match(/\bPolicy\s*No\.?\s*:\s*([0-9]{15,25})\b/i);
+                if (niaPolicy) policyNo = niaPolicy[1].trim();
+
+                const niaName = text.match(/\bInsured\s*Name\s*:\s*([^:\r\n]+?)(?=\s*(?:Registered\s*No|Make|Model|Chassis|Engine|Relationship|Driver|Loss|Policy|Claim|$))/i);
+                if (niaName && !/intimation|notification/i.test(niaName[1])) insuredName = niaName[1].trim();
+
+                const niaLoss = text.match(/\bDate\s*of\s*Loss(?:\/Accident)?\s*:\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})\b/i);
+                if (niaLoss) lossDate = niaLoss[1];
+
+                const niaVeh = text.match(/\bRegistered\s*No\.?\s*:\s*([A-Z0-9\-]+)\b/i);
+                if (niaVeh && !/cubic|capacity|color/i.test(niaVeh[1])) vehNo = niaVeh[1].toUpperCase();
+
+                let mk = "";
+                let mdl = "";
+                const makeM = text.match(/\bMake\s*:\s*([^:\r\n]+?)(?=\s*(?:Model|Chassis|Engine|Registered|Type|$))/i);
+                if (makeM && !/color|cubic|capacity/i.test(makeM[1])) mk = makeM[1].trim();
+                const modelM = text.match(/\bModel\s*:\s*([^:\r\n]+?)(?=\s*(?:Chassis|Engine|Type|Make|$))/i);
+                if (modelM && !/color|cubic|capacity/i.test(modelM[1])) mdl = modelM[1].trim();
+                if (mk || mdl) makeModel = `${mk} ${mdl}`.trim();
+
+                const niaRel = text.match(/\bRelationship\s*of\s*the\s*Driver\s*with\s*the\s*Insured\s*:\s*([^:\r\n]+?)(?=\s*(?:Driver\s*Name|Age|Address|$))/i);
+                if (niaRel && niaRel[1].trim()) driverRelation = niaRel[1].trim();
+
+                // IDV for NIA: reject "No Objection" or non-numeric
+                if (!idv || !/\d/.test(idv) || /no\s*objection|noc|nil/i.test(idv)) {
+                    idv = "";
+                }
+            }
+
+            // Universal sanitization
+            if (/intimation\s*date/i.test(insuredName)) {
+                insuredName = insuredName.replace(/\bIntimation\s*Date\b.*$/i, "").trim();
+            }
+            if (/date\s*of\s*notification/i.test(insuredName)) {
+                insuredName = insuredName.replace(/\bDate\s*of\s*Notification\b.*$/i, "").trim();
+            }
+            if (/^(intimation|contact|loss|policy|claim|date|time)/i.test(insuredName)) {
+                insuredName = "";
+            }
+            if (claimNo) {
+                claimNo = claimNo.replace(/^.*?(?:claim\s*(?:number|no\.?)|mber|no\.?)\s*[:\-]?\s*/i, "").trim();
+            }
+            if (vehNo && (/cubic|capacity|color\s*as\s*per|make|model/i.test(vehNo))) {
+                vehNo = "";
+            }
+            if (makeModel && (/color\s*as\s*per|cubic\s*capacity|chassis|engine/i.test(makeModel))) {
+                makeModel = "";
+            }
+            if (workshop && (/^repairer\s*city/i.test(workshop) || workshop.endsWith(":"))) {
+                workshop = "";
+            }
+            if (!phone) {
+                const phoneM = text.match(/\b(?:Insured\s*Contact|Contact\s*No|Mobile\s*No|Customer\s*Mobile|Mobile|Phone\s*No|Phone)\s*[:\-]?\s*(?:(?:\+|0{0,2})91[\s\-]*)?([6-9]\d{9})\b/i);
+                if (phoneM) phone = cleanPhone(phoneM[1]);
+            }
+            if (idv && (/^(nil|na|none|nil\s*depreciation|0|0\.00)$/i.test(idv) || /no\s*objection|noc/i.test(idv))) {
+                idv = "";
+            }
+
+            const rawNcbVal = getVal(["No Claim Bonus", "NCB %", "NCB Discount", "NCB"]) || "0";
+            const ncbMatch = rawNcbVal.match(/\b([0-9]{1,2})\b/);
+            const cleanNcbVal = (ncbMatch && parseInt(ncbMatch[1]) <= 65) ? ncbMatch[1] : "0";
+
+            const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-').toUpperCase();
+
             const record = {
                 ins_co: insCo,
-                policy_no: getVal(["Policy Number", "Policy No", "Policy Ref", "Policy#", "Certificate Number"]),
-                claim_no: getVal(["Insurer Claim Number", "Claim Number", "Claim No", "Claim Ref", "Child Claim Number", "Intimation Number"]),
-                insured_name: getVal(["Name of Insured", "Insured Name", "Customer Name", "Policyholder Name"]),
-                date_of_loss: cleanDate(getVal(["Accident Date Time", "Accident Date", "Date of Loss", "Loss Date"])),
+                policy_no: policyNo,
+                claim_no: claimNo,
+                insured_name: insuredName,
+                phone: phone,
+                date_of_loss: lossDate,
                 policy_start_date: cleanDate(getVal(["Policy Start Date", "Policy Inception Date", "From Date"])),
                 vehicle_no: vehNo,
                 make_model: makeModel,
-                workshop: getVal(["Garage Name", "Workshop Name", "Inspection Address", "Dealer Name"]),
+                workshop: workshop,
                 survey_done_by: getVal(["Survey Done By", "Surveyor Name", "Deputed Surveyor"]),
                 advisor_name: getVal(["Advisor Name", "Service Advisor"]),
-                idv: getVal(["IDV", "Insured Declared Value"]),
-                driver_relation: getVal(["Driver Relation with Insured", "Driver Relation"]) || "Self"
+                idv: idv,
+                ncb: cleanNcbVal,
+                driver_relation: driverRelation || getVal(["Driver Relation with Insured", "Driver Relation"]) || "Self",
+                date_of_survey: today
             };
 
             try {

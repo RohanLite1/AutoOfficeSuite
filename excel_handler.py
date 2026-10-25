@@ -248,6 +248,7 @@ def map_fields_to_columns(headers):
         "ins_co": "B",
         "proximate_days": "C",
         "tat": "D",
+        "phone": "G",
         "assign_to": "H",
         "driver_relation": "I",
         "ncb": "J",
@@ -270,6 +271,10 @@ def map_fields_to_columns(headers):
         found = False
         for title_lower, letter in title_to_letter.items():
             if field_key == "ref_no" and "ref" in title_lower:
+                mapping[field_key] = letter
+                found = True
+                break
+            elif field_key == "phone" and ("phone" in title_lower or "mobile" in title_lower or "contact" in title_lower or "m. no" in title_lower):
                 mapping[field_key] = letter
                 found = True
                 break
@@ -482,6 +487,86 @@ def append_rows_to_excel(file_path, target_sheet_name, rows_data, create_backup=
                         cell.value = int(val)
                     else:
                         cell.value = str(val).strip() if val is not None else ""
+                elif field_key == "phone":
+                    # Ensure phone numbers are stored cleanly
+                    phone_clean = re.sub(r"[^\d+]", "", str(val or "")).strip()
+                    cell.value = phone_clean if phone_clean else ""
+                elif field_key == "idv":
+                    # Leave IDV empty if assessed amount is zero/empty or contains non-numeric strings or labels like "No Objection Certificate"
+                    idv_raw = str(val or "").strip()
+                    if not idv_raw or idv_raw in ["0", "0.00", "0/-"] or idv_raw.lower() in ["nil", "na", "n/a", "nil depreciation", "none", "-"]:
+                        cell.value = ""
+                    elif any(w in idv_raw.lower() for w in ["no objection", "noc", "nil", "depreciation", "partial"]):
+                        cell.value = ""
+                    elif not re.search(r"\d", idv_raw):
+                        cell.value = ""
+                    else:
+                        m = re.search(r"(?:₹|Rs\.?)?\s*([0-9,]+(?:\.\d{2})?)", idv_raw)
+                        cell.value = m.group(1) if m else idv_raw
+                elif field_key == "claim_no":
+                    c_raw = str(val or "").strip()
+                    # Strip prefixes like "mber : ", "Claim Number : ", "No. : "
+                    c_raw = re.sub(r"^.*?(?:claim\s*(?:number|no\.?)|mber|no\.?)\s*[:\-]?\s*", "", c_raw, flags=re.I).strip()
+                    cell.value = c_raw
+                elif field_key == "date_of_survey":
+                    surv_raw = str(val or "").strip()
+                    # Reject status strings like "Partial Loss", "Total Loss", "Report to be Submitted"
+                    if not surv_raw or not re.search(r"\d", surv_raw) or any(w in surv_raw.lower() for w in ["loss", "partial", "total", "report", "pending", "draft", "submitted", "non rapid"]):
+                        cell.value = datetime.now().strftime("%d-%b-%Y").upper()
+                    else:
+                        cell.value = surv_raw
+                elif field_key == "policy_start_date":
+                    p_raw = str(val or "").strip()
+                    # Must be a date! If it contains "OD policy start time" or time only, extract date if present or leave blank
+                    date_m = re.search(r"(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})", p_raw)
+                    if date_m:
+                        cell.value = date_m.group(1)
+                    elif any(w in p_raw.lower() for w in ["time", "policy start", "od policy", "od"]):
+                        cell.value = ""
+                    else:
+                        cell.value = p_raw
+                elif field_key == "date_of_loss":
+                    loss_raw = str(val or "").strip()
+                    # Must be a date! If it mistakenly contains "Estimated Amount", "Time of Loss" or non-date, extract pure date or leave blank
+                    date_m = re.search(r"(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})", loss_raw)
+                    if date_m:
+                        cell.value = date_m.group(1)
+                    elif any(w in loss_raw.lower() for w in ["estimated", "amount", "intimation", "loss", "time"]):
+                        cell.value = ""
+                    else:
+                        cell.value = loss_raw
+                elif field_key == "insured_name":
+                    name_raw = str(val or "").strip()
+                    # Strip off any leaked label like "Intimation Date : ..." or "Date of Notification : ..."
+                    if "intimation" in name_raw.lower():
+                        name_raw = re.split(r"intimation", name_raw, flags=re.I)[0].strip()
+                    if "date of notification" in name_raw.lower():
+                        name_raw = re.split(r"date\s*of\s*notification", name_raw, flags=re.I)[0].strip()
+                    if re.match(r"^(?:intimation|contact|loss|policy|claim|date|time)", name_raw, re.I):
+                        name_raw = ""
+                    cell.value = name_raw
+                elif field_key == "vehicle_no":
+                    v_raw = str(val or "").strip()
+                    # Reject accidental form label matches like "Cubic Capacity"
+                    if any(w in v_raw.lower() for w in ["cubic", "capacity", "color", "make", "model", "chassis", "engine"]):
+                        cell.value = ""
+                    else:
+                        cell.value = v_raw.upper()
+                elif field_key == "make_model":
+                    mm_raw = str(val or "").strip()
+                    # Reject accidental form label matches like "color as per RC"
+                    if any(w in mm_raw.lower() for w in ["color", "cubic", "capacity", "registered", "chassis", "engine", "trailer"]):
+                        cell.value = ""
+                    else:
+                        cell.value = mm_raw
+                elif field_key == "workshop":
+                    ws_raw = str(val or "").strip()
+                    if "workshop phone" in ws_raw.lower():
+                        ws_raw = re.split(r"workshop\s*phone", ws_raw, flags=re.I)[0].strip()
+                    if ws_raw.lower().startswith("repairer city") or ws_raw.endswith(":") or ws_raw.lower() in ["repairer city", "repairer city:"]:
+                        cell.value = ""
+                    else:
+                        cell.value = ws_raw
                 else:
                     cell.value = str(val).strip() if val is not None else ""
 

@@ -57,6 +57,16 @@
           ],
           "is_date": true
         },
+        "phone": {
+          "anchors": [
+            "Insured Contact No",
+            "Contact Number",
+            "Mobile No",
+            "Mobile Number",
+            "Caller Mobile",
+            "Phone"
+          ]
+        },
         "ncb": {
           "anchors": [
             "No Claim Bonus",
@@ -198,6 +208,15 @@
           ],
           "is_date": true
         },
+        "phone": {
+          "anchors": [
+            "Insured Contact No",
+            "Contact Number",
+            "Mobile No",
+            "Mobile Number",
+            "Phone"
+          ]
+        },
         "vehicle_no": {
           "anchors": [
             "Registration No.",
@@ -243,6 +262,15 @@
             "Insured Name",
             "Customer Name",
             "Name of Insured"
+          ]
+        },
+        "phone": {
+          "anchors": [
+            "Insured Contact No",
+            "Contact Number",
+            "Mobile No",
+            "Mobile Number",
+            "Phone"
           ]
         },
         "date_of_loss": {
@@ -307,6 +335,83 @@
             "Inception Date"
           ],
           "is_date": true
+        },
+        "phone": {
+          "anchors": [
+            "Insured Contact No",
+            "Contact Number",
+            "Mobile No",
+            "Mobile Number",
+            "Phone"
+          ]
+        }
+      }
+    },
+    {
+      "id": "uiic",
+      "name": "United India Insurance (UIIC)",
+      "ins_co_code": "UIIC",
+      "keywords": [
+        "united india insurance",
+        "uiic",
+        "portal.uiic.in"
+      ],
+      "fields": {
+        "policy_no": {
+          "anchors": [
+            "Policy No.",
+            "Policy No",
+            "Policy Number"
+          ],
+          "regex": "([A-Z0-9]{15,})"
+        },
+        "claim_no": {
+          "anchors": [
+            "Claim No.",
+            "Claim No",
+            "Claim Number"
+          ],
+          "regex": "([A-Z0-9]{15,})"
+        },
+        "insured_name": {
+          "anchors": [
+            "Insured Name",
+            "Name of Insured"
+          ]
+        },
+        "phone": {
+          "anchors": [
+            "Insured Contact No",
+            "Contact Number",
+            "Contact No",
+            "Mobile Number",
+            "Mobile No"
+          ]
+        },
+        "date_of_loss": {
+          "anchors": [
+            "Loss Date",
+            "Date of Loss"
+          ],
+          "is_date": true
+        },
+        "vehicle_no": {
+          "anchors": [
+            "Vehicle Registration Number",
+            "Registration Number",
+            "Vehicle No"
+          ]
+        },
+        "workshop": {
+          "anchors": [
+            "Workshop Name"
+          ]
+        },
+        "idv": {
+          "anchors": [
+            "Assessed Amount",
+            "IDV"
+          ]
         }
       }
     }

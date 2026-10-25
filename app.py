@@ -87,6 +87,11 @@ def save_config(cfg):
         return False
 
 
+@app.route("/api/health")
+def health_check():
+    return jsonify({"status": "ok", "app": "OfficeAutomation"})
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -919,6 +924,43 @@ def get_web_claims():
         "records": records_copy,
         "total": len(records_copy)
     })
+
+
+@app.route("/api/update-web-claim", methods=["POST", "OPTIONS"])
+def update_web_claim():
+    """Updates a queued web claim at a specific index in memory."""
+    if request.method == "OPTIONS":
+        return jsonify({"success": True})
+
+    data = request.json or {}
+    idx = data.get("index")
+    record = data.get("record")
+    key = data.get("key")
+    val = data.get("value")
+
+    with web_claims_lock:
+        if idx is not None and 0 <= idx < len(web_claims_queue):
+            if record and isinstance(record, dict):
+                web_claims_queue[idx] = record
+            elif key:
+                web_claims_queue[idx][key] = val
+            return jsonify({"success": True, "record": web_claims_queue[idx]})
+        return jsonify({"success": False, "error": f"Invalid claim index: {idx}"})
+
+
+@app.route("/api/delete-web-claim", methods=["POST", "OPTIONS"])
+def delete_web_claim():
+    """Deletes a queued web claim at a specific index."""
+    if request.method == "OPTIONS":
+        return jsonify({"success": True})
+
+    data = request.json or {}
+    idx = data.get("index")
+    with web_claims_lock:
+        if idx is not None and 0 <= idx < len(web_claims_queue):
+            removed = web_claims_queue.pop(idx)
+            return jsonify({"success": True, "removed": removed, "total_queued": len(web_claims_queue)})
+        return jsonify({"success": False, "error": f"Invalid claim index: {idx}"})
 
 
 @app.route("/api/clear-web-claims", methods=["POST"])

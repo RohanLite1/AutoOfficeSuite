@@ -38,21 +38,30 @@ def is_port_in_use(port):
 def is_server_healthy(url, timeout=1.0):
     """Verify whether our Flask server is active and returning HTTP 200."""
     try:
-        req = urllib.request.Request(f"{url}/api/config")
+        req = urllib.request.Request(f"{url}/api/health")
         with urllib.request.urlopen(req, timeout=timeout) as res:
             return res.status == 200
     except Exception:
         return False
 
 
-def find_available_port(start_port=5055, max_attempts=10):
+def find_available_port(start_port=5055, max_attempts=15):
     """Finds an unused port or one where our application is already running."""
+    # 1. Check if our application is already running on any of these ports
     for p in range(start_port, start_port + max_attempts):
         url = f"http://{HOST}:{p}"
         if is_server_healthy(url):
             return p, True  # Already running our app!
-        if not is_port_in_use(p):
-            return p, False  # Free port to bind
+
+    # 2. Find a port that we can actually bind to
+    for p in range(start_port, start_port + max_attempts):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind((HOST, p))
+                return p, False  # Free port to bind
+        except Exception:
+            continue
+
     return start_port, False
 
 
@@ -67,7 +76,7 @@ def start_flask(port):
 
 
 def wait_for_server(url, timeout=8):
-    """Polls until the server responds to /api/config or timeout occurs."""
+    """Polls until the server responds to /api/health or timeout occurs."""
     start_t = time.time()
     while time.time() - start_t < timeout:
         if is_server_healthy(url, timeout=0.5):
@@ -91,26 +100,44 @@ def main():
         import webview
 
         class DesktopApi:
-            def __init__(self):
-                self.window = None
-
             def browse_excel(self, file_type="master"):
-                if not self.window:
-                    return ""
+                # Use pywebview active window to trigger native file dialog
                 try:
-                    result = self.window.create_file_dialog(
-                        webview.OPEN_DIALOG,
-                        allow_multiple=False,
-                        file_types=('Excel Spreadsheets (*.xlsx;*.xls;*.xlsm)', 'All files (*.*)')
-                    )
-                    if result and len(result) > 0:
-                        return os.path.normpath(result[0])
+                    w = webview.active_window()
+                    if not w and webview.windows:
+                        w = webview.windows[0]
+                    if w:
+                        result = w.create_file_dialog(
+                            webview.OPEN_DIALOG,
+                            allow_multiple=False,
+                            file_types=('Excel Spreadsheets (*.xlsx;*.xls;*.xlsm)', 'All files (*.*)')
+                        )
+                        if result and len(result) > 0:
+                            return os.path.normpath(result[0])
                 except Exception:
                     pass
+
+                # Fallback to tkinter file dialog if native dialog encounters issues
+                try:
+                    import tkinter as tk
+                    from tkinter import filedialog
+                    root = tk.Tk()
+                    root.withdraw()
+                    root.attributes('-topmost', True)
+                    selected = filedialog.askopenfilename(
+                        title="Select Excel File",
+                        filetypes=[("Excel Spreadsheets", "*.xlsx *.xls *.xlsm"), ("All Files", "*.*")]
+                    )
+                    root.destroy()
+                    if selected:
+                        return os.path.normpath(selected)
+                except Exception:
+                    pass
+
                 return ""
 
         api = DesktopApi()
-        window = webview.create_window(
+        webview.create_window(
             title="Office Automation - MIS Claims & Estimate Parts",
             url=app_url,
             width=1340,
@@ -121,7 +148,6 @@ def main():
             confirm_close=False,
             js_api=api
         )
-        api.window = window
         webview.start(debug=False)
 
     except Exception:
