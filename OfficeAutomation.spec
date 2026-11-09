@@ -30,6 +30,7 @@ hidden_imports = [
     'pythonnet',
     'tkinter',
     'tkinter.filedialog',
+    'estimate_handler',
 ]
 
 a = Analysis(

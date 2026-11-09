@@ -1,7 +1,9 @@
 """
 Estimate Parts Handler Module.
-Extracts parts line items & amounts from bill estimate PDFs
+Extracts parts line items & amounts from bill estimate PDFs (BMW, Maruti, Hyundai, Tata, Mahindra, Toyota, Honda, Audatex, etc.)
 and writes them directly into the PARTS COMPUTATION table of Master Assessment Excels (.xlsx, .xlsm, .xls).
+Extracts Taxable Amounts (net value before GST) for parts and labour.
+Engineered to handle small estimates as well as large estimates with hundreds of parts across multiple pages.
 """
 
 import os
@@ -50,10 +52,209 @@ def invalidate_estimate_cache(file_path=None):
         _ESTIMATE_INFO_CACHE.clear()
 
 
+def clean_num(val):
+    """Parses numeric amount from string, cleaning commas, currency signs, etc."""
+    if val is None:
+        return 0.0
+    val_s = str(val).replace(",", "").replace("₹", "").replace("Rs.", "").replace("/-", "").strip()
+    m = re.search(r"[-+]?\d*\.?\d+", val_s)
+    if m:
+        try:
+            return float(m.group(0))
+        except ValueError:
+            return 0.0
+    return 0.0
+
+
+def is_labour_item(desc, uom="", hsn=""):
+    """
+    Determines if a line item is Labour/Service vs a physical Part.
+    Indian GST rules: HSN starting with '99' is service/labour.
+    """
+    desc_u = (desc or "").upper()
+    uom_u = (uom or "").upper()
+    hsn_s = str(hsn or "").strip()
+
+    if hsn_s.startswith("99"):
+        return True
+
+    if any(u in uom_u for u in ["FRU", "HRS", "HOUR", "MIN"]):
+        return True
+
+    # Physical components that might have words like "kit" or "cleaner"
+    if any(k in desc_u for k in ["KIT", "CLEANER", "FLUID", "OIL", "FILTER", "PLUG", "TAPE", "PAD", "FASTENER", "NUT", "BOLT", "SCREW", "BULB", "GAS", "SEALANT", "GEL"]):
+        return False
+
+    labour_keywords = [
+        "LABOUR", "LABOR", "JOB TIME", "DENTING", "PAINTING", "R & R", "R&R", "R / BODY",
+        "REMOVAL", "REFITTING", "OVERHAUL", "DISMANTLE", "ALIGNMENT", "BALANCING",
+        "WASHING", "POLISHING", "SCANNING", "CHARGES", "LABOUR CHARGES", "SERVICE CHARGE", "TOWING"
+    ]
+    return any(k in desc_u for k in labour_keywords)
+
+
+FOOTER_STOP_KEYWORDS = [
+    "company office address", "terms and conditions", "customer signature", "authorised signatory",
+    "authorized signatory", "sum labor", "sum parts", "total amount", "amount to pay",
+    "cgst total", "sgst total", "igst total", "customer data usage consent", "i have taken the delivery",
+    "grand total", "sub total parts", "total labour charges", "amount in words"
+]
+
+
+def map_table_header(row):
+    """Maps columns from a table header row using robust regular expressions."""
+    cols = {}
+    for idx, cell in enumerate(row):
+        c_u = str(cell or "").lower().strip()
+        if re.search(r'\b(s\.?\s*no|sl\.?\s*no|item\s*no|pos|sr\.?\s*no|es\.?)\b|^s[\.\s]*no$', c_u):
+            cols['sno'] = idx
+        elif re.search(r'\b(part\s*no|part\s*#|part\s*code|item\s*code|code|catalogue)\b', c_u):
+            cols['code'] = idx
+        elif re.search(r'\b(desc|description|particular|particulars|part\s*name|item\s*name|details|nomenclature)\b', c_u):
+            cols['desc'] = idx
+        elif re.search(r'\b(taxable\s*amount|taxable\s*amt|taxable\s*value|taxable)\b', c_u):
+            cols['taxable_amt'] = idx
+        elif re.search(r'\b(rate|unit\s*price|price|mrp|unit\s*cost)\b', c_u):
+            cols['rate'] = idx
+        elif re.search(r'\b(uom|unit\s*of\s*measure|u\.o\.m|^units?$)\b', c_u):
+            cols['uom'] = idx
+        elif re.search(r'\b(qty|quantity|qnty)\b', c_u):
+            cols['qty'] = idx
+        elif re.search(r'\b(amount|total|net|value|sum)\b', c_u):
+            cols['amount'] = idx
+        elif re.search(r'\b(hsn|sac)\b', c_u):
+            cols['hsn'] = idx
+    return cols
+
+
+def extract_toyota_format(pdf):
+    """
+    Extracts parts and labour from Toyota UTrust and dealer invoices with
+    borderless columnar layouts (SI.No, Job Code, Description, HSN, QTY, UOM, Unit Price, Taxable Value, etc.)
+    and distinct 'Labour charges' and 'Parts charges' sections.
+    """
+    has_toyota = False
+    for p in pdf.pages[:2]:
+        txt = (p.extract_text() or "").lower()
+        if "labour charges" in txt and "taxable value" in txt:
+            has_toyota = True
+            break
+        if "job code / part" in txt or ("bpe26" in txt and "parts charges" in txt):
+            has_toyota = True
+            break
+            
+    if not has_toyota:
+        return None
+        
+    FOOTER_KEYWORDS = [
+        "terms & conditions", "gst for", "irn no", "ask for smile", "charges labour", 
+        "charges parts", "total", "g.total", "rounding", "two lakhs", "#email", "#we accept",
+        "authorised by", "cashier", "central gst", "state gst"
+    ]
+    
+    items = []
+    current_section = "Parts"
+    
+    for page in pdf.pages:
+        words = page.extract_words()
+        words = sorted(words, key=lambda w: (w["top"], w["x0"]))
+        
+        lines = []
+        curr_line = []
+        curr_top = None
+        for w in words:
+            if w["top"] < 120 or w["top"] > 765:
+                continue
+            if curr_top is None or abs(w["top"] - curr_top) <= 3.5:
+                curr_line.append(w)
+                if curr_top is None:
+                    curr_top = w["top"]
+            else:
+                lines.append((curr_top, curr_line))
+                curr_line = [w]
+                curr_top = w["top"]
+        if curr_line:
+            lines.append((curr_top, curr_line))
+            
+        page_items = []
+        stop_page = False
+        
+        for y, line_words in lines:
+            if stop_page:
+                break
+            line_text = " ".join([w["text"] for w in line_words]).strip()
+            line_lower = line_text.lower()
+            
+            if "labour charges" in line_lower:
+                current_section = "Labour"
+                continue
+            elif "parts charges" in line_lower:
+                current_section = "Parts"
+                continue
+                
+            if any(kw in line_lower for kw in FOOTER_KEYWORDS):
+                stop_page = True
+                break
+                
+            sno_words = [w for w in line_words if w["x0"] < 32 and re.match(r"^\d{1,4}$", w["text"])]
+            code_words = [w for w in line_words if 32 <= w["x0"] < 88 and w not in sno_words]
+            
+            if sno_words and code_words:
+                sno = sno_words[0]["text"]
+                code = " ".join([w["text"] for w in code_words])
+                
+                taxable_words = [w for w in line_words if 335 <= w["x0"] < 388]
+                hsn_words = [w for w in line_words if 150 <= w["x0"] < 192]
+                qty_words = [w for w in line_words if 192 <= w["x0"] < 214]
+                rate_words = [w for w in line_words if 235 <= w["x0"] < 278]
+                desc_words = [w for w in line_words if 85 <= w["x0"] < 155]
+                
+                taxable_amt = clean_num(taxable_words[0]["text"]) if taxable_words else 0.0
+                hsn = hsn_words[0]["text"] if hsn_words else ""
+                qty = qty_words[0]["text"] if qty_words else "1"
+                rate = clean_num(rate_words[0]["text"]) if rate_words else taxable_amt
+                desc = " ".join([w["text"] for w in desc_words])
+                
+                page_items.append({
+                    "sno": int(sno),
+                    "code": code,
+                    "desc_parts": [desc] if desc else [],
+                    "hsn": hsn,
+                    "qty": qty,
+                    "unit_price": rate,
+                    "amount": taxable_amt,
+                    "section": current_section
+                })
+            elif page_items and not stop_page:
+                continuation_words = [w for w in line_words if 85 <= w["x0"] < 155]
+                if continuation_words:
+                    cont_text = " ".join([w["text"] for w in continuation_words])
+                    page_items[-1]["desc_parts"].append(cont_text)
+                    
+        for it in page_items:
+            full_desc = " ".join([p for p in it["desc_parts"] if p]).strip()
+            full_desc = re.sub(r"\s+", " ", full_desc).strip()
+            is_labour = (it["section"] == "Labour") or is_labour_item(full_desc, "", it["hsn"])
+            items.append({
+                "code": it["code"],
+                "particular": full_desc,
+                "hsn": it["hsn"],
+                "qty": it["qty"],
+                "unit_price": it["unit_price"],
+                "amount": it["amount"],
+                "item_type": "Labour" if is_labour else "Part",
+                "selected": True
+            })
+            
+    return items
+
+
 def parse_estimate_pdf(pdf_path):
     """
-    Parses a dealer bill estimate PDF (e.g. BMW, Maruti, Hyundai, etc.)
-    Returns header info and list of extracted line items (Parts and Labour).
+    Parses a dealer bill estimate PDF (BMW, Maruti, Hyundai, Tata, Mahindra, Toyota, Honda, Audatex, etc.)
+    Returns header metadata and full list of extracted line items (Parts and Labour).
+    Extracts Taxable Amounts (net value before GST) as requested for assessment.
+    Capable of extracting hundreds of parts across multi-page estimates.
     """
     if not os.path.exists(pdf_path):
         raise FileNotFoundError(f"PDF not found: {pdf_path}")
@@ -70,92 +271,369 @@ def parse_estimate_pdf(pdf_path):
     items = []
 
     with pdfplumber.open(pdf_path) as pdf:
-        for p_idx, page in enumerate(pdf.pages):
-            text = page.extract_text() or ""
+        # Header extraction from initial pages
+        for p_idx in range(min(2, len(pdf.pages))):
+            text = pdf.pages[p_idx].extract_text() or ""
             lines = text.splitlines()
 
-            # Header details on first page
-            if p_idx == 0:
-                # Reg no (Indian registration number format)
+            if not header_info["registration_no"]:
                 m_reg = re.search(r'\b([A-Z]{2}\s*\d{1,2}\s*[A-Z]{1,3}\s*\d{4})\b', text)
-                if m_reg: header_info['registration_no'] = m_reg.group(1).replace(' ', '')
+                if m_reg:
+                    header_info['registration_no'] = m_reg.group(1).replace(' ', '')
 
-                # Invoice no
-                m_inv = re.search(r'\b([A-Z]{3,5}\d{8,12})\b', text)
-                if m_inv: header_info['invoice_no'] = m_inv.group(1)
+            if not header_info["invoice_no"]:
+                m_inv = re.search(r'Invoice\s*No\.?\s*[:\.\s]*([A-Z0-9\-\/]{4,25})', text, re.I)
+                if m_inv:
+                    header_info['invoice_no'] = m_inv.group(1).strip()
+                else:
+                    m_jc = re.search(r'(?:Bill|Estimate|Job\s*Card)\s*No\.?\s*[:\.\s]*([A-Z0-9\-\/]{4,25})', text, re.I)
+                    if m_jc:
+                        header_info['invoice_no'] = m_jc.group(1).strip()
 
-                # Date
-                m_date = re.search(r'Invoice\s*Date\s*([0-9]{1,2}-[A-Za-z]{3}-[0-9]{2,4})', text, re.IGNORECASE)
-                if m_date: header_info['invoice_date'] = m_date.group(1)
+            if not header_info["invoice_date"]:
+                m_date = re.search(r'(?:Date|Invoice\s*Date|Estimate\s*Date)[:\.\s]*([0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{2,4}|[0-9]{1,2}-[A-Za-z]{3}-[0-9]{2,4})', text, re.I)
+                if m_date:
+                    header_info['invoice_date'] = m_date.group(1).strip()
 
-                # Advisor
-                m_adv = re.search(r'Service\s*Advisor\s*([A-Za-z\s]+?)(?:,|$|\n)', text, re.IGNORECASE)
-                if m_adv: header_info['service_advisor'] = m_adv.group(1).strip()
+            if not header_info["service_advisor"]:
+                m_adv = re.search(r'(?:SA\s*Name|Service\s*Advisor)[:\.\s]*([A-Za-z\s]+?)(?:SA\(M\)|Phone|Ph|\n|$)', text, re.I)
+                if m_adv:
+                    header_info['service_advisor'] = m_adv.group(1).strip()
 
-                # Dealer name
-                for line in lines[:5]:
+            if not header_info["dealer_name"]:
+                for line in lines[:8]:
                     line_s = line.strip()
-                    if any(term in line_s.lower() for term in ['automobiles', 'motors', 'bmw', 'maruti', 'hyundai', 'workshop', 'services']):
+                    if any(term in line_s.lower() for term in ['automobiles', 'motors', 'bmw', 'maruti', 'hyundai', 'workshop', 'services', 'dealership', 'garage', 'tata', 'mahindra', 'toyota', 'honda']):
                         header_info['dealer_name'] = line_s.split('   ')[0].strip()
                         break
 
-            # Parse line items across pages
-            for line in lines:
-                line_clean = line.strip()
+        # Pass 0.5: Toyota / DMS Columnar Spatial Extraction (Border-free multi-column invoices)
+        toyota_items = extract_toyota_format(pdf)
+        if toyota_items and len(toyota_items) >= 2:
+            parts_count = sum(1 for it in toyota_items if it["item_type"] == "Part")
+            parts_sum = sum(it["amount"] for it in toyota_items if it["item_type"] == "Part")
+            labour_count = sum(1 for it in toyota_items if it["item_type"] == "Labour")
+            labour_sum = sum(it["amount"] for it in toyota_items if it["item_type"] == "Labour")
+            return {
+                "success": True,
+                "filename": os.path.basename(pdf_path),
+                "header": header_info,
+                "items": toyota_items,
+                "total_parts": parts_count,
+                "total_parts_sum": round(parts_sum, 2),
+                "total_labour": labour_count,
+                "total_labour_sum": round(labour_sum, 2),
+                "total_estimate_sum": round(parts_sum + labour_sum, 2)
+            }
 
-                # Pattern 1: Krishna Automobiles / Dealer Line:
-                # No. (code) | Description | HSN | Qty | UoM | Unit Price | Disc % | Discount | CGST | SGST | Amount
-                # e.g.: 83192289285 Repair flat 35069190 2 PCS 6775.00 10.0% 1355.00 9.0% 9.0% 12195.00
-                m1 = re.match(
-                    r"^([A-Z0-9\-\/]{4,15})\s+(.+?)\s+(\d{4,8})\s+(\d+(?:\.\d+)?)\s+([A-Za-z]+)\s+([\d,]+\.\d{2})\s+.*?\s+([\d,]+\.\d{2})$",
-                    line_clean
-                )
-                if m1:
-                    code, desc, hsn, qty, uom, unit_price, amt = m1.groups()
-                    desc_clean = desc.strip()
-                    is_labour = "FRU" in uom.upper() or "LABOR" in desc_clean.upper() or "JOB" in desc_clean.upper() or "R / BODY" in desc_clean.upper()
-                    items.append({
-                        "code": code.strip(),
-                        "particular": desc_clean,
-                        "hsn": hsn.strip(),
-                        "qty": f"{qty} {uom}",
-                        "unit_price": float(unit_price.replace(",", "")),
-                        "amount": float(amt.replace(",", "")),
-                        "item_type": "Labour" if is_labour else "Part",
-                        "selected": not is_labour  # Default select parts
-                    })
+        # Pass 1: Multi-page Table Extraction (Default Lines Strategy)
+        table_items = []
+        for p_idx, page in enumerate(pdf.pages):
+            tables = page.extract_tables() or []
+            for table in tables:
+                if not table or len(table) < 2:
                     continue
 
-                # Pattern 2: Standard Line Item with Part Code, Description, Quantity & Amount
-                # e.g. 51319478772 Frontscheibe 1 PCS 48086.32
-                m2 = re.match(
-                    r"^([A-Z0-9\-\/]{4,15})\s+([A-Za-z0-9\s\.\-\/\(\)&]{3,40}?)\s+(\d+(?:\.\d+)?)\s*([A-Za-z]{2,5})?\s+([\d,]+\.\d{2})$",
-                    line_clean
-                )
-                if m2:
-                    code, desc, qty, uom, amt = m2.groups()
-                    desc_clean = desc.strip()
-                    if desc_clean.lower() not in ["total", "cgst", "sgst", "igst", "sub total", "amount to pay", "round off", "sum parts"]:
-                        if not any(k in desc_clean.lower() for k in ["terms", "signature", "authorized", "customer"]):
-                            is_labour = "LABOR" in desc_clean.upper() or (uom and "FRU" in uom.upper())
-                            items.append({
-                                "code": code.strip(),
-                                "particular": desc_clean,
-                                "hsn": "",
-                                "qty": f"{qty} {uom or ''}".strip(),
-                                "unit_price": float(amt.replace(",", "")),
-                                "amount": float(amt.replace(",", "")),
+                h_idx = -1
+                cols = {}
+                for r_idx, row in enumerate(table[:5]):
+                    cols_candidate = map_table_header(row)
+                    if "desc" in cols_candidate and ("taxable_amt" in cols_candidate or "amount" in cols_candidate or "rate" in cols_candidate):
+                        h_idx = r_idx
+                        cols = cols_candidate
+                        break
+
+                if h_idx >= 0 and "desc" in cols and ("taxable_amt" in cols or "amount" in cols or "rate" in cols):
+                    amt_col = cols.get("taxable_amt") or cols.get("amount") or cols.get("rate")
+                    for row in table[h_idx + 1:]:
+                        if not row:
+                            continue
+                        row_text = " ".join([str(c or "").strip() for c in row]).lower()
+                        if any(term in row_text for term in ["total", "sub total", "grand total", "cgst", "sgst", "igst", "round off", "balance", "terms and cond"]):
+                            continue
+
+                        desc = str(row[cols["desc"]] or "").strip() if "desc" in cols and cols["desc"] < len(row) else ""
+                        amt_raw = row[amt_col] if amt_col < len(row) else 0
+                        amt = clean_num(amt_raw)
+
+                        if desc and amt > 0:
+                            code = str(row[cols["code"]] or "").strip() if "code" in cols and cols["code"] < len(row) else ""
+                            qty = str(row[cols["qty"]] or "1").strip() if "qty" in cols and cols["qty"] < len(row) else "1"
+                            uom = str(row[cols["uom"]] or "").strip() if "uom" in cols and cols["uom"] < len(row) else ""
+                            hsn = str(row[cols["hsn"]] or "").strip() if "hsn" in cols and cols["hsn"] < len(row) else ""
+                            rate = clean_num(row[cols["rate"]]) if "rate" in cols and cols["rate"] < len(row) else amt
+
+                            is_labour = is_labour_item(desc, uom, hsn)
+                            table_items.append({
+                                "code": code,
+                                "particular": desc,
+                                "hsn": hsn,
+                                "qty": f"{qty} {uom}".strip(),
+                                "unit_price": rate or amt,
+                                "amount": amt,
                                 "item_type": "Labour" if is_labour else "Part",
                                 "selected": not is_labour
                             })
+
+        # Pass 1.5: If few items found, try Text-based Table Extraction
+        if len(table_items) < 2:
+            table_items_text = []
+            for p_idx, page in enumerate(pdf.pages):
+                tables = page.extract_tables({"vertical_strategy": "text", "horizontal_strategy": "text"}) or []
+                for table in tables:
+                    if not table or len(table) < 2:
+                        continue
+                    h_idx = -1
+                    cols = {}
+                    for r_idx, row in enumerate(table[:5]):
+                        cols_candidate = map_table_header(row)
+                        if "desc" in cols_candidate and ("taxable_amt" in cols_candidate or "amount" in cols_candidate or "rate" in cols_candidate):
+                            h_idx = r_idx
+                            cols = cols_candidate
+                            break
+                    if h_idx >= 0 and "desc" in cols and ("taxable_amt" in cols or "amount" in cols or "rate" in cols):
+                        amt_col = cols.get("taxable_amt") or cols.get("amount") or cols.get("rate")
+                        for row in table[h_idx + 1:]:
+                            if not row:
+                                continue
+                            row_text = " ".join([str(c or "").strip() for c in row]).lower()
+                            if any(term in row_text for term in ["total", "sub total", "grand total", "cgst", "sgst", "igst", "round off", "balance", "terms and cond"]):
+                                continue
+                            desc = str(row[cols["desc"]] or "").strip() if "desc" in cols and cols["desc"] < len(row) else ""
+                            amt_raw = row[amt_col] if amt_col < len(row) else 0
+                            amt = clean_num(amt_raw)
+                            if desc and amt > 0:
+                                code = str(row[cols["code"]] or "").strip() if "code" in cols and cols["code"] < len(row) else ""
+                                qty = str(row[cols["qty"]] or "1").strip() if "qty" in cols and cols["qty"] < len(row) else "1"
+                                uom = str(row[cols["uom"]] or "").strip() if "uom" in cols and cols["uom"] < len(row) else ""
+                                hsn = str(row[cols["hsn"]] or "").strip() if "hsn" in cols and cols["hsn"] < len(row) else ""
+                                rate = clean_num(row[cols["rate"]]) if "rate" in cols and cols["rate"] < len(row) else amt
+                                is_labour = is_labour_item(desc, uom, hsn)
+                                table_items_text.append({
+                                    "code": code,
+                                    "particular": desc,
+                                    "hsn": hsn,
+                                    "qty": f"{qty} {uom}".strip(),
+                                    "unit_price": rate or amt,
+                                    "amount": amt,
+                                    "item_type": "Labour" if is_labour else "Part",
+                                    "selected": not is_labour
+                                })
+            if len(table_items_text) > len(table_items):
+                table_items = table_items_text
+
+        if len(table_items) >= 2:
+            items = table_items
+        else:
+            # Pass 2: High-capacity multi-pattern text streaming with continuation line aggregation
+            for p_idx, page in enumerate(pdf.pages):
+                text = page.extract_text() or ""
+                lines = text.splitlines()
+                last_item_idx_on_page = -1
+
+                for line in lines:
+                    line_s = line.strip()
+                    if not line_s:
+                        continue
+
+                    line_lower = line_s.lower()
+
+                    # Stop processing on page footer
+                    if any(stop_kw in line_lower for stop_kw in FOOTER_STOP_KEYWORDS):
+                        break
+
+                    # Header/metadata skips
+                    if any(term in line_lower for term in [
+                        "tax invoice", "vehicle owner", "make code vin", "model registration",
+                        "place of supply", "irn :", "dealer", "customer phone", "gstin:", "pan:",
+                        "service order", "no. description hsn qty", "s.no part no", "demanded repairs", "gate pass"
+                    ]):
+                        continue
+
+                    # Pattern 1: Maruti Suzuki DMS format with Taxable Amount:
+                    # Srl | Part No | Description | Batch | HSN | Tax% | Qty | Rate | Taxable Amt | Tax Paid Amt | Labour
+                    # e.g.: 1 09471M12210 BULB (12V,35W H8) AH 85122020 18% 1.000 504.23 504.23 0.00
+                    # e.g.: 16 17861M68P00 BRACKET,RDTR SUPPORT UPPER AA 87089900 18% 2.000 27.11 54.22 0.00
+                    m_maruti = re.match(
+                        r"^(\d{1,4})\s+([A-Z0-9\-\/]{6,25})\s+(.+?)\s+([A-Z]{1,3})?\s*(\d{6,8})\s+(\d+%\s+)?(\d+(?:\.\d+)?)\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})(?:\s+([\d,]+\.\d{2}))?",
+                        line_s
+                    )
+                    if m_maruti:
+                        srl, code, desc, batch, hsn, tax, qty, rate, taxable_amt, tax_paid = m_maruti.groups()
+                        amt = clean_num(taxable_amt)  # Always use TAXABLE AMOUNT!
+                        is_labour = is_labour_item(desc, "", hsn or "")
+                        items.append({
+                            "code": code.strip(),
+                            "particular": desc.strip(),
+                            "hsn": hsn.strip() if hsn else "",
+                            "qty": f"{qty} NOS".strip(),
+                            "unit_price": clean_num(rate),
+                            "amount": amt,
+                            "item_type": "Labour" if is_labour else "Part",
+                            "selected": True
+                        })
+                        last_item_idx_on_page = len(items) - 1
+                        continue
+
+                    # Pattern 2: Maruti Labour format:
+                    # e.g.: 1 ZA38L0 TOWING CHARGES 998729 1,270.00
+                    # e.g.: 2 ZF9993 PAINTING CHARGES 998729 42,000.00
+                    m_labour = re.match(r"^(\d{1,4})\s+([A-Z0-9]{5,10})\s+(.+?)\s+(\d{6})\s+([\d,]+\.\d{2})$", line_s)
+                    if m_labour:
+                        srl, code, desc, hsn, amt = m_labour.groups()
+                        amt_num = clean_num(amt)
+                        items.append({
+                            "code": code.strip(),
+                            "particular": desc.strip(),
+                            "hsn": hsn.strip(),
+                            "qty": "1",
+                            "unit_price": amt_num,
+                            "amount": amt_num,
+                            "item_type": "Labour",
+                            "selected": True
+                        })
+                        last_item_idx_on_page = len(items) - 1
+                        continue
+
+                    # Pattern 2.5: Kia / Dealer Labour with percentage and taxable value
+                    # e.g.: 1 A10VABODY01LNA Body & Paint Repair Charges (Insurance) 998729 18% 1.00 13,600.00 100.00% 13,600.00
+                    m_kia_labour = re.match(
+                        r"^(\d{1,4})\s+([A-Z0-9]{8,25})\s+(.+?)\s+(\d{6})\s+(\d+%\s+)?(\d+(?:\.\d+)?)\s+([\d,]+\.\d{2})\s+.*?\s+([\d,]+\.\d{2})$",
+                        line_s
+                    )
+                    if m_kia_labour:
+                        srl, code, desc, hsn, tax_p, qty, rate, amt = m_kia_labour.groups()
+                        amt_num = clean_num(amt) or clean_num(rate)
+                        items.append({
+                            "code": code.strip(),
+                            "particular": desc.strip(),
+                            "hsn": hsn.strip(),
+                            "qty": f"{qty}".strip(),
+                            "unit_price": clean_num(rate),
+                            "amount": amt_num,
+                            "item_type": "Labour",
+                            "selected": True
+                        })
+                        last_item_idx_on_page = len(items) - 1
+                        continue
+
+                    # Pattern 3: Full Dealer/BMW format: Code Desc HSN Qty UoM Rate Disc DiscAmt CGST SGST Total
+                    # e.g.: 83192289285 Repair flat 35069190 2 PCS 6775.00 10.0% 1355.00 9.0% 9.0% 12195.00
+                    # e.g.: 5199000 Job time without allowance fo 998729 40 FRU 303.00 10.0% 1212.00 9.0% 9.0% 10908.00
+                    mA = re.match(
+                        r"^([A-Z0-9\-\/]{4,25})\s+(.+?)\s+(\d{4,8})\s+(\d+(?:\.\d+)?)\s+([A-Za-z]+)\s+([\d,]+\.?\d*)\s+.*?\s+([\d,]+\.\d{2})$",
+                        line_s
+                    )
+                    if mA:
+                        code, desc, hsn, qty, uom, unit_price, amt = mA.groups()
+                        is_labour = is_labour_item(desc, uom, hsn)
+                        items.append({
+                            "code": code.strip(),
+                            "particular": desc.strip(),
+                            "hsn": hsn.strip(),
+                            "qty": f"{qty} {uom}".strip(),
+                            "unit_price": clean_num(unit_price),
+                            "amount": clean_num(amt),
+                            "item_type": "Labour" if is_labour else "Part",
+                            "selected": True
+                        })
+                        last_item_idx_on_page = len(items) - 1
+                        continue
+
+                    # Pattern 4: S.No + Part Code + Description + Qty + Rate + Amount
+                    # e.g.: 1 71711M68P00-799 BUMPER, FRONT (PRIMED) 1.00 3250.00 3250.00
+                    # e.g.: 10 09119M16008 CLIP, BUMPER 10.00 PCS 15.00 150.00
+                    mB = re.match(
+                        r"^(?:\d{1,4}[\.\)]?\s+)?([A-Z0-9\-\/]{4,25})\s+(.+?)\s+(\d+(?:\.\d+)?)\s*([A-Za-z]{2,5})?\s+([\d,]+\.?\d*)\s+([\d,]+\.\d{2})$",
+                        line_s
+                    )
+                    if mB:
+                        code, desc, qty, uom, rate, amt = mB.groups()
+                        desc_s = desc.strip()
+                        if desc_s.lower() not in ["total", "sub total", "amount"]:
+                            is_labour = is_labour_item(desc_s, uom or "", "")
+                            items.append({
+                                "code": code.strip(),
+                                "particular": desc_s,
+                                "hsn": "",
+                                "qty": f"{qty} {uom or ''}".strip(),
+                                "unit_price": clean_num(rate),
+                                "amount": clean_num(amt),
+                                "item_type": "Labour" if is_labour else "Part",
+                                "selected": True
+                            })
+                            last_item_idx_on_page = len(items) - 1
+                            continue
+
+                    # Pattern 5: Code + Description + Qty + Amount (Simplified 4-field)
+                    # e.g.: 51319478772 Frontscheibe 1 PCS 48086.32
+                    mC = re.match(
+                        r"^([A-Z0-9\-\/]{4,25})\s+([A-Za-z0-9\s\.\-\/\(\)&,]{3,60}?)\s+(\d+(?:\.\d+)?)\s*([A-Za-z]{2,5})?\s+([\d,]+\.\d{2})$",
+                        line_s
+                    )
+                    if mC:
+                        code, desc, qty, uom, amt = mC.groups()
+                        desc_s = desc.strip()
+                        if desc_s.lower() not in ["total", "sub total", "amount"]:
+                            is_labour = is_labour_item(desc_s, uom or "", "")
+                            items.append({
+                                "code": code.strip(),
+                                "particular": desc_s,
+                                "hsn": "",
+                                "qty": f"{qty} {uom or ''}".strip(),
+                                "unit_price": clean_num(amt),
+                                "amount": clean_num(amt),
+                                "item_type": "Labour" if is_labour else "Part",
+                                "selected": True
+                            })
+                            last_item_idx_on_page = len(items) - 1
+                            continue
+
+                    # Pattern 6: S.No + Description + Qty + Amount (No Part Code)
+                    # e.g.: 1. FRONT BUMPER ASSY 1 NOS 4,500.00
+                    # e.g.: 15 RADIATOR SUPPORT LH 1 2300.00
+                    mD = re.match(
+                        r"^(\d{1,4})[\.\)]?\s+([A-Za-z0-9\s\.\-\/\(\)&,]{3,60}?)\s+(\d+(?:\.\d+)?)\s*([A-Za-z]{2,5})?\s+([\d,]+\.\d{2})$",
+                        line_s
+                    )
+                    if mD:
+                        sno, desc, qty, uom, amt = mD.groups()
+                        desc_s = desc.strip()
+                        if desc_s.lower() not in ["total", "sub total", "amount", "page"]:
+                            is_labour = is_labour_item(desc_s, uom or "", "")
+                            items.append({
+                                "code": f"#{sno}",
+                                "particular": desc_s,
+                                "hsn": "",
+                                "qty": f"{qty} {uom or ''}".strip(),
+                                "unit_price": clean_num(amt),
+                                "amount": clean_num(amt),
+                                "item_type": "Labour" if is_labour else "Part",
+                                "selected": True
+                            })
+                            last_item_idx_on_page = len(items) - 1
+                            continue
+
+                    # Controlled continuation: only if immediately following an item on this page
+                    if last_item_idx_on_page >= 0 and len(line_s) < 30 and not re.search(r'\d+\.\d{2}', line_s) and not line_s.startswith("Job-"):
+                        if not any(k in line_lower for k in ["signature", "address", "phone", "email", "pan", "gstin", "order", "date", "road", "pin", "ludhiana", "delhi"]):
+                            items[last_item_idx_on_page]["particular"] += f" {line_s}"
+
+    parts_count = sum(1 for it in items if it["item_type"] == "Part")
+    parts_sum = sum(it["amount"] for it in items if it["item_type"] == "Part")
+    labour_count = sum(1 for it in items if it["item_type"] == "Labour")
+    labour_sum = sum(it["amount"] for it in items if it["item_type"] == "Labour")
 
     return {
         "success": True,
         "filename": os.path.basename(pdf_path),
         "header": header_info,
         "items": items,
-        "total_parts": sum(1 for it in items if it["item_type"] == "Part"),
-        "total_estimate_sum": sum(it["amount"] for it in items if it["item_type"] == "Part")
+        "total_parts": parts_count,
+        "total_parts_sum": round(parts_sum, 2),
+        "total_labour": labour_count,
+        "total_labour_sum": round(labour_sum, 2),
+        "total_estimate_sum": round(parts_sum + labour_sum, 2)
     }
 
 
@@ -197,7 +675,6 @@ def inspect_estimate_excel(file_path, target_sheet=None):
 
             for sname in sheet_names:
                 s = wb.sheet_by_name(sname)
-                # Ignore hidden sheets like 'data' unless explicitly requested
                 if s.visibility != 0 and sname != target_sheet:
                     continue
 
@@ -205,18 +682,16 @@ def inspect_estimate_excel(file_path, target_sheet=None):
                 h_row = -1
                 cols = {"es": 1, "bill_no": 2, "particular": 3, "estimate": 4}
 
-                # Scan through all rows in sheet, skipping hidden rows
                 for r in range(s.nrows):
                     rinfo = s.rowinfo_map.get(r) if hasattr(s, "rowinfo_map") else None
                     if rinfo and rinfo.hidden:
-                        continue  # Skip hidden rows!
+                        continue
 
                     row_vals = [str(s.cell_value(r, c)).strip() for c in range(min(20, s.ncols))]
                     row_str = " ".join(row_vals).upper()
 
                     if "PARTS COMPUTATION" in row_str:
                         score += 50
-                        # Look at subsequent visible rows for Particular / Estimate
                         for r2 in range(r + 1, min(r + 15, s.nrows)):
                             r2info = s.rowinfo_map.get(r2) if hasattr(s, "rowinfo_map") else None
                             if r2info and r2info.hidden:
@@ -256,7 +731,6 @@ def inspect_estimate_excel(file_path, target_sheet=None):
                     best_cols = cols
                     if h_row > 0:
                         best_header_r = h_row
-                        # Find the first VISIBLE data row following the header row
                         best_start_r = h_row + 1
                         for r_data in range(h_row, min(h_row + 15, s.nrows)):
                             r_d_info = s.rowinfo_map.get(r_data) if hasattr(s, "rowinfo_map") else None
@@ -271,6 +745,23 @@ def inspect_estimate_excel(file_path, target_sheet=None):
             if not best_sheet and sheet_names:
                 best_sheet = sheet_names[0]
 
+            # Detect LABOUR COMPUTATION start row in best_sheet
+            labour_start_r = 359
+            if best_sheet and best_sheet in sheet_names:
+                s_best = wb.sheet_by_name(best_sheet)
+                for r_lab in range(s_best.nrows):
+                    r_lab_vals = [str(s_best.cell_value(r_lab, c)).strip().upper() for c in range(min(15, s_best.ncols))]
+                    if "LABOUR COMPUTATION" in " ".join(r_lab_vals):
+                        for r_under in range(r_lab + 1, min(r_lab + 20, s_best.nrows)):
+                            r_u_vals = [str(s_best.cell_value(r_under, c)).strip().upper() for c in range(min(15, s_best.ncols))]
+                            if "ASSESSED AS UNDER" in " ".join(r_u_vals):
+                                labour_start_r = r_under + 2
+                                break
+                            if re.match(r"^1(\.0)?$", r_u_vals[0]):
+                                labour_start_r = r_under + 1
+                                break
+                        break
+
             res = {
                 "success": True,
                 "file_path": norm_path,
@@ -279,6 +770,7 @@ def inspect_estimate_excel(file_path, target_sheet=None):
                 "selected_sheet": best_sheet,
                 "header_row": best_header_r,
                 "data_start_row": best_start_r,
+                "labour_start_row": labour_start_r,
                 "particular_col": best_cols["particular"],
                 "estimate_col": best_cols["estimate"],
                 "bill_no_col": best_cols["bill_no"],
@@ -314,7 +806,7 @@ def inspect_estimate_excel(file_path, target_sheet=None):
                 for r in range(1, min(sheet.max_row + 1, 600)):
                     dim = sheet.row_dimensions.get(r)
                     if dim and dim.hidden:
-                        continue  # Skip hidden row!
+                        continue
 
                     row_vals = [str(sheet.cell(row=r, column=c).value or "").strip() for c in range(1, min(20, sheet.max_column + 1))]
                     row_str = " ".join(row_vals).upper()
@@ -374,6 +866,23 @@ def inspect_estimate_excel(file_path, target_sheet=None):
             if not best_sheet and sheet_names:
                 best_sheet = sheet_names[0]
 
+            # Detect LABOUR COMPUTATION start row in best_sheet
+            labour_start_r = 359
+            if best_sheet and best_sheet in wb.sheetnames:
+                ws_best = wb[best_sheet]
+                for r_lab in range(1, min(ws_best.max_row + 1, 600)):
+                    r_lab_vals = [str(ws_best.cell(row=r_lab, column=c).value or "").strip().upper() for c in range(1, min(15, ws_best.max_column + 1))]
+                    if "LABOUR COMPUTATION" in " ".join(r_lab_vals):
+                        for r_under in range(r_lab + 1, min(r_lab + 20, ws_best.max_row + 1)):
+                            r_u_vals = [str(ws_best.cell(row=r_under, column=c).value or "").strip().upper() for c in range(1, min(15, ws_best.max_column + 1))]
+                            if "ASSESSED AS UNDER" in " ".join(r_u_vals):
+                                labour_start_r = r_under + 1
+                                break
+                            if re.match(r"^1(\.0)?$", r_u_vals[0]):
+                                labour_start_r = r_under
+                                break
+                        break
+
             res = {
                 "success": True,
                 "file_path": norm_path,
@@ -382,6 +891,7 @@ def inspect_estimate_excel(file_path, target_sheet=None):
                 "selected_sheet": best_sheet,
                 "header_row": best_header_r,
                 "data_start_row": best_start_r,
+                "labour_start_row": labour_start_r,
                 "particular_col": best_cols["particular"],
                 "estimate_col": best_cols["estimate"],
                 "bill_no_col": best_cols["bill_no"],
@@ -401,14 +911,254 @@ def inspect_estimate_excel(file_path, target_sheet=None):
                     pass
 
 
+def write_labour_to_excel(file_path, sheet_name=None, labour_items=None, start_row=None, bill_no=""):
+    """
+    Writes extracted labour items into the LABOUR COMPUTATION table:
+    - Serial No ('Es.'): Sequential item index (e.g. 1, 2, 3...)
+    - Bill No ('Bill No.'): Optional bill reference
+    - Particular ('Particular'): Labour description (Col C)
+    - Estimate ('Estimate'): Taxable Amount (Col D)
+    Ensures items are written strictly to VISIBLE rows, skipping any hidden template rows.
+    In .xlsx/.xlsm workbooks, dynamically inserts rows if the number of items exceeds available table rows.
+    """
+    if not os.path.exists(file_path):
+        return {"success": False, "error": f"File not found: {file_path}"}
+
+    if not labour_items:
+        return {"success": False, "error": "No labour items provided to write."}
+
+    # Safety check for file lock
+    try:
+        with open(file_path, "r+b"):
+            pass
+    except PermissionError:
+        return {
+            "success": False,
+            "error": "The Excel file is currently open in Microsoft Excel. Please close it first."
+        }
+    except Exception as e:
+        return {"success": False, "error": f"File access error: {str(e)}"}
+
+    # Create safety backup
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_path = f"{file_path}.bak_{timestamp}"
+    try:
+        shutil.copy2(file_path, backup_path)
+        _prune_old_backups(file_path)
+    except Exception as e:
+        print(f"Warning creating backup: {e}")
+
+    # Inspect sheet and determine target columns and start row
+    sheet_info = inspect_estimate_excel(file_path, target_sheet=sheet_name)
+    if not sheet_info.get("success"):
+        return {"success": False, "error": sheet_info.get("error", "Failed to inspect Excel file.")}
+
+    target_sheet_name = sheet_info.get("selected_sheet")
+    part_col_1based = sheet_info.get("particular_col", 3)
+    est_col_1based = sheet_info.get("estimate_col", 4)
+    bill_col_1based = sheet_info.get("bill_no_col", 2)
+    es_col_1based = sheet_info.get("es_col", 1)
+
+    detected_start = sheet_info.get("labour_start_row", 359)
+    if start_row is None or int(start_row) <= 0:
+        start_row = detected_start
+    else:
+        start_row = int(start_row)
+
+    ext = os.path.splitext(file_path)[1].lower()
+
+    if ext == ".xls":
+        try:
+            import xlrd
+            from xlutils.copy import copy
+
+            rb = xlrd.open_workbook(file_path, formatting_info=True)
+            sheet_names = rb.sheet_names()
+
+            sheet_idx = 0
+            if target_sheet_name in sheet_names:
+                sheet_idx = sheet_names.index(target_sheet_name)
+            else:
+                for idx, sn in enumerate(sheet_names):
+                    if sn.strip().lower() == str(target_sheet_name).strip().lower():
+                        sheet_idx = idx
+                        target_sheet_name = sn
+                        break
+
+            rb_sheet = rb.sheet_by_index(sheet_idx)
+            wb = copy(rb)
+            sheet = wb.get_sheet(sheet_idx)
+
+            current_r = max(0, start_row - 1)
+            c_part = max(0, part_col_1based - 1)
+            c_est = max(0, est_col_1based - 1)
+            c_bill = max(0, bill_col_1based - 1)
+            c_es = max(0, es_col_1based - 1)
+
+            item_num = 1
+            written = 0
+            first_written_row = None
+            last_written_row = None
+
+            for it in labour_items:
+                desc = it.get("particular", "").strip()
+                amt = it.get("amount", 0.0)
+                try:
+                    amt_num = float(amt)
+                except (ValueError, TypeError):
+                    amt_num = 0.0
+
+                while current_r < rb_sheet.nrows:
+                    rinfo = rb_sheet.rowinfo_map.get(current_r) if hasattr(rb_sheet, "rowinfo_map") else None
+                    if rinfo and rinfo.hidden:
+                        current_r += 1
+                    else:
+                        break
+
+                if first_written_row is None:
+                    first_written_row = current_r + 1
+                last_written_row = current_r + 1
+
+                try:
+                    sheet.write(current_r, c_es, item_num)
+                except Exception:
+                    pass
+
+                if bill_no:
+                    sheet.write(current_r, c_bill, str(bill_no).strip())
+
+                sheet.write(current_r, c_part, desc)
+                sheet.write(current_r, c_est, amt_num)
+
+                current_r += 1
+                item_num += 1
+                written += 1
+
+            wb.save(file_path)
+            invalidate_estimate_cache(file_path)
+
+            return {
+                "success": True,
+                "written_count": written,
+                "start_row": first_written_row or start_row,
+                "end_row": last_written_row or (start_row + written - 1),
+                "backup_created": backup_path,
+                "file_path": file_path,
+                "sheet": target_sheet_name,
+                "particular_col": chr(65 + c_part),
+                "estimate_col": chr(65 + c_est)
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Error writing labour to .xls file: {str(e)}"}
+
+    else:
+        # Modern .xlsx / .xlsm using openpyxl
+        wb = None
+        try:
+            import openpyxl
+
+            wb = openpyxl.load_workbook(file_path)
+            if target_sheet_name in wb.sheetnames:
+                sheet = wb[target_sheet_name]
+            else:
+                matched = False
+                for sn in wb.sheetnames:
+                    if sn.strip().lower() == str(target_sheet_name).strip().lower():
+                        sheet = wb[sn]
+                        target_sheet_name = sn
+                        matched = True
+                        break
+                if not matched:
+                    sheet = wb.active
+                    target_sheet_name = sheet.title
+
+            current_r = start_row
+            c_part = part_col_1based
+            c_est = est_col_1based
+            c_bill = bill_col_1based
+            c_es = es_col_1based
+
+            table_limit_row = None
+            for check_r in range(start_row, min(sheet.max_row + 1, start_row + 200)):
+                v_particular = str(sheet.cell(row=check_r, column=c_part).value or "").strip().lower()
+                v_col1 = str(sheet.cell(row=check_r, column=1).value or "").strip().lower()
+                if any(k in v_particular or k in v_col1 for k in ["total", "s.total", "grand total", "total labour"]):
+                    table_limit_row = check_r
+                    break
+
+            num_items = len(labour_items)
+            if table_limit_row and (start_row + num_items >= table_limit_row):
+                needed = (start_row + num_items) - table_limit_row + 2
+                sheet.insert_rows(table_limit_row, amount=needed)
+
+            item_num = 1
+            written = 0
+            first_written_row = None
+            last_written_row = None
+
+            for it in labour_items:
+                desc = it.get("particular", "").strip()
+                amt = it.get("amount", 0.0)
+                try:
+                    amt_num = float(amt)
+                except (ValueError, TypeError):
+                    amt_num = 0.0
+
+                while current_r <= sheet.max_row:
+                    dim = sheet.row_dimensions.get(current_r)
+                    if dim and dim.hidden:
+                        current_r += 1
+                    else:
+                        break
+
+                if first_written_row is None:
+                    first_written_row = current_r
+                last_written_row = current_r
+
+                if c_es > 0:
+                    sheet.cell(row=current_r, column=c_es, value=item_num)
+                if bill_no and c_bill > 0:
+                    sheet.cell(row=current_r, column=c_bill, value=str(bill_no).strip())
+                sheet.cell(row=current_r, column=c_part, value=desc)
+                sheet.cell(row=current_r, column=c_est, value=amt_num)
+
+                current_r += 1
+                item_num += 1
+                written += 1
+
+            wb.save(file_path)
+            invalidate_estimate_cache(file_path)
+
+            return {
+                "success": True,
+                "written_count": written,
+                "start_row": first_written_row or start_row,
+                "end_row": last_written_row or (start_row + written - 1),
+                "backup_created": backup_path,
+                "file_path": file_path,
+                "sheet": target_sheet_name,
+                "particular_col": openpyxl.utils.get_column_letter(c_part),
+                "estimate_col": openpyxl.utils.get_column_letter(c_est)
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Error writing labour to Excel: {str(e)}"}
+        finally:
+            if wb is not None:
+                try:
+                    wb.close()
+                except Exception:
+                    pass
+
+
 def write_parts_to_excel(file_path, sheet_name=None, parts=None, start_row=None, bill_no=""):
     """
     Writes extracted parts into the PARTS COMPUTATION table:
     - Serial No ('Es.'): Sequential item index (e.g. 1, 2, 3...)
     - Bill No ('Bill No.'): Optional bill reference
     - Particular ('Particular'): Part description (Col C)
-    - Estimate ('Estimate'): Part Amount (Col D)
+    - Estimate ('Estimate'): Taxable Amount (Col D)
     Ensures parts are written strictly to VISIBLE rows, skipping any hidden template rows.
+    In .xlsx/.xlsm workbooks, dynamically inserts rows if the number of parts exceeds available table rows.
     """
     if not os.path.exists(file_path):
         return {"success": False, "error": f"File not found: {file_path}"}
@@ -448,20 +1198,17 @@ def write_parts_to_excel(file_path, sheet_name=None, parts=None, start_row=None,
     bill_col_1based = sheet_info.get("bill_no_col", 2)
     es_col_1based = sheet_info.get("es_col", 1)
 
-    # Determine start row (1-indexed). If not specified or if set to hidden rows (like 7 or 28), use detected visible start row!
     detected_visible_start = sheet_info.get("data_start_row", 171)
     if start_row is None or int(start_row) <= 0:
         start_row = detected_visible_start
     else:
         start_row = int(start_row)
-        # If user had an old start_row like 7 or 28 from earlier runs that is hidden, snap to detected visible start row
         if start_row < detected_visible_start and detected_visible_start >= 100:
             start_row = detected_visible_start
 
     ext = os.path.splitext(file_path)[1].lower()
 
     if ext == ".xls":
-        # Legacy .xls using xlrd + xlutils.copy
         try:
             import xlrd
             from xlutils.copy import copy
@@ -483,7 +1230,6 @@ def write_parts_to_excel(file_path, sheet_name=None, parts=None, start_row=None,
             wb = copy(rb)
             sheet = wb.get_sheet(sheet_idx)
 
-            # 0-indexed rows and columns in xlwt
             current_r = max(0, start_row - 1)
             c_part = max(0, part_col_1based - 1)
             c_est = max(0, est_col_1based - 1)
@@ -503,7 +1249,6 @@ def write_parts_to_excel(file_path, sheet_name=None, parts=None, start_row=None,
                 except (ValueError, TypeError):
                     amt_num = 0.0
 
-                # Ensure current_r is a VISIBLE row!
                 while current_r < rb_sheet.nrows:
                     rinfo = rb_sheet.rowinfo_map.get(current_r) if hasattr(rb_sheet, "rowinfo_map") else None
                     if rinfo and rinfo.hidden:
@@ -515,20 +1260,15 @@ def write_parts_to_excel(file_path, sheet_name=None, parts=None, start_row=None,
                     first_written_row = current_r + 1
                 last_written_row = current_r + 1
 
-                # Write item serial number in Col Es.
                 try:
                     sheet.write(current_r, c_es, item_num)
                 except Exception:
                     pass
 
-                # Write Bill No if provided
                 if bill_no:
                     sheet.write(current_r, c_bill, str(bill_no).strip())
 
-                # Write Particular (Part Description) into Col C
                 sheet.write(current_r, c_part, desc)
-
-                # Write Estimate Amount into Col D
                 sheet.write(current_r, c_est, amt_num)
 
                 current_r += 1
@@ -579,6 +1319,21 @@ def write_parts_to_excel(file_path, sheet_name=None, parts=None, start_row=None,
             c_bill = bill_col_1based
             c_es = es_col_1based
 
+            # Detect if rows exceed existing table space before Total/Labour row
+            table_limit_row = None
+            for check_r in range(start_row, min(sheet.max_row + 1, start_row + 600)):
+                v_particular = str(sheet.cell(row=check_r, column=c_part).value or "").strip().lower()
+                v_col1 = str(sheet.cell(row=check_r, column=1).value or "").strip().lower()
+                if any(k in v_particular or k in v_col1 for k in ["total", "s.total", "grand total", "labour computation", "total parts"]):
+                    table_limit_row = check_r
+                    break
+
+            # If parts exceed the available rows before total, dynamically insert rows in openpyxl
+            num_parts = len(parts)
+            if table_limit_row and (start_row + num_parts >= table_limit_row):
+                needed = (start_row + num_parts) - table_limit_row + 2
+                sheet.insert_rows(table_limit_row, amount=needed)
+
             item_num = 1
             written = 0
             first_written_row = None
@@ -592,7 +1347,6 @@ def write_parts_to_excel(file_path, sheet_name=None, parts=None, start_row=None,
                 except (ValueError, TypeError):
                     amt_num = 0.0
 
-                # Ensure current_r is a VISIBLE row!
                 while current_r <= sheet.max_row:
                     dim = sheet.row_dimensions.get(current_r)
                     if dim and dim.hidden:
@@ -638,3 +1392,241 @@ def write_parts_to_excel(file_path, sheet_name=None, parts=None, start_row=None,
                 except Exception:
                     pass
 
+
+def write_labour_to_excel(file_path, sheet_name=None, labour_items=None, start_row=None, bill_no=""):
+    """
+    Writes extracted labour items into the LABOUR COMPUTATION table:
+    - Serial No ('Es.'): Sequential item index (e.g. 1, 2, 3...)
+    - Bill No ('Bill No.'): Optional bill reference
+    - Particular ('Particular'): Labour description (Col C)
+    - Estimate ('Estimate'): Taxable Amount (Col D)
+    Ensures items are written strictly to VISIBLE rows, skipping any hidden template rows.
+    In .xlsx/.xlsm workbooks, dynamically inserts rows if the number of items exceeds available table rows.
+    """
+    if not os.path.exists(file_path):
+        return {"success": False, "error": f"File not found: {file_path}"}
+
+    if not labour_items:
+        return {"success": False, "error": "No labour items provided to write."}
+
+    # Safety check for file lock
+    try:
+        with open(file_path, "r+b"):
+            pass
+    except PermissionError:
+        return {
+            "success": False,
+            "error": "The Excel file is currently open in Microsoft Excel. Please close it first."
+        }
+    except Exception as e:
+        return {"success": False, "error": f"File access error: {str(e)}"}
+
+    # Create safety backup
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_path = f"{file_path}.bak_{timestamp}"
+    try:
+        shutil.copy2(file_path, backup_path)
+        _prune_old_backups(file_path)
+    except Exception as e:
+        print(f"Warning creating backup: {e}")
+
+    # Inspect sheet and determine target columns and start row
+    sheet_info = inspect_estimate_excel(file_path, target_sheet=sheet_name)
+    if not sheet_info.get("success"):
+        return {"success": False, "error": sheet_info.get("error", "Failed to inspect Excel file.")}
+
+    target_sheet_name = sheet_info.get("selected_sheet")
+    part_col_1based = sheet_info.get("particular_col", 3)
+    est_col_1based = sheet_info.get("estimate_col", 4)
+    bill_col_1based = sheet_info.get("bill_no_col", 2)
+    es_col_1based = sheet_info.get("es_col", 1)
+
+    detected_start = sheet_info.get("labour_start_row", 359)
+    if start_row is None or int(start_row) <= 0:
+        start_row = detected_start
+    else:
+        start_row = int(start_row)
+
+    ext = os.path.splitext(file_path)[1].lower()
+
+    if ext == ".xls":
+        try:
+            import xlrd
+            from xlutils.copy import copy
+
+            rb = xlrd.open_workbook(file_path, formatting_info=True)
+            sheet_names = rb.sheet_names()
+
+            sheet_idx = 0
+            if target_sheet_name in sheet_names:
+                sheet_idx = sheet_names.index(target_sheet_name)
+            else:
+                for idx, sn in enumerate(sheet_names):
+                    if sn.strip().lower() == str(target_sheet_name).strip().lower():
+                        sheet_idx = idx
+                        target_sheet_name = sn
+                        break
+
+            rb_sheet = rb.sheet_by_index(sheet_idx)
+            wb = copy(rb)
+            sheet = wb.get_sheet(sheet_idx)
+
+            current_r = max(0, start_row - 1)
+            c_part = max(0, part_col_1based - 1)
+            c_est = max(0, est_col_1based - 1)
+            c_bill = max(0, bill_col_1based - 1)
+            c_es = max(0, es_col_1based - 1)
+
+            item_num = 1
+            written = 0
+            first_written_row = None
+            last_written_row = None
+
+            for it in labour_items:
+                desc = it.get("particular", "").strip()
+                amt = it.get("amount", 0.0)
+                try:
+                    amt_num = float(amt)
+                except (ValueError, TypeError):
+                    amt_num = 0.0
+
+                while current_r < rb_sheet.nrows:
+                    rinfo = rb_sheet.rowinfo_map.get(current_r) if hasattr(rb_sheet, "rowinfo_map") else None
+                    if rinfo and rinfo.hidden:
+                        current_r += 1
+                    else:
+                        break
+
+                if first_written_row is None:
+                    first_written_row = current_r + 1
+                last_written_row = current_r + 1
+
+                try:
+                    sheet.write(current_r, c_es, item_num)
+                except Exception:
+                    pass
+
+                if bill_no:
+                    sheet.write(current_r, c_bill, str(bill_no).strip())
+
+                sheet.write(current_r, c_part, desc)
+                sheet.write(current_r, c_est, amt_num)
+
+                current_r += 1
+                item_num += 1
+                written += 1
+
+            wb.save(file_path)
+            invalidate_estimate_cache(file_path)
+
+            return {
+                "success": True,
+                "written_count": written,
+                "start_row": first_written_row or start_row,
+                "end_row": last_written_row or (start_row + written - 1),
+                "backup_created": backup_path,
+                "file_path": file_path,
+                "sheet": target_sheet_name,
+                "particular_col": chr(65 + c_part),
+                "estimate_col": chr(65 + c_est)
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Error writing labour to .xls file: {str(e)}"}
+
+    else:
+        # Modern .xlsx / .xlsm using openpyxl
+        wb = None
+        try:
+            import openpyxl
+
+            wb = openpyxl.load_workbook(file_path)
+            if target_sheet_name in wb.sheetnames:
+                sheet = wb[target_sheet_name]
+            else:
+                matched = False
+                for sn in wb.sheetnames:
+                    if sn.strip().lower() == str(target_sheet_name).strip().lower():
+                        sheet = wb[sn]
+                        target_sheet_name = sn
+                        matched = True
+                        break
+                if not matched:
+                    sheet = wb.active
+                    target_sheet_name = sheet.title
+
+            current_r = start_row
+            c_part = part_col_1based
+            c_est = est_col_1based
+            c_bill = bill_col_1based
+            c_es = es_col_1based
+
+            table_limit_row = None
+            for check_r in range(start_row, min(sheet.max_row + 1, start_row + 200)):
+                v_particular = str(sheet.cell(row=check_r, column=c_part).value or "").strip().lower()
+                v_col1 = str(sheet.cell(row=check_r, column=1).value or "").strip().lower()
+                if any(k in v_particular or k in v_col1 for k in ["total", "s.total", "grand total", "total labour"]):
+                    table_limit_row = check_r
+                    break
+
+            num_items = len(labour_items)
+            if table_limit_row and (start_row + num_items >= table_limit_row):
+                needed = (start_row + num_items) - table_limit_row + 2
+                sheet.insert_rows(table_limit_row, amount=needed)
+
+            item_num = 1
+            written = 0
+            first_written_row = None
+            last_written_row = None
+
+            for it in labour_items:
+                desc = it.get("particular", "").strip()
+                amt = it.get("amount", 0.0)
+                try:
+                    amt_num = float(amt)
+                except (ValueError, TypeError):
+                    amt_num = 0.0
+
+                while current_r <= sheet.max_row:
+                    dim = sheet.row_dimensions.get(current_r)
+                    if dim and dim.hidden:
+                        current_r += 1
+                    else:
+                        break
+
+                if first_written_row is None:
+                    first_written_row = current_r
+                last_written_row = current_r
+
+                if c_es > 0:
+                    sheet.cell(row=current_r, column=c_es, value=item_num)
+                if bill_no and c_bill > 0:
+                    sheet.cell(row=current_r, column=c_bill, value=str(bill_no).strip())
+                sheet.cell(row=current_r, column=c_part, value=desc)
+                sheet.cell(row=current_r, column=c_est, value=amt_num)
+
+                current_r += 1
+                item_num += 1
+                written += 1
+
+            wb.save(file_path)
+            invalidate_estimate_cache(file_path)
+
+            return {
+                "success": True,
+                "written_count": written,
+                "start_row": first_written_row or start_row,
+                "end_row": last_written_row or (start_row + written - 1),
+                "backup_created": backup_path,
+                "file_path": file_path,
+                "sheet": target_sheet_name,
+                "particular_col": openpyxl.utils.get_column_letter(c_part),
+                "estimate_col": openpyxl.utils.get_column_letter(c_est)
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Error writing labour to Excel: {str(e)}"}
+        finally:
+            if wb is not None:
+                try:
+                    wb.close()
+                except Exception:
+                    pass

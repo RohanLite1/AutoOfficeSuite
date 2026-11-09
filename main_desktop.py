@@ -29,13 +29,13 @@ def is_port_in_use(port):
     """Check if a local TCP port is already open."""
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(0.5)
+            s.settimeout(0.1)
             return s.connect_ex((HOST, port)) == 0
     except Exception:
         return False
 
 
-def is_server_healthy(url, timeout=1.0):
+def is_server_healthy(url, timeout=0.5):
     """Verify whether our Flask server is active and returning HTTP 200."""
     try:
         req = urllib.request.Request(f"{url}/api/health")
@@ -45,22 +45,22 @@ def is_server_healthy(url, timeout=1.0):
         return False
 
 
-def find_available_port(start_port=5055, max_attempts=15):
+def find_available_port(start_port=5055, max_attempts=5):
     """Finds an unused port or one where our application is already running."""
-    # 1. Check if our application is already running on any of these ports
-    for p in range(start_port, start_port + max_attempts):
-        url = f"http://{HOST}:{p}"
-        if is_server_healthy(url):
-            return p, True  # Already running our app!
+    # Fast-path: Check preferred port first
+    if not is_port_in_use(start_port):
+        return start_port, False
 
-    # 2. Find a port that we can actually bind to
-    for p in range(start_port, start_port + max_attempts):
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.bind((HOST, p))
-                return p, False  # Free port to bind
-        except Exception:
-            continue
+    # Preferred port is in use; check if our app is running on it
+    if is_server_healthy(f"http://{HOST}:{start_port}"):
+        return start_port, True
+
+    # Scan alternative ports
+    for p in range(start_port + 1, start_port + max_attempts):
+        if not is_port_in_use(p):
+            return p, False
+        if is_server_healthy(f"http://{HOST}:{p}"):
+            return p, True
 
     return start_port, False
 
@@ -138,7 +138,7 @@ def main():
 
         api = DesktopApi()
         webview.create_window(
-            title="Office Automation - MIS Claims & Estimate Parts",
+            title="Office Automation - Estimate Parts Extractor",
             url=app_url,
             width=1340,
             height=860,

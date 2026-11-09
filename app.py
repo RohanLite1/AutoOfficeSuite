@@ -24,7 +24,7 @@ if sys.stderr is None:
 
 from extractor import extract_data_from_pdf, DEFAULT_TEMPLATES
 from excel_handler import get_excel_info, append_rows_to_excel, check_file_locked
-from estimate_handler import parse_estimate_pdf, inspect_estimate_excel, write_parts_to_excel
+from estimate_handler import parse_estimate_pdf, inspect_estimate_excel, write_parts_to_excel, write_labour_to_excel
 
 if getattr(sys, "frozen", False):
     BASE_DIR = os.path.dirname(sys.executable)
@@ -59,6 +59,7 @@ DEFAULT_CONFIG = {
     "estimate_excel_path": "",
     "estimate_selected_sheet": "",
     "estimate_start_row": 171,
+    "estimate_labour_start_row": 359,
     "templates": DEFAULT_TEMPLATES
 }
 
@@ -107,7 +108,7 @@ def config_api():
         
         estimate_status = None
         if cfg.get("estimate_excel_path") and os.path.exists(cfg["estimate_excel_path"]):
-            estimate_status = inspect_estimate_excel(cfg["estimate_excel_path"])
+            estimate_status = inspect_estimate_excel(cfg["estimate_excel_path"], cfg.get("estimate_selected_sheet"))
 
         return jsonify({
             "config": cfg,
@@ -134,7 +135,7 @@ def config_api():
 
         estimate_status = None
         if cfg.get("estimate_excel_path") and os.path.exists(cfg["estimate_excel_path"]):
-            estimate_status = inspect_estimate_excel(cfg["estimate_excel_path"])
+            estimate_status = inspect_estimate_excel(cfg["estimate_excel_path"], cfg.get("estimate_selected_sheet"))
 
         return jsonify({
             "success": True,
@@ -374,6 +375,7 @@ def set_excel_path():
             cfg["estimate_excel_path"] = norm_path
             cfg["estimate_selected_sheet"] = info.get("selected_sheet", "")
             cfg["estimate_start_row"] = info.get("data_start_row", 171)
+            cfg["estimate_labour_start_row"] = info.get("labour_start_row", 359)
             save_config(cfg)
         return jsonify({
             "success": True,
@@ -387,6 +389,7 @@ def set_excel_path():
             "selected_sheet": info.get("selected_sheet", ""),
             "sheets": info.get("sheets", []),
             "data_start_row": info.get("data_start_row", 171),
+            "labour_start_row": info.get("labour_start_row", 359),
             "excel_status": info,
             "config": cfg
         })
@@ -439,7 +442,9 @@ def excel_file_status():
             "file_size": f"{size_kb:.1f} KB",
             "selected_sheet": info.get("selected_sheet", ""),
             "sheets": info.get("sheets", []),
-            "start_row": info.get("data_start_row", 171)
+            "start_row": info.get("data_start_row", 171),
+            "labour_start_row": info.get("labour_start_row", 359),
+            "excel_status": info
         })
 
 
@@ -777,6 +782,11 @@ def upload_estimate_excel():
         os.makedirs(master_dir, exist_ok=True)
         target_path = os.path.abspath(os.path.join(master_dir, clean_name or "estimate_format.xls"))
         file.save(target_path)
+    else:
+        try:
+            file.save(target_path)
+        except Exception:
+            pass
 
     info = inspect_estimate_excel(target_path)
     if not info.get("success"):
@@ -786,12 +796,14 @@ def upload_estimate_excel():
     cfg["estimate_excel_path"] = target_path
     cfg["estimate_selected_sheet"] = info.get("selected_sheet", "")
     cfg["estimate_start_row"] = info.get("data_start_row", 171)
+    cfg["estimate_labour_start_row"] = info.get("labour_start_row", 359)
     save_config(cfg)
 
     return jsonify({
         "success": True,
         "file_path": target_path,
         "filename": os.path.basename(target_path),
+        "selected_sheet": info.get("selected_sheet", ""),
         "config": cfg,
         "excel_status": info
     })
@@ -841,6 +853,51 @@ def write_estimate_api():
         return jsonify(res)
     except Exception as e:
         return jsonify({"success": False, "error": f"Error writing parts to Excel: {str(e)}"})
+
+
+@app.route("/api/write-labour", methods=["POST"])
+def write_labour_api():
+    """Writes selected labour charges (Col C) and amounts (Col D) into the LABOUR COMPUTATION table."""
+    try:
+        data = request.json or {}
+        cfg = load_config()
+
+        file_path = data.get("file_path") or cfg.get("estimate_excel_path") or cfg.get("master_excel_path")
+        sheet_name = data.get("sheet_name") or cfg.get("estimate_selected_sheet")
+        labour = data.get("labour", [])
+        start_row = int(data.get("start_row") or cfg.get("estimate_labour_start_row") or 359)
+        bill_no = data.get("bill_no", "")
+
+        if not file_path or not os.path.exists(file_path):
+            return jsonify({"success": False, "error": f"Target Assessment Excel not found: {file_path}"})
+
+        if not labour:
+            return jsonify({"success": False, "error": "No labour items provided to write."})
+
+        res = write_labour_to_excel(
+            file_path=file_path,
+            sheet_name=sheet_name,
+            labour_items=labour,
+            start_row=start_row,
+            bill_no=bill_no
+        )
+
+        if res.get("success"):
+            norm_path = os.path.normpath(os.path.abspath(file_path))
+            mtime = os.path.getmtime(norm_path)
+            size_kb = os.path.getsize(norm_path) / 1024
+            res["file_path"] = norm_path
+            res["filename"] = os.path.basename(norm_path)
+            res["folder"] = os.path.dirname(norm_path)
+            res["last_modified"] = datetime.fromtimestamp(mtime).strftime("%d-%b-%Y %I:%M:%S %p")
+            res["file_size"] = f"{size_kb:.1f} KB"
+            if res.get("end_row"):
+                cfg["estimate_labour_start_row"] = res["end_row"] + 1
+            save_config(cfg)
+
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Error writing labour to Excel: {str(e)}"})
 
 
 @app.route("/api/open-estimate-excel", methods=["POST"])
@@ -973,7 +1030,7 @@ def clear_web_claims():
 
 if __name__ == "__main__":
     print("\n" + "=" * 60)
-    print("  INSURANCE CLAIM MIS EXTRACTOR - LOCALHOST SERVER")
+    print("  ESTIMATE PARTS EXTRACTOR - LOCALHOST SERVER")
     print("  Open in browser: http://127.0.0.1:5055")
     print("=" * 60 + "\n")
     app.run(host="127.0.0.1", port=5055, debug=False)
