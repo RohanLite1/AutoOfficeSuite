@@ -147,15 +147,22 @@
         .alert-info { background: #dbeafe; border: 1px solid #93c5fd; color: #1e3a8a; }
         .alert-warning { background: #fef3c7; border: 1px solid #fcd34d; color: #78350f; }
 
-        /* HERO 2-STEP ACTION GRID */
+        /* HERO 4-STEP ACTION GRID IN HORIZONTAL SUCCESSION */
         .action-cards-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
             margin-bottom: 24px;
+            align-items: stretch;
         }
 
-        @media (max-width: 900px) {
+        @media (max-width: 1200px) {
+            .action-cards-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 700px) {
             .action-cards-grid {
                 grid-template-columns: 1fr;
             }
@@ -165,13 +172,15 @@
             background: var(--surface);
             border: 2px solid var(--border);
             border-radius: var(--radius-lg);
-            padding: 24px;
+            padding: 18px 20px;
             box-shadow: var(--shadow-md);
             display: flex;
             flex-direction: column;
             justify-content: space-between;
             position: relative;
             transition: all 0.2s ease;
+            height: 100%;
+            min-height: 290px;
         }
 
         .action-card:hover {
@@ -188,7 +197,8 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 16px;
+            margin-bottom: 10px;
+            height: 24px;
         }
 
         .step-pill {
@@ -196,7 +206,7 @@
             font-weight: 800;
             letter-spacing: 0.05em;
             text-transform: uppercase;
-            padding: 4px 10px;
+            padding: 3px 9px;
             border-radius: 9999px;
             background: #e2e8f0;
             color: #334155;
@@ -208,37 +218,43 @@
         }
 
         .card-title {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 800;
             color: var(--text-main);
             display: flex;
             align-items: center;
             gap: 8px;
+            min-height: 24px;
         }
 
         .card-subtitle {
-            font-size: 13px;
+            font-size: 12px;
             color: var(--text-muted);
-            margin-top: 2px;
+            margin-top: 3px;
+            min-height: 34px;
+            line-height: 1.35;
         }
 
         /* BIG ACTION BUTTONS */
         .btn-big-action {
             width: 100%;
-            padding: 16px 22px;
+            height: 48px;
+            min-height: 48px;
+            padding: 0 12px;
             border-radius: var(--radius-md);
-            font-size: 16px;
+            font-size: 13.5px;
             font-weight: 700;
             cursor: pointer;
             border: none;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 12px;
+            gap: 8px;
             transition: all 0.15s ease;
             box-shadow: var(--shadow-sm);
-            margin: 16px 0;
+            margin: 12px 0 10px 0;
             text-decoration: none;
+            white-space: nowrap;
         }
 
         .btn-big-excel {
@@ -261,39 +277,177 @@
             transform: translateY(-1px);
         }
 
+        .btn-big-purple {
+            background: #7c3aed;
+            color: white;
+        }
+
+        .btn-big-purple:hover {
+            background: #6d28d9;
+            transform: translateY(-1px);
+        }
+
+        .btn-big-amber {
+            background: #d97706;
+            color: white;
+        }
+
+        .btn-big-amber:hover {
+            background: #b45309;
+            transform: translateY(-1px);
+        }
+
+        .cat-stat-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .badge-matched {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #dcfce7;
+            color: #15803d;
+            border: 1px solid #86efac;
+            padding: 3px 8px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .badge-disallowed {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #fef9c3;
+            color: #854d0e;
+            border: 1px solid #fde047;
+            padding: 3px 8px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .cat-group {
+            display: inline-flex;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+            background: #f1f5f9;
+        }
+
+        .cat-btn {
+            border: none;
+            background: transparent;
+            padding: 4px 8px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .cat-btn:hover {
+            background: #e2e8f0;
+        }
+
+        .cat-btn.active-metal {
+            background: #334155;
+            color: white;
+        }
+
+        .cat-btn.active-nonmetal {
+            background: #2563eb;
+            color: white;
+        }
+
+        .cat-btn.active-glass {
+            background: #0284c7;
+            color: white;
+        }
+
+        .cat-btn.active-disallowed {
+            background: #eab308;
+            color: #713f12;
+            font-weight: 800;
+        }
+
+        .dest-col-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 7px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+        }
+
+        .dest-col-e {
+            background: #e2e8f0;
+            color: #1e293b;
+            border: 1px solid #cbd5e1;
+        }
+
+        .dest-col-f {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #bfdbfe;
+        }
+
+        .dest-col-g {
+            background: #e0f2fe;
+            color: #0369a1;
+            border: 1px solid #bae6fd;
+        }
+
+        .dest-col-h {
+            background: #fef08a;
+            color: #854d0e;
+            border: 1.5px solid #eab308;
+        }
+
         /* Card Content & Details */
         .card-details-box {
             background: #f8fafc;
             border: 1px solid var(--border);
             border-radius: var(--radius-md);
-            padding: 14px 16px;
-            font-size: 13px;
+            padding: 10px 12px;
+            font-size: 12px;
+            min-height: 86px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
 
         .file-status-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 10px;
-            padding-bottom: 10px;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
             border-bottom: 1px dashed var(--border);
         }
 
         .file-name-strong {
             font-weight: 700;
             color: var(--text-main);
-            font-size: 14px;
+            font-size: 13px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            max-width: 320px;
+            max-width: 220px;
         }
 
         .excel-config-controls {
             display: grid;
             grid-template-columns: 1.2fr 1fr 1fr;
-            gap: 10px;
-            margin-top: 8px;
+            gap: 8px;
+            margin-top: 4px;
         }
 
         @media (max-width: 600px) {
@@ -304,21 +458,21 @@
 
         .form-group label {
             display: block;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.03em;
             color: var(--text-muted);
-            margin-bottom: 4px;
+            margin-bottom: 2px;
         }
 
         .form-control {
             width: 100%;
             border: 1.5px solid var(--border);
             background: white;
-            padding: 8px 10px;
+            padding: 6px 8px;
             border-radius: 6px;
-            font-size: 13px;
+            font-size: 12px;
             color: var(--text-main);
             outline: none;
             transition: border-color 0.15s;
@@ -332,8 +486,120 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-top: 12px;
-            font-size: 12px;
+            margin-top: auto;
+            padding-top: 10px;
+            border-top: 1px dashed var(--border);
+            font-size: 11px;
+            min-height: 32px;
+        }
+
+        /* QUANTITY STEPPER */
+        .qty-stepper-box {
+            display: inline-flex;
+            align-items: center;
+            border: 1.5px solid var(--border);
+            border-radius: 6px;
+            background: white;
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn-stepper {
+            background: #f8fafc;
+            border: none;
+            width: 26px;
+            height: 30px;
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--text-main);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.12s ease;
+            user-select: none;
+        }
+
+        .btn-stepper:hover {
+            background: #e2e8f0;
+            color: var(--primary);
+        }
+
+        .btn-stepper:active {
+            background: #cbd5e1;
+        }
+
+        .input-stepper {
+            width: 40px;
+            height: 30px;
+            border: none;
+            border-left: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            text-align: center;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-main);
+            padding: 0;
+            -moz-appearance: textfield;
+        }
+
+        .input-stepper::-webkit-inner-spin-button,
+        .input-stepper::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .unit-price-hint {
+            display: block;
+            font-size: 10px;
+            color: var(--text-light);
+            margin-top: 2px;
+            white-space: nowrap;
+        }
+
+        .qty-capped-badge {
+            display: inline-block;
+            background: #fef3c7;
+            color: #92400e;
+            font-size: 9.5px;
+            font-weight: 700;
+            padding: 1px 5px;
+            border-radius: 3px;
+            margin-top: 2px;
+            white-space: nowrap;
+        }
+
+        .card-placeholder-box {
+            background: #f8fafc;
+            border: 1.5px dashed #cbd5e1;
+            border-radius: var(--radius-md);
+            padding: 10px 12px;
+            min-height: 86px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            gap: 3px;
+            font-size: 11.5px;
+            color: var(--text-muted);
+            transition: all 0.2s ease;
+        }
+
+        .card-placeholder-icon {
+            font-size: 20px;
+            line-height: 1;
+            opacity: 0.8;
+        }
+
+        .card-placeholder-text {
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .card-placeholder-sub {
+            font-size: 10.5px;
+            color: var(--text-light);
         }
 
         .link-action {
@@ -691,6 +957,7 @@
     <!-- Hidden Native File Pickers -->
     <input type="file" id="excel-file-picker" accept=".xlsx,.xls,.xlsm" style="display:none;" onchange="handleExcelFileSelected(this.files)">
     <input type="file" id="pdf-file-picker" accept=".pdf" style="display:none;" onchange="handlePdfSelected(this.files)">
+    <input type="file" id="final-bill-file-picker" accept=".pdf" style="display:none;" onchange="handleFinalBillSelected(this.files)">
 
     <!-- Top Navbar -->
     <header class="top-navbar">
@@ -720,7 +987,7 @@
             <button type="button" class="btn-pill" style="padding:2px 8px;" onclick="hideAlert()">✕</button>
         </div>
 
-        <!-- 2-STEP HERO ACTION CARDS -->
+        <!-- 4-STEP HERO ACTION CARDS -->
         <div class="action-cards-grid">
             
             <!-- STEP 1: ASSESSMENT EXCEL -->
@@ -735,14 +1002,21 @@
                         <span>📊 Assessment Excel</span>
                     </div>
                     <div class="card-subtitle">
-                        Select your Master Assessment sheet (.xls, .xlsx, .xlsm) where parts will be pasted.
+                        Select master assessment sheet (.xls, .xlsx) where parts are pasted.
                     </div>
 
                     <!-- BIG ADD EXCEL BUTTON -->
                     <button type="button" class="btn-big-action btn-big-excel" onclick="triggerBrowseExcel()">
-                        <span style="font-size:22px;">📁</span>
-                        <span id="btn-excel-label">Add / Choose Excel File</span>
+                        <span style="font-size:20px;">📁</span>
+                        <span id="btn-excel-label">Add Excel File</span>
                     </button>
+
+                    <!-- PLACEHOLDER WHEN NOT CONNECTED -->
+                    <div class="card-placeholder-box" id="excel-placeholder-box">
+                        <span class="card-placeholder-icon">📊</span>
+                        <span class="card-placeholder-text">No Excel File Linked</span>
+                        <span class="card-placeholder-sub">Click above to select master spreadsheet</span>
+                    </div>
 
                     <!-- CONNECTED EXCEL DETAILS -->
                     <div class="card-details-box" id="excel-details-box" style="display:none;">
@@ -758,16 +1032,16 @@
                             <div class="form-group">
                                 <label>Sheet</label>
                                 <select id="cfg-sheet-select" class="form-control" onchange="saveSelectedSheet(this.value)">
-                                    <option value="">-- Select Sheet --</option>
+                                    <option value="">-- Sheet --</option>
                                 </select>
                             </div>
                             <div class="form-group">
                                 <label>Parts Row</label>
-                                <input type="number" id="cfg-start-row" class="form-control" value="171" min="1" onchange="saveStartRow(this.value)" style="font-weight:700; color:var(--primary); text-align:center;" title="Row where parts writing begins (Col C: Description, Col D: Taxable Amount)">
+                                <input type="number" id="cfg-start-row" class="form-control" value="171" min="1" onchange="saveStartRow(this.value)" style="font-weight:700; color:var(--primary); text-align:center;">
                             </div>
                             <div class="form-group">
                                 <label>Labour Row</label>
-                                <input type="number" id="cfg-labour-start-row" class="form-control" value="359" min="1" onchange="saveLabourStartRow(this.value)" style="font-weight:700; color:#7c3aed; text-align:center;" title="Row in LABOUR COMPUTATION where labour begins (Col B: Bill, Col C: Particular, Col D: Taxable Amount)">
+                                <input type="number" id="cfg-labour-start-row" class="form-control" value="359" min="1" onchange="saveLabourStartRow(this.value)" style="font-weight:700; color:#7c3aed; text-align:center;">
                             </div>
                         </div>
                     </div>
@@ -791,14 +1065,21 @@
                         <span>🧾 Estimate PDF Bill</span>
                     </div>
                     <div class="card-subtitle">
-                        Upload any dealer estimate or retail tax invoice (Maruti Suzuki, BMW, Hyundai, etc.)
+                        Upload repair estimate PDF (Maruti Suzuki, Hyundai, Toyota, etc.)
                     </div>
 
                     <!-- BIG ADD PDF BILL BUTTON -->
                     <button type="button" class="btn-big-action btn-big-pdf" onclick="triggerBrowsePdf()">
-                        <span style="font-size:22px;">📄</span>
-                        <span id="btn-pdf-label">Add PDF Bill (Click or Drop PDF)</span>
+                        <span style="font-size:20px;">📄</span>
+                        <span id="btn-pdf-label">Add Estimate PDF</span>
                     </button>
+
+                    <!-- PLACEHOLDER WHEN NOT UPLOADED -->
+                    <div class="card-placeholder-box" id="pdf-placeholder-box">
+                        <span class="card-placeholder-icon">📄</span>
+                        <span class="card-placeholder-text">No Estimate PDF Loaded</span>
+                        <span class="card-placeholder-sub">Upload dealer / workshop estimate bill</span>
+                    </div>
 
                     <!-- CONNECTED PDF DETAILS -->
                     <div class="card-details-box" id="pdf-details-box" style="display:none;">
@@ -820,8 +1101,112 @@
                 </div>
 
                 <div class="card-footer-actions">
-                    <span id="pdf-summary-text" style="color:var(--text-light);">Extracts Taxable Amounts automatically</span>
+                    <span id="pdf-summary-text" style="color:var(--text-light);">Extracts Taxable Amounts</span>
                     <button type="button" class="link-action" onclick="document.getElementById('pdf-file-picker').click()">Browse PDF...</button>
+                </div>
+            </div>
+
+            <!-- STEP 3: IMPORT BILL PDF -->
+            <div class="action-card" id="card-final-bill">
+                <div>
+                    <div class="card-header-row">
+                        <span class="step-pill" id="pill-step-3">STEP 3</span>
+                        <span id="final-bill-status-badge" style="font-size:12px; font-weight:700; color:#7c3aed; display:none;">✓ Parsed</span>
+                    </div>
+
+                    <div class="card-title">
+                        <span>📑 Import Bill PDF</span>
+                    </div>
+                    <div class="card-subtitle">
+                        Upload final workshop tax invoice to tally against estimate parts.
+                    </div>
+
+                    <!-- BIG ADD FINAL BILL BUTTON -->
+                    <button type="button" class="btn-big-action btn-big-purple" onclick="triggerBrowseFinalBill()">
+                        <span style="font-size:20px;">📥</span>
+                        <span id="btn-final-bill-label">Import Bill PDF</span>
+                    </button>
+
+                    <!-- PLACEHOLDER WHEN NOT UPLOADED -->
+                    <div class="card-placeholder-box" id="final-bill-placeholder-box">
+                        <span class="card-placeholder-icon">📑</span>
+                        <span class="card-placeholder-text">No Final Bill PDF Loaded</span>
+                        <span class="card-placeholder-sub">Upload final tax invoice to reconcile parts</span>
+                    </div>
+
+                    <!-- CONNECTED FINAL BILL DETAILS -->
+                    <div class="card-details-box" id="final-bill-details-box" style="display:none;">
+                        <div class="file-status-row">
+                            <div>
+                                <div style="font-size:11px; color:var(--text-light); text-transform:uppercase; font-weight:700;">Final Bill</div>
+                                <div class="file-name-strong" id="final-bill-filename-display">--</div>
+                            </div>
+                            <button type="button" class="btn-pill" style="font-size:11px; padding:4px 8px;" onclick="triggerBrowseFinalBill()">Change Bill</button>
+                        </div>
+
+                        <div class="meta-chips-bar" id="final-bill-meta-chips">
+                            <span class="meta-chip">📦 Parts: <strong id="chip-final-bill-parts">0</strong></span>
+                            <span class="meta-chip">🛠️ Labour: <strong id="chip-final-bill-labour">0</strong></span>
+                            <span class="meta-chip">💰 Total: <strong id="chip-final-bill-total">₹0</strong></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-footer-actions">
+                    <span id="final-bill-summary-text" style="color:var(--text-light);">Reconciles with Step 2</span>
+                    <button type="button" class="link-action" onclick="document.getElementById('final-bill-file-picker').click()">Browse Bill PDF...</button>
+                </div>
+            </div>
+
+            <!-- STEP 4: TALLY PARTS AND PASTE COST -->
+            <div class="action-card" id="card-tally">
+                <div>
+                    <div class="card-header-row">
+                        <span class="step-pill" id="pill-step-4">STEP 4</span>
+                        <span id="tally-status-badge" style="font-size:12px; font-weight:700; color:#d97706; display:none;">✓ Tallied</span>
+                    </div>
+
+                    <div class="card-title">
+                        <span>⚖️ Tally & Paste Cost</span>
+                    </div>
+                    <div class="card-subtitle">
+                        Tally parts vs bill: Metal, Non-Metal, Glass or Col H (Yellow).
+                    </div>
+
+                    <!-- BIG TALLY BUTTON -->
+                    <button type="button" class="btn-big-action btn-big-amber" id="btn-run-tally" onclick="runTallyProcess()">
+                        <span style="font-size:20px;">⚡</span>
+                        <span id="btn-tally-label">Tally & Paste Cost</span>
+                    </button>
+
+                    <!-- PLACEHOLDER WHEN NOT RUN -->
+                    <div class="card-placeholder-box" id="tally-placeholder-box">
+                        <span class="card-placeholder-icon">⚖️</span>
+                        <span class="card-placeholder-text">Awaiting Tally Execution</span>
+                        <span class="card-placeholder-sub">Click above to reconcile Step 2 and Step 3</span>
+                    </div>
+
+                    <!-- TALLY SUMMARY DETAILS -->
+                    <div class="card-details-box" id="tally-details-box" style="display:none;">
+                        <div class="file-status-row">
+                            <div>
+                                <div style="font-size:11px; color:var(--text-light); text-transform:uppercase; font-weight:700;">Reconciliation</div>
+                                <div class="file-name-strong" id="tally-status-title">Ready to Review</div>
+                            </div>
+                            <button type="button" class="btn-pill" style="font-size:11px; padding:4px 8px;" onclick="scrollToTallyReview()">Review ↓</button>
+                        </div>
+
+                        <div class="meta-chips-bar" id="tally-meta-chips" style="margin-top:0;">
+                            <span class="meta-chip" style="background:#f1f5f9; color:#334155;">Total: <strong id="stat-tally-total">0</strong></span>
+                            <span class="meta-chip" style="background:#dcfce7; color:#15803d;">Matched: <strong id="stat-tally-matched">0</strong></span>
+                            <span class="meta-chip" style="background:#fef9c3; color:#854d0e; border:1px solid #fde047;">Col H: <strong id="stat-tally-disallowed">0</strong></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-footer-actions">
+                    <span id="tally-summary-text" style="color:var(--text-light);">Pastes into Col E, F, G, H</span>
+                    <button type="button" class="link-action" onclick="scrollToTallyReview()">View Tally Table ↓</button>
                 </div>
             </div>
 
@@ -917,6 +1302,53 @@
 
         </div>
 
+        <!-- TALLY REVIEW TABLE CARD -->
+        <div class="table-card" id="tally-review-card" style="display:none; margin-top:24px;">
+            <!-- Table Toolbar -->
+            <div class="table-toolbar">
+                <div class="search-input-wrap">
+                    <span class="search-input-icon">🔍</span>
+                    <input type="text" id="tally-search-input" placeholder="Search tallied parts..." oninput="handleTallySearch(this.value)">
+                </div>
+
+                <div class="filter-group">
+                    <button type="button" class="filter-tab active" id="tab-tally-all" onclick="setTallyCategoryFilter('all')">All (<span id="tally-count-all">0</span>)</button>
+                    <button type="button" class="filter-tab" id="tab-tally-matched" onclick="setTallyCategoryFilter('matched')">Matched (<span id="tally-count-matched">0</span>)</button>
+                    <button type="button" class="filter-tab" id="tab-tally-disallowed" onclick="setTallyCategoryFilter('disallowed')" style="color:#854d0e;">Col H: Not Allowed (<span id="tally-count-disallowed">0</span>)</button>
+                    <button type="button" class="filter-tab" id="tab-tally-metal" onclick="setTallyCategoryFilter('Metal')">Col E: Metal (<span id="tally-count-metal">0</span>)</button>
+                    <button type="button" class="filter-tab" id="tab-tally-nonmetal" onclick="setTallyCategoryFilter('Non Metal')">Col F: Non-Metal (<span id="tally-count-nonmetal">0</span>)</button>
+                    <button type="button" class="filter-tab" id="tab-tally-glass" onclick="setTallyCategoryFilter('Glass')">Col G: Glass (<span id="tally-count-glass">0</span>)</button>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <button type="button" class="btn-write-huge" id="btn-write-tallied-costs" onclick="writeTalliedCostsToExcel()" style="padding:10px 18px; font-size:14px; background:#d97706; margin:0;" title="Writes assessed costs into Excel (Metal Col E, Non-Metal Col F, Glass Col G, Not Allowed Col H)">
+                        <span>✍️ Write Tallied Costs to Excel</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Table Content -->
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 45px; text-align: center;">#</th>
+                            <th style="min-width: 210px;">Estimate Part Name [Col C]</th>
+                            <th style="width: 110px; text-align: right;">Est Cost [Col D]</th>
+                            <th style="min-width: 190px;">Final Bill Status</th>
+                            <th style="min-width: 270px; text-align: center;">Assessed Category</th>
+                            <th style="width: 140px; text-align: center;">Parts Qty</th>
+                            <th style="width: 125px; text-align: right;">Assessed Cost (₹)</th>
+                            <th style="width: 110px; text-align: center;">Target Col</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tally-table-body">
+                        <!-- Populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
 
     <!-- POST-WRITE SUCCESS MODAL -->
@@ -949,6 +1381,18 @@
         let estimateData = {
             header: {},
             items: []
+        };
+
+        let finalBillData = {
+            header: {},
+            items: [],
+            filename: ""
+        };
+
+        let talliedItems = [];
+        let tallyUiState = {
+            filter: "all",
+            search: ""
         };
 
         let uiState = {
@@ -1002,6 +1446,8 @@
             document.getElementById("card-excel").classList.add("card-ready");
             document.getElementById("pill-step-1").classList.add("ready");
             document.getElementById("excel-status-badge").style.display = "inline";
+            const excelPlaceholder = document.getElementById("excel-placeholder-box");
+            if (excelPlaceholder) excelPlaceholder.style.display = "none";
             document.getElementById("excel-details-box").style.display = "block";
             document.getElementById("excel-filename-display").innerText = filename;
             document.getElementById("excel-filename-display").title = path;
@@ -1215,6 +1661,29 @@
                     }
                 }, false);
             }
+
+            // Final Bill drop zone
+            const dropCardFinalBill = document.getElementById("card-final-bill");
+            if (dropCardFinalBill) {
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(ev => {
+                    dropCardFinalBill.addEventListener(ev, e => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }, false);
+                });
+                ['dragenter', 'dragover'].forEach(ev => {
+                    dropCardFinalBill.addEventListener(ev, () => dropCardFinalBill.style.borderColor = "#7c3aed", false);
+                });
+                ['dragleave', 'drop'].forEach(ev => {
+                    dropCardFinalBill.addEventListener(ev, () => dropCardFinalBill.style.borderColor = "", false);
+                });
+                dropCardFinalBill.addEventListener('drop', e => {
+                    const files = e.dataTransfer.files;
+                    if (files && files.length > 0) {
+                        handleFinalBillSelected(files);
+                    }
+                }, false);
+            }
         }
 
         async function handlePdfSelected(files) {
@@ -1240,15 +1709,20 @@
 
                 if (data.success) {
                     estimateData = data;
+                    (estimateData.items || []).forEach(it => {
+                        it.selected = true;
+                    });
                     uiState.currentPage = 1;
 
                     // Update UI state
                     document.getElementById("card-pdf").classList.add("card-ready");
                     document.getElementById("pill-step-2").classList.add("ready");
                     document.getElementById("pdf-status-badge").style.display = "inline";
+                    const pdfPlaceholder = document.getElementById("pdf-placeholder-box");
+                    if (pdfPlaceholder) pdfPlaceholder.style.display = "none";
                     document.getElementById("pdf-details-box").style.display = "block";
                     document.getElementById("pdf-filename-display").innerText = file.name;
-                    document.getElementById("btn-pdf-label").innerText = "Upload Another PDF";
+                    document.getElementById("btn-pdf-label").innerText = "Change Estimate PDF";
 
                     const h = data.header || {};
                     document.getElementById("chip-reg").innerText = h.registration_no || "--";
@@ -1513,10 +1987,17 @@
 
         // Write Parts into Excel Action
         async function writePartsToExcel() {
-            const selected = (estimateData.items || []).filter(it => it.item_type === "Part" && it.selected);
+            let selected = (estimateData.items || []).filter(it => it.item_type === "Part" && it.selected);
             if (selected.length === 0) {
-                showAlert("Please select at least one part to write.", "warning");
-                return;
+                const allParts = (estimateData.items || []).filter(it => it.item_type === "Part");
+                if (allParts.length > 0) {
+                    allParts.forEach(it => it.selected = true);
+                    renderPartsTable();
+                    selected = allParts;
+                } else {
+                    showAlert("No Parts found in the extracted estimate to write.", "warning");
+                    return;
+                }
             }
 
             const excelPath = appConfig.estimate_excel_path;
@@ -1574,10 +2055,17 @@
 
         // Write Labour into Excel Action
         async function writeLabourToExcel() {
-            const selected = (estimateData.items || []).filter(it => it.item_type === "Labour" && it.selected);
+            let selected = (estimateData.items || []).filter(it => it.item_type === "Labour" && it.selected);
             if (selected.length === 0) {
-                showAlert("Please select at least one Labour charge to write.", "warning");
-                return;
+                const allLabour = (estimateData.items || []).filter(it => it.item_type === "Labour");
+                if (allLabour.length > 0) {
+                    allLabour.forEach(it => it.selected = true);
+                    renderPartsTable();
+                    selected = allLabour;
+                } else {
+                    showAlert("No Labour charges found in the extracted estimate to write.", "warning");
+                    return;
+                }
             }
 
             const excelPath = appConfig.estimate_excel_path;
@@ -1630,6 +2118,415 @@
                 btn.disabled = false;
                 updateHeroBanner();
                 showAlert("Server error during labour write.", "error");
+            }
+        }
+
+        // Final Bill & Tallying Logic
+        function triggerBrowseFinalBill() {
+            document.getElementById("final-bill-file-picker").click();
+        }
+
+        async function handleFinalBillSelected(files) {
+            if (!files || files.length === 0) return;
+            const file = files[0];
+            if (!file.name.toLowerCase().endsWith(".pdf")) {
+                showAlert("Please select a valid PDF file for the final bill.", "warning");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            showAlert(`Analyzing Final Bill <strong>${file.name}</strong>...`, "info");
+            document.getElementById("btn-final-bill-label").innerText = "Analyzing Final Bill...";
+
+            try {
+                const res = await fetch("/api/extract-final-bill", {
+                    method: "POST",
+                    body: formData
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    finalBillData = data;
+                    finalBillData.filename = file.name;
+
+                    // Update UI state
+                    document.getElementById("card-final-bill").classList.add("card-ready");
+                    document.getElementById("pill-step-3").classList.add("ready");
+                    document.getElementById("final-bill-status-badge").style.display = "inline";
+                    const fbPlaceholder = document.getElementById("final-bill-placeholder-box");
+                    if (fbPlaceholder) fbPlaceholder.style.display = "none";
+                    document.getElementById("final-bill-details-box").style.display = "block";
+                    document.getElementById("final-bill-filename-display").innerText = file.name;
+                    document.getElementById("btn-final-bill-label").innerText = "Change Final Bill PDF";
+
+                    const items = data.items || [];
+                    const pCount = items.filter(it => it.item_type === "Part").length;
+                    const lCount = items.filter(it => it.item_type === "Labour").length;
+                    const totalSum = items.reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
+
+                    document.getElementById("chip-final-bill-parts").innerText = pCount;
+                    document.getElementById("chip-final-bill-labour").innerText = lCount;
+                    document.getElementById("chip-final-bill-total").innerText = `₹${totalSum.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+
+                    document.getElementById("final-bill-summary-text").innerHTML = 
+                        `Extracted <strong>${pCount} parts</strong> &bull; Ready to tally with Step 2`;
+
+                    showAlert(`Final Bill loaded! <strong>${pCount} parts</strong> extracted. Now click Step 4 to tally costs!`, "success");
+
+                    if ((estimateData.items || []).filter(it => it.item_type === "Part").length > 0) {
+                        document.getElementById("card-tally").style.borderColor = "#d97706";
+                    }
+                } else {
+                    document.getElementById("btn-final-bill-label").innerText = "Import Bill PDF";
+                    showAlert(data.error || "Failed to parse final bill PDF.", "error");
+                }
+            } catch (err) {
+                document.getElementById("btn-final-bill-label").innerText = "Import Bill PDF";
+                showAlert("Server error during final bill extraction.", "error");
+            }
+        }
+
+        async function runTallyProcess() {
+            const estParts = (estimateData.items || []).filter(it => it.item_type === "Part");
+            if (estParts.length === 0) {
+                showAlert("Please upload the Estimate PDF in Step 2 first.", "warning");
+                return;
+            }
+
+            const billParts = (finalBillData.items || []).filter(it => it.item_type === "Part");
+            if (billParts.length === 0) {
+                showAlert("Please import the Final Bill PDF in Step 3 first.", "warning");
+                return;
+            }
+
+            const btn = document.getElementById("btn-run-tally");
+            btn.disabled = true;
+            btn.innerHTML = `<span>Matching parts & categorizing...</span>`;
+
+            try {
+                const res = await fetch("/api/tally-parts", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        estimate_parts: estParts,
+                        bill_parts: billParts
+                    })
+                });
+                const data = await res.json();
+                btn.disabled = false;
+                btn.innerHTML = `<span style="font-size:22px;">⚡</span><span id="btn-tally-label">Re-Tally Parts</span>`;
+
+                if (data.success) {
+                    talliedItems = data.tallied || [];
+
+                    // Update Step 4 card UI
+                    document.getElementById("card-tally").classList.add("card-ready");
+                    document.getElementById("pill-step-4").classList.add("ready");
+                    document.getElementById("tally-status-badge").style.display = "inline";
+                    const tallyPlaceholder = document.getElementById("tally-placeholder-box");
+                    if (tallyPlaceholder) tallyPlaceholder.style.display = "none";
+                    document.getElementById("tally-details-box").style.display = "block";
+
+                    updateTallyReviewBadges();
+                    document.getElementById("tally-review-card").style.display = "block";
+                    renderTallyTable();
+                    scrollToTallyReview();
+
+                    showAlert(`Tally complete! <strong>${data.matched_count} parts</strong> matched across categories, <strong>${data.disallowed_count} parts</strong> marked Not Allowed (Col H - Yellow).`, "success");
+                } else {
+                    showAlert(data.error || "Tally process failed.", "error");
+                }
+            } catch (err) {
+                btn.disabled = false;
+                btn.innerHTML = `<span style="font-size:22px;">⚡</span><span id="btn-tally-label">Tally parts and paste cost</span>`;
+                showAlert("Server error during tally process.", "error");
+            }
+        }
+
+        function updateTallyReviewBadges() {
+            const allCount = talliedItems.length;
+            const matchedCount = talliedItems.filter(t => t.matched).length;
+            const disallowedCount = talliedItems.filter(t => t.category === "Not Allowed").length;
+            const metalCount = talliedItems.filter(t => t.category === "Metal").length;
+            const nonMetalCount = talliedItems.filter(t => t.category === "Non Metal").length;
+            const glassCount = talliedItems.filter(t => t.category === "Glass").length;
+
+            const elAll = document.getElementById("tally-count-all"); if (elAll) elAll.innerText = allCount;
+            const elMatched = document.getElementById("tally-count-matched"); if (elMatched) elMatched.innerText = matchedCount;
+            const elDis = document.getElementById("tally-count-disallowed"); if (elDis) elDis.innerText = disallowedCount;
+            const elMetal = document.getElementById("tally-count-metal"); if (elMetal) elMetal.innerText = metalCount;
+            const elNonMetal = document.getElementById("tally-count-nonmetal"); if (elNonMetal) elNonMetal.innerText = nonMetalCount;
+            const elGlass = document.getElementById("tally-count-glass"); if (elGlass) elGlass.innerText = glassCount;
+
+            const statTot = document.getElementById("stat-tally-total"); if (statTot) statTot.innerText = allCount;
+            const statMatch = document.getElementById("stat-tally-matched"); if (statMatch) statMatch.innerText = matchedCount;
+            const statDis = document.getElementById("stat-tally-disallowed"); if (statDis) statDis.innerText = disallowedCount;
+            const statMet = document.getElementById("stat-tally-metal"); if (statMet) statMet.innerText = metalCount;
+            const statNM = document.getElementById("stat-tally-nonmetal"); if (statNM) statNM.innerText = nonMetalCount;
+            const statGl = document.getElementById("stat-tally-glass"); if (statGl) statGl.innerText = glassCount;
+
+            const totalAssessedSum = talliedItems.reduce((acc, it) => acc + (parseFloat(it.final_cost) || 0), 0);
+            const sumText = document.getElementById("tally-summary-text");
+            if (sumText) {
+                sumText.innerHTML = `<strong>${matchedCount} matched</strong> &bull; <strong>${disallowedCount} not allowed</strong> &bull; Total: <strong>₹${totalAssessedSum.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>`;
+            }
+        }
+
+        function stepTallyQty(index, delta) {
+            if (!talliedItems[index]) return;
+            const item = talliedItems[index];
+            const cur = (typeof item.qty === 'number') ? item.qty : (parseFloat(item.qty) || 0);
+            const newQty = Math.max(0, Math.round((cur + delta) * 100) / 100);
+            applyTallyQtyChange(index, newQty);
+        }
+
+        function handleQtyInput(index, val) {
+            if (!talliedItems[index]) return;
+            const newQty = Math.max(0, parseFloat(val) || 0);
+            applyTallyQtyChange(index, newQty);
+        }
+
+        function applyTallyQtyChange(index, newQty) {
+            const item = talliedItems[index];
+            item.qty = newQty;
+
+            let u = item.unit_price;
+            if (!u || u <= 0) {
+                if (item.final_cost && item.final_cost > 0 && item.qty > 0) {
+                    u = item.final_cost / item.qty;
+                } else if (item.est_amount && item.est_qty) {
+                    u = item.est_amount / item.est_qty;
+                } else {
+                    u = 0;
+                }
+                item.unit_price = Math.round(u * 100) / 100;
+            }
+
+            item.final_cost = Math.round(newQty * item.unit_price * 100) / 100;
+
+            const qtyInput = document.getElementById(`qty-input-${index}`);
+            if (qtyInput) qtyInput.value = item.qty;
+
+            const costInput = document.getElementById(`tally-cost-${index}`);
+            if (costInput) costInput.value = item.final_cost.toFixed(2);
+
+            const unitHint = document.getElementById(`tally-unit-${index}`);
+            if (unitHint) unitHint.innerText = `@ ₹${item.unit_price.toFixed(2)}/pc`;
+
+            updateTallyReviewBadges();
+        }
+
+        function updateTallyItemCost(index, val) {
+            if (!talliedItems[index]) return;
+            const item = talliedItems[index];
+            item.final_cost = Math.max(0, parseFloat(val) || 0.0);
+
+            if (item.qty && item.qty > 0) {
+                item.unit_price = Math.round((item.final_cost / item.qty) * 100) / 100;
+                const unitHint = document.getElementById(`tally-unit-${index}`);
+                if (unitHint) unitHint.innerText = `@ ₹${item.unit_price.toFixed(2)}/pc`;
+            }
+
+            updateTallyReviewBadges();
+        }
+
+        function setTallyItemCategory(index, newCategory) {
+            if (!talliedItems[index]) return;
+            talliedItems[index].category = newCategory;
+            if (newCategory === "Metal") {
+                talliedItems[index].target_col = "E";
+            } else if (newCategory === "Non Metal") {
+                talliedItems[index].target_col = "F";
+            } else if (newCategory === "Glass") {
+                talliedItems[index].target_col = "G";
+            } else {
+                talliedItems[index].target_col = "H";
+            }
+            updateTallyReviewBadges();
+            renderTallyTable();
+        }
+
+        function setTallyCategoryFilter(filter) {
+            tallyUiState.filter = filter;
+            ['all', 'matched', 'disallowed', 'metal', 'nonmetal', 'glass'].forEach(f => {
+                const tab = document.getElementById(`tab-tally-${f}`);
+                if (tab) {
+                    const matchKey = (f === 'metal' ? 'Metal' : (f === 'nonmetal' ? 'Non Metal' : (f === 'glass' ? 'Glass' : f)));
+                    if (matchKey.toLowerCase() === filter.toLowerCase()) tab.classList.add('active');
+                    else tab.classList.remove('active');
+                }
+            });
+            renderTallyTable();
+        }
+
+        function handleTallySearch(val) {
+            tallyUiState.search = val;
+            renderTallyTable();
+        }
+
+        function scrollToTallyReview() {
+            const card = document.getElementById("tally-review-card");
+            if (card) {
+                card.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        function renderTallyTable() {
+            const tbody = document.getElementById("tally-table-body");
+            if (!tbody) return;
+
+            const q = (tallyUiState.search || "").toLowerCase().trim();
+            const filter = tallyUiState.filter;
+
+            let filtered = talliedItems.map((item, idx) => ({ ...item, originalIndex: idx }));
+
+            if (filter === "matched") {
+                filtered = filtered.filter(t => t.matched);
+            } else if (filter === "disallowed") {
+                filtered = filtered.filter(t => t.category === "Not Allowed");
+            } else if (filter === "Metal" || filter === "Non Metal" || filter === "Glass") {
+                filtered = filtered.filter(t => t.category === filter);
+            }
+
+            if (q) {
+                filtered = filtered.filter(t => 
+                    ((t.est_particular || t.est_desc || "").toLowerCase().includes(q)) ||
+                    ((t.bill_particular || t.bill_desc || "").toLowerCase().includes(q)) ||
+                    ((t.est_code || "").toLowerCase().includes(q)) ||
+                    ((t.bill_code || "").toLowerCase().includes(q))
+                );
+            }
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px; color:var(--text-light);">No tallied items match the current filter.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(item => {
+                const idx = item.originalIndex;
+                const cat = item.category || "Not Allowed";
+                const isMatched = item.matched;
+                const partName = (item.est_particular || item.est_desc || item.particular || "").trim();
+                const billName = (item.bill_particular || item.bill_desc || item.bill_name || "").trim();
+                const currentQty = (item.qty !== undefined && item.qty !== null) ? item.qty : (item.est_qty || 1);
+                const unitPrice = (item.unit_price !== undefined && item.unit_price !== null) ? item.unit_price : 0;
+                const cost = (item.final_cost !== undefined && item.final_cost !== null) ? item.final_cost : 0;
+                const isCapped = item.bill_qty && item.est_qty && (item.bill_qty > item.est_qty);
+
+                let matchStatusHtml = isMatched
+                    ? `<div style="display:flex; flex-direction:column; gap:2px;"><span class="badge-matched">✓ In Final Bill</span>${billName ? `<span style="font-size:11px; color:#475569; overflow:hidden; text-overflow:ellipsis; max-width:200px;">${escapeHtml(billName)}</span>` : ''}</div>`
+                    : `<span class="badge-disallowed" title="Not found in Final Bill - will be pasted to Col H">⚠ Not in Final Bill</span>`;
+
+                let destColPill = "";
+                if (cat === "Metal") {
+                    destColPill = `<span class="dest-col-pill dest-col-e">Col E: Metal</span>`;
+                } else if (cat === "Non Metal") {
+                    destColPill = `<span class="dest-col-pill dest-col-f">Col F: Non-Metal</span>`;
+                } else if (cat === "Glass") {
+                    destColPill = `<span class="dest-col-pill dest-col-g">Col G: Glass</span>`;
+                } else {
+                    destColPill = `<span class="dest-col-pill dest-col-h">Col H: Yellow</span>`;
+                }
+
+                return `
+                    <tr style="${cat === 'Not Allowed' ? 'background: #fefce8;' : ''}">
+                        <td style="font-weight:700; color:var(--text-light); text-align:center;">${idx + 1}</td>
+                        <td>
+                            <div style="font-weight:700; color:var(--text-main); font-size:13px;">${escapeHtml(partName)}</div>
+                        </td>
+                        <td style="text-align:right; font-weight:700; color:#059669;">
+                            ₹${(item.est_amount || 0).toFixed(2)}
+                        </td>
+                        <td>
+                            ${matchStatusHtml}
+                        </td>
+                        <td style="text-align:center;">
+                            <div class="cat-group">
+                                <button type="button" class="cat-btn ${cat === 'Metal' ? 'active-metal' : ''}" onclick="setTallyItemCategory(${idx}, 'Metal')">Metal [E]</button>
+                                <button type="button" class="cat-btn ${cat === 'Non Metal' ? 'active-nonmetal' : ''}" onclick="setTallyItemCategory(${idx}, 'Non Metal')">Non-Metal [F]</button>
+                                <button type="button" class="cat-btn ${cat === 'Glass' ? 'active-glass' : ''}" onclick="setTallyItemCategory(${idx}, 'Glass')">Glass [G]</button>
+                                <button type="button" class="cat-btn ${cat === 'Not Allowed' ? 'active-disallowed' : ''}" onclick="setTallyItemCategory(${idx}, 'Not Allowed')">Not Allowed [H]</button>
+                            </div>
+                        </td>
+                        <td style="text-align:center; vertical-align:middle;">
+                            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;">
+                                <div class="qty-stepper-box">
+                                    <button type="button" class="btn-stepper" onclick="stepTallyQty(${idx}, -1)" title="Decrease Quantity">−</button>
+                                    <input type="number" step="1" min="0" class="input-stepper" id="qty-input-${idx}" value="${currentQty}" onchange="handleQtyInput(${idx}, this.value)">
+                                    <button type="button" class="btn-stepper" onclick="stepTallyQty(${idx}, 1)" title="Increase Quantity">+</button>
+                                </div>
+                                <span class="unit-price-hint" id="tally-unit-${idx}">@ ₹${unitPrice.toFixed(2)}/pc</span>
+                                ${isCapped ? `<span class="qty-capped-badge" title="Billed ${item.bill_qty} pcs in bill, capped at estimate limit ${item.est_qty} pcs">Capped (Bill: ${item.bill_qty})</span>` : ''}
+                            </div>
+                        </td>
+                        <td style="text-align:right; vertical-align:middle;">
+                            <input type="number" step="0.01" class="form-control" id="tally-cost-${idx}" style="width:110px; text-align:right; font-weight:700; display:inline-block;" value="${cost.toFixed(2)}" onchange="updateTallyItemCost(${idx}, this.value)">
+                        </td>
+                        <td style="text-align:center;">
+                            ${destColPill}
+                        </td>
+                    </tr>
+                `;
+            }).join("");
+        }
+
+        async function writeTalliedCostsToExcel() {
+            if (talliedItems.length === 0) {
+                showAlert("No tallied items to write. Please run Step 4 tally first.", "warning");
+                return;
+            }
+
+            const excelPath = appConfig.estimate_excel_path;
+            const sheet = document.getElementById("cfg-sheet-select").value.trim() || appConfig.estimate_selected_sheet || "Sheet1";
+            const startRow = parseInt(document.getElementById("cfg-start-row").value) || 171;
+
+            if (!excelPath) {
+                showAlert("Please choose an Assessment Excel spreadsheet first (Step 1).", "error");
+                return;
+            }
+
+            const btn = document.getElementById("btn-write-tallied-costs");
+            btn.disabled = true;
+            btn.innerHTML = `<span>Writing Tallied Costs to Excel...</span>`;
+
+            showAlert(`Pasting assessed costs into Sheet "${sheet}" starting at Row ${startRow}...`, "info");
+
+            try {
+                const res = await fetch("/api/write-tallied-costs", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        file_path: excelPath,
+                        sheet_name: sheet,
+                        start_row: startRow,
+                        tallied_items: talliedItems
+                    })
+                });
+                const data = await res.json();
+                btn.disabled = false;
+                btn.innerHTML = `<span>✍️ Write Tallied Costs to Excel</span>`;
+
+                if (data.success) {
+                    document.getElementById("modal-title").innerText = `⚖️ Wrote ${data.written_count} Assessed Costs to Excel!`;
+                    document.getElementById("modal-desc").innerHTML = 
+                        `Successfully pasted assessed costs into sheet <strong>${data.sheet}</strong> (Rows ${data.start_row} to ${data.end_row}):<br>` +
+                        `<div style="margin-top:8px; line-height:1.6;">` +
+                        `&bull; <strong>Metal:</strong> ${data.metal_count} parts &rarr; Col E<br>` +
+                        `&bull; <strong>Non Metal:</strong> ${data.non_metal_count} parts &rarr; Col F<br>` +
+                        `&bull; <strong>Glass:</strong> ${data.glass_count} parts &rarr; Col G<br>` +
+                        `&bull; <strong style="background:#fef08a; padding:1px 6px; border-radius:3px; color:#854d0e;">Not Allowed:</strong> ${data.disallowed_count} parts &rarr; Col H (Yellow cell)` +
+                        `</div>`;
+                    document.getElementById("success-modal").classList.add("show");
+                    refreshExcelFile();
+                } else {
+                    showAlert(data.error || "Failed to write tallied costs into Excel.", "error");
+                }
+            } catch (err) {
+                btn.disabled = false;
+                btn.innerHTML = `<span>✍️ Write Tallied Costs to Excel</span>`;
+                showAlert("Server error during writing tallied costs.", "error");
             }
         }
 

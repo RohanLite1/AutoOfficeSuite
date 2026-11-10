@@ -372,7 +372,7 @@ def parse_estimate_pdf(pdf_path):
                                 "unit_price": rate or amt,
                                 "amount": amt,
                                 "item_type": "Labour" if is_labour else "Part",
-                                "selected": not is_labour
+                                "selected": True
                             })
 
         # Pass 1.5: If few items found, try Text-based Table Extraction
@@ -417,7 +417,7 @@ def parse_estimate_pdf(pdf_path):
                                     "unit_price": rate or amt,
                                     "amount": amt,
                                     "item_type": "Labour" if is_labour else "Part",
-                                    "selected": not is_labour
+                                    "selected": True
                                 })
             if len(table_items_text) > len(table_items):
                 table_items = table_items_text
@@ -911,245 +911,6 @@ def inspect_estimate_excel(file_path, target_sheet=None):
                     pass
 
 
-def write_labour_to_excel(file_path, sheet_name=None, labour_items=None, start_row=None, bill_no=""):
-    """
-    Writes extracted labour items into the LABOUR COMPUTATION table:
-    - Serial No ('Es.'): Sequential item index (e.g. 1, 2, 3...)
-    - Bill No ('Bill No.'): Optional bill reference
-    - Particular ('Particular'): Labour description (Col C)
-    - Estimate ('Estimate'): Taxable Amount (Col D)
-    Ensures items are written strictly to VISIBLE rows, skipping any hidden template rows.
-    In .xlsx/.xlsm workbooks, dynamically inserts rows if the number of items exceeds available table rows.
-    """
-    if not os.path.exists(file_path):
-        return {"success": False, "error": f"File not found: {file_path}"}
-
-    if not labour_items:
-        return {"success": False, "error": "No labour items provided to write."}
-
-    # Safety check for file lock
-    try:
-        with open(file_path, "r+b"):
-            pass
-    except PermissionError:
-        return {
-            "success": False,
-            "error": "The Excel file is currently open in Microsoft Excel. Please close it first."
-        }
-    except Exception as e:
-        return {"success": False, "error": f"File access error: {str(e)}"}
-
-    # Create safety backup
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_path = f"{file_path}.bak_{timestamp}"
-    try:
-        shutil.copy2(file_path, backup_path)
-        _prune_old_backups(file_path)
-    except Exception as e:
-        print(f"Warning creating backup: {e}")
-
-    # Inspect sheet and determine target columns and start row
-    sheet_info = inspect_estimate_excel(file_path, target_sheet=sheet_name)
-    if not sheet_info.get("success"):
-        return {"success": False, "error": sheet_info.get("error", "Failed to inspect Excel file.")}
-
-    target_sheet_name = sheet_info.get("selected_sheet")
-    part_col_1based = sheet_info.get("particular_col", 3)
-    est_col_1based = sheet_info.get("estimate_col", 4)
-    bill_col_1based = sheet_info.get("bill_no_col", 2)
-    es_col_1based = sheet_info.get("es_col", 1)
-
-    detected_start = sheet_info.get("labour_start_row", 359)
-    if start_row is None or int(start_row) <= 0:
-        start_row = detected_start
-    else:
-        start_row = int(start_row)
-
-    ext = os.path.splitext(file_path)[1].lower()
-
-    if ext == ".xls":
-        try:
-            import xlrd
-            from xlutils.copy import copy
-
-            rb = xlrd.open_workbook(file_path, formatting_info=True)
-            sheet_names = rb.sheet_names()
-
-            sheet_idx = 0
-            if target_sheet_name in sheet_names:
-                sheet_idx = sheet_names.index(target_sheet_name)
-            else:
-                for idx, sn in enumerate(sheet_names):
-                    if sn.strip().lower() == str(target_sheet_name).strip().lower():
-                        sheet_idx = idx
-                        target_sheet_name = sn
-                        break
-
-            rb_sheet = rb.sheet_by_index(sheet_idx)
-            wb = copy(rb)
-            sheet = wb.get_sheet(sheet_idx)
-
-            current_r = max(0, start_row - 1)
-            c_part = max(0, part_col_1based - 1)
-            c_est = max(0, est_col_1based - 1)
-            c_bill = max(0, bill_col_1based - 1)
-            c_es = max(0, es_col_1based - 1)
-
-            item_num = 1
-            written = 0
-            first_written_row = None
-            last_written_row = None
-
-            for it in labour_items:
-                desc = it.get("particular", "").strip()
-                amt = it.get("amount", 0.0)
-                try:
-                    amt_num = float(amt)
-                except (ValueError, TypeError):
-                    amt_num = 0.0
-
-                while current_r < rb_sheet.nrows:
-                    rinfo = rb_sheet.rowinfo_map.get(current_r) if hasattr(rb_sheet, "rowinfo_map") else None
-                    if rinfo and rinfo.hidden:
-                        current_r += 1
-                    else:
-                        break
-
-                if first_written_row is None:
-                    first_written_row = current_r + 1
-                last_written_row = current_r + 1
-
-                try:
-                    sheet.write(current_r, c_es, item_num)
-                except Exception:
-                    pass
-
-                if bill_no:
-                    sheet.write(current_r, c_bill, str(bill_no).strip())
-
-                sheet.write(current_r, c_part, desc)
-                sheet.write(current_r, c_est, amt_num)
-
-                current_r += 1
-                item_num += 1
-                written += 1
-
-            wb.save(file_path)
-            invalidate_estimate_cache(file_path)
-
-            return {
-                "success": True,
-                "written_count": written,
-                "start_row": first_written_row or start_row,
-                "end_row": last_written_row or (start_row + written - 1),
-                "backup_created": backup_path,
-                "file_path": file_path,
-                "sheet": target_sheet_name,
-                "particular_col": chr(65 + c_part),
-                "estimate_col": chr(65 + c_est)
-            }
-        except Exception as e:
-            return {"success": False, "error": f"Error writing labour to .xls file: {str(e)}"}
-
-    else:
-        # Modern .xlsx / .xlsm using openpyxl
-        wb = None
-        try:
-            import openpyxl
-
-            wb = openpyxl.load_workbook(file_path)
-            if target_sheet_name in wb.sheetnames:
-                sheet = wb[target_sheet_name]
-            else:
-                matched = False
-                for sn in wb.sheetnames:
-                    if sn.strip().lower() == str(target_sheet_name).strip().lower():
-                        sheet = wb[sn]
-                        target_sheet_name = sn
-                        matched = True
-                        break
-                if not matched:
-                    sheet = wb.active
-                    target_sheet_name = sheet.title
-
-            current_r = start_row
-            c_part = part_col_1based
-            c_est = est_col_1based
-            c_bill = bill_col_1based
-            c_es = es_col_1based
-
-            table_limit_row = None
-            for check_r in range(start_row, min(sheet.max_row + 1, start_row + 200)):
-                v_particular = str(sheet.cell(row=check_r, column=c_part).value or "").strip().lower()
-                v_col1 = str(sheet.cell(row=check_r, column=1).value or "").strip().lower()
-                if any(k in v_particular or k in v_col1 for k in ["total", "s.total", "grand total", "total labour"]):
-                    table_limit_row = check_r
-                    break
-
-            num_items = len(labour_items)
-            if table_limit_row and (start_row + num_items >= table_limit_row):
-                needed = (start_row + num_items) - table_limit_row + 2
-                sheet.insert_rows(table_limit_row, amount=needed)
-
-            item_num = 1
-            written = 0
-            first_written_row = None
-            last_written_row = None
-
-            for it in labour_items:
-                desc = it.get("particular", "").strip()
-                amt = it.get("amount", 0.0)
-                try:
-                    amt_num = float(amt)
-                except (ValueError, TypeError):
-                    amt_num = 0.0
-
-                while current_r <= sheet.max_row:
-                    dim = sheet.row_dimensions.get(current_r)
-                    if dim and dim.hidden:
-                        current_r += 1
-                    else:
-                        break
-
-                if first_written_row is None:
-                    first_written_row = current_r
-                last_written_row = current_r
-
-                if c_es > 0:
-                    sheet.cell(row=current_r, column=c_es, value=item_num)
-                if bill_no and c_bill > 0:
-                    sheet.cell(row=current_r, column=c_bill, value=str(bill_no).strip())
-                sheet.cell(row=current_r, column=c_part, value=desc)
-                sheet.cell(row=current_r, column=c_est, value=amt_num)
-
-                current_r += 1
-                item_num += 1
-                written += 1
-
-            wb.save(file_path)
-            invalidate_estimate_cache(file_path)
-
-            return {
-                "success": True,
-                "written_count": written,
-                "start_row": first_written_row or start_row,
-                "end_row": last_written_row or (start_row + written - 1),
-                "backup_created": backup_path,
-                "file_path": file_path,
-                "sheet": target_sheet_name,
-                "particular_col": openpyxl.utils.get_column_letter(c_part),
-                "estimate_col": openpyxl.utils.get_column_letter(c_est)
-            }
-        except Exception as e:
-            return {"success": False, "error": f"Error writing labour to Excel: {str(e)}"}
-        finally:
-            if wb is not None:
-                try:
-                    wb.close()
-                except Exception:
-                    pass
-
-
 def write_parts_to_excel(file_path, sheet_name=None, parts=None, start_row=None, bill_no=""):
     """
     Writes extracted parts into the PARTS COMPUTATION table:
@@ -1630,3 +1391,402 @@ def write_labour_to_excel(file_path, sheet_name=None, labour_items=None, start_r
                     wb.close()
                 except Exception:
                     pass
+
+
+
+# ==============================================================================
+# PART MATERIAL CATEGORIZATION & RECONCILIATION / TALLY WITH FINAL BILL
+# ==============================================================================
+
+def categorize_part_material(desc, code=""):
+    """
+    Categorizes an automotive spare part into:
+    - 'Glass' (Col G) - 0% Depr (Windshield, mirrors, lamps, glasses)
+    - 'Non Metal' (Col F) - Plastics, Rubber, Fibres, Foam, Consumables
+    - 'Metal' (Col E) - Sheet metal panels, Suspension, Engine, Mechanical
+    """
+    d = (desc or "").upper()
+    c = (code or "").upper()
+    text = f"{d} {c}"
+
+    # 1. Glass Category
+    glass_patterns = [
+        r'\bGLASS\b', r'\bWINDSHIELD\b', r'\bWINDSCREEN\b', r'\bREAR\s*SCREEN\b',
+        r'\bDOOR\s*GLASS\b', r'\bQUARTER\s*GLASS\b', r'\bVENT\s*GLASS\b',
+        r'\bMIRROR\s*GLASS\b', r'\bMIRROR\s*PLATE\b',
+        r'\bHEAD\s*LAMP\b', r'\bHEADLAMP\b', r'\bHEADLIGHT\b', r'\bHEAD\s*LIGHT\b',
+        r'\bTAIL\s*LAMP\b', r'\bTAILLAMP\b', r'\bTAIL\s*LIGHT\b',
+        r'\bFOG\s*LAMP\b', r'\bFOGLAMP\b', r'\bFOG\s*LIGHT\b',
+        r'\bROOM\s*LAMP\b', r'\bLAMP\s*ASSY\b', r'\bINDICATOR\b', r'\bBLINKER\b',
+        r'\bREFLECTOR\b', r'\bLENS\b'
+    ]
+    for pat in glass_patterns:
+        if re.search(pat, text):
+            if re.search(r'\bBRACKET\b|\bCOVER\b|\bHOUSING\b|\bBEZEL\b', text) and not re.search(r'\bUNIT\b|\bASSY\b', text):
+                return "Non Metal"
+            return "Glass"
+
+    # 2. Non-Metal Category (Plastics, Rubbers, Fibres, Interior, Fluids)
+    non_metal_patterns = [
+        r'\bBUMPER\b', r'\bCOVER\b', r'\bGRILLE\b', r'\bGRILL\b', r'\bMOULDING\b',
+        r'\bMOLDING\b', r'\bGARNISH\b', r'\bCLADDING\b', r'\bFASCIA\b', r'\bLINING\b',
+        r'\bMUDGUARD\b', r'\bSPLASH\s*SHIELD\b', r'\bAPRON\b', r'\bARCH\b',
+        r'\bDEFLECTOR\b', r'\bSPOILER\b', r'\bDUCT\b', r'\bAIR\s*GUIDE\b',
+        r'\bEMBLEM\b', r'\bMONOGRAM\b', r'\bLOGO\b', r'\bBADGE\b', r'\bNAMEPLATE\b',
+        r'\bHANDLE\b', r'\bKNOB\b', r'\bTRIM\b', r'\bCONSOLE\b', r'\bDASHBOARD\b',
+        r'\bPAD\b', r'\bFOAM\b', r'\bCUSHION\b', r'\bSEAT\b', r'\bCARPET\b', r'\bMAT\b',
+        r'\bSUNVISOR\b', r'\bWEATHERSTRIP\b', r'\bRUBBER\b', r'\bBEADING\b',
+        r'\bHOSE\b', r'\bPIPE\b', r'\bTUBE\b', r'\bSEAL\b', r'\bGASKET\b', r'\bO-RING\b',
+        r'\bBUSH\b', r'\bBOOT\b', r'\bPACKING\b', r'\bMOUNTING\b', r'\bMOUNT\b',
+        r'\bCLIP\b', r'\bRETAINER\b', r'\bFASTENER\b', r'\bRIVET\b', r'\bPIN\b',
+        r'\bPLUG\b', r'\bCAP\b', r'\bFILTER\b', r'\bELEMENT\b', r'\bOIL\b',
+        r'\bCOOLANT\b', r'\bFLUID\b', r'\bPAINT\b', r'\bMATERIAL\b', r'\bADHESIVE\b',
+        r'\bSEALANT\b', r'\bPLASTIC\b', r'\bFIBRE\b', r'\bFIBER\b', r'\bTYRE\b',
+        r'\bTIRE\b', r'\bBATTERY\b', r'\bWIRING\b', r'\bHARNESS\b', r'\bRELAY\b',
+        r'\bSENSOR\b', r'\bHORN\b', r'\bPIECE\b'
+    ]
+    for pat in non_metal_patterns:
+        if re.search(pat, text):
+            if re.search(r'\bEXHAUST\s*PIPE\b|\bSTEEL\s*PIPE\b', text):
+                return "Metal"
+            return "Non Metal"
+
+    # 3. Metal Category (Sheet metal, Suspension, Engine, Steering, Structural)
+    metal_patterns = [
+        r'\bHOOD\b', r'\bBONNET\b', r'\bFENDER\b', r'\bDOOR\b', r'\bPANEL\b',
+        r'\bROOF\b', r'\bPILLAR\b', r'\bQUARTER\s*PANEL\b', r'\bTRUNK\b',
+        r'\bBOOT\s*LID\b', r'\bTAILGATE\b', r'\bDICKY\b', r'\bBEAM\b',
+        r'\bCROSS\s*MEMBER\b', r'\bSIDE\s*MEMBER\b', r'\bMEMBER\b', r'\bRAIL\b',
+        r'\bSILL\b', r'\bRUNNING\s*BOARD\b', r'\bFLOOR\b', r'\bFRAME\b',
+        r'\bCHASSIS\b', r'\bSUBFRAME\b', r'\bCRADLE\b', r'\bREINFORCEMENT\b',
+        r'\bREINFORCE\b', r'\bSUPPORT\b', r'\bBRACKET\b', r'\bHINGE\b',
+        r'\bLOCK\b', r'\bLATCH\b', r'\bSTRIKER\b', r'\bSTAY\b', r'\bSTRUT\b',
+        r'\bARM\b', r'\bLINK\b', r'\bROD\b', r'\bTIE\s*ROD\b', r'\bSUSPENSION\b',
+        r'\bAXLE\b', r'\bSHAFT\b', r'\bKNUCKLE\b', r'\bHUB\b', r'\bDISC\b',
+        r'\bROTOR\b', r'\bDRUM\b', r'\bCALIPER\b', r'\bCYLINDER\b',
+        r'\bSTEERING\b', r'\bRACK\b', r'\bCOLUMN\b', r'\bGEARBOX\b',
+        r'\bTRANSMISSION\b', r'\bCLUTCH\b', r'\bENGINE\b', r'\bRADIATOR\b',
+        r'\bCONDENSER\b', r'\bINTERCOOLER\b', r'\bCOMPRESSOR\b', r'\bEXHAUST\b',
+        r'\bSILENCER\b', r'\bMUFFLER\b', r'\bMANIFOLD\b', r'\bSHEET\b',
+        r'\bSTEEL\b', r'\bALUMINIUM\b', r'\bALUMINUM\b', r'\bIRON\b', r'\bMETAL\b'
+    ]
+    for pat in metal_patterns:
+        if re.search(pat, text):
+            return "Metal"
+
+    return "Metal"
+
+
+def normalize_part_code(code):
+    if not code:
+        return ""
+    c = str(code).upper().strip()
+    c = re.sub(r'^[A-Z]-', '', c)
+    return re.sub(r'[^A-Z0-9]', '', c)
+
+
+def tokenize_desc(desc):
+    if not desc:
+        return set()
+    words = re.findall(r'[A-Za-z0-9]+', desc.lower())
+    stop = {'assy', 'sub', 'comp', 'no', 'nos', 'rh', 'lh', 'fr', 'rr', 'front', 'rear', 'right', 'left', 'upper', 'lower', 'lwr', 'upr'}
+    meaningful = [w for w in words if w not in stop and len(w) > 1]
+    return set(meaningful) if meaningful else set(words)
+
+
+def tally_estimate_with_bill(estimate_parts, bill_parts):
+    """
+    Tallies each estimate part against final bill parts.
+    - If in both Estimate and Final Bill:
+      Categorizes as Metal (Col E), Non Metal (Col F), or Glass (Col G).
+      Cost = Final bill taxable amount (or estimate amount if bill is 0).
+    - If in Estimate but NOT in Final Bill:
+      Categorizes as 'Not Allowed' (Yellow Col H).
+      Cost = Estimate taxable amount.
+    """
+    bill_available = list(bill_parts or [])
+    used_bill_indices = set()
+    tallied = []
+
+    for idx, est in enumerate(estimate_parts or []):
+        est_desc = est.get("particular", "")
+        est_code = est.get("code", "")
+        est_amt = float(est.get("amount", 0.0) or 0.0)
+        est_code_norm = normalize_part_code(est_code)
+        est_tokens = tokenize_desc(est_desc)
+
+        best_match_idx = None
+        best_match_score = 0.0
+
+        # Pass 1: Exact / Normalized Code Match
+        if est_code_norm and len(est_code_norm) >= 4:
+            for b_idx, b in enumerate(bill_available):
+                if b_idx in used_bill_indices:
+                    continue
+                b_code_norm = normalize_part_code(b.get("code", ""))
+                if b_code_norm and (b_code_norm == est_code_norm or b_code_norm in est_code_norm or est_code_norm in b_code_norm):
+                    best_match_idx = b_idx
+                    best_match_score = 1.0
+                    break
+
+        # Pass 2: Description token overlap if code did not match
+        if best_match_idx is None and est_tokens:
+            for b_idx, b in enumerate(bill_available):
+                if b_idx in used_bill_indices:
+                    continue
+                b_tokens = tokenize_desc(b.get("particular", ""))
+                if not b_tokens:
+                    continue
+                inter = est_tokens & b_tokens
+                if inter:
+                    score = len(inter) / max(len(est_tokens), len(b_tokens))
+                    if score > best_match_score and (score >= 0.50 or len(inter) >= 2):
+                        best_match_score = score
+                        best_match_idx = b_idx
+
+        # Parse estimate quantity
+        try:
+            est_qty = float(est.get("qty", 1.0) or 1.0)
+            if est_qty <= 0:
+                est_qty = 1.0
+        except (ValueError, TypeError):
+            est_qty = 1.0
+
+        if best_match_idx is not None:
+            used_bill_indices.add(best_match_idx)
+            matched_b = bill_available[best_match_idx]
+            b_amt = float(matched_b.get("amount", 0.0) or 0.0)
+
+            # Parse bill quantity
+            try:
+                b_qty = float(matched_b.get("qty", 1.0) or 1.0)
+                if b_qty <= 0:
+                    b_qty = 1.0
+            except (ValueError, TypeError):
+                b_qty = 1.0
+
+            # Calculate unit price from bill
+            b_unit = float(matched_b.get("unit_price", 0.0) or 0.0)
+            if b_unit <= 0 and b_qty > 0 and b_amt > 0:
+                b_unit = b_amt / b_qty
+            elif b_unit <= 0 and est_qty > 0 and est_amt > 0:
+                b_unit = est_amt / est_qty
+            elif b_unit <= 0:
+                b_unit = b_amt
+
+            # Limit bill quantity to estimate quantity (estimate is the upper bound)
+            allowed_qty = min(b_qty, est_qty)
+            final_cost = round(allowed_qty * b_unit, 2) if b_unit > 0 else (b_amt if b_amt > 0 else est_amt)
+
+            cat = categorize_part_material(est_desc, est_code)
+            target_col = "E" if cat == "Metal" else ("F" if cat == "Non Metal" else "G")
+
+            tallied.append({
+                "index": idx + 1,
+                "est_particular": est_desc,
+                "est_desc": est_desc,
+                "est_code": est_code,
+                "est_qty": est_qty,
+                "est_amount": est_amt,
+                "matched": True,
+                "bill_particular": matched_b.get("particular", ""),
+                "bill_desc": matched_b.get("particular", ""),
+                "bill_code": matched_b.get("code", ""),
+                "bill_qty": b_qty,
+                "bill_amount": b_amt,
+                "unit_price": round(b_unit, 2),
+                "qty": allowed_qty,
+                "max_qty": est_qty,
+                "category": cat,
+                "target_col": target_col,
+                "final_cost": round(final_cost, 2)
+            })
+        else:
+            # Not in Final Bill -> Disallowed / Yellow Col H
+            est_unit = float(est.get("unit_price", 0.0) or 0.0)
+            if est_unit <= 0 and est_qty > 0 and est_amt > 0:
+                est_unit = est_amt / est_qty
+            elif est_unit <= 0:
+                est_unit = est_amt
+
+            tallied.append({
+                "index": idx + 1,
+                "est_particular": est_desc,
+                "est_desc": est_desc,
+                "est_code": est_code,
+                "est_qty": est_qty,
+                "est_amount": est_amt,
+                "matched": False,
+                "bill_particular": "",
+                "bill_desc": "",
+                "bill_code": "",
+                "bill_qty": 0.0,
+                "bill_amount": 0.0,
+                "unit_price": round(est_unit, 2),
+                "qty": est_qty,
+                "max_qty": est_qty,
+                "category": "Not Allowed",
+                "target_col": "H",
+                "final_cost": round(est_amt, 2)
+            })
+
+    return tallied
+
+
+def write_tallied_costs_to_excel(file_path, sheet_name=None, tallied_items=None, start_row=None):
+    """
+    Writes reconciled / tallied costs into the PARTS COMPUTATION table:
+    - Col E (Metal): if category == 'Metal'
+    - Col F (Non Metal): if category == 'Non Metal'
+    - Col G (Glass): if category == 'Glass'
+    - Col H (Yellow / Not Allowed): if category == 'Not Allowed'
+    Leaves Col D (Estimate) and Col B (Bill No) untouched.
+    """
+    if not file_path or not os.path.exists(file_path):
+        return {"success": False, "error": f"Target Assessment Excel not found: {file_path}"}
+
+    if not tallied_items:
+        return {"success": False, "error": "No tallied items to write."}
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_path = f"{file_path}.bak_{timestamp}"
+    try:
+        shutil.copy2(file_path, backup_path)
+        _prune_old_backups(file_path)
+    except Exception as e:
+        print(f"Warning creating backup: {e}")
+
+    ext = os.path.splitext(file_path)[1].lower()
+    is_xls = ext == ".xls"
+
+    sheet_info = inspect_estimate_excel(file_path, target_sheet=sheet_name)
+    if not sheet_info.get("success"):
+        return {"success": False, "error": sheet_info.get("error", "Failed to inspect sheet.")}
+
+    target_sheet_name = sheet_info.get("selected_sheet")
+    detected_visible_start = sheet_info.get("data_start_row", 171)
+    if start_row is None or int(start_row) <= 0:
+        start_row = detected_visible_start
+    else:
+        start_row = int(start_row)
+
+    col_map = {
+        "Metal": 4,       # Col E (0-based in xlwt)
+        "Non Metal": 5,   # Col F
+        "Glass": 6,       # Col G
+        "Not Allowed": 7  # Col H
+    }
+
+    if is_xls:
+        import xlrd
+        from xlutils.copy import copy
+        rb = xlrd.open_workbook(file_path, formatting_info=True)
+        wb = copy(rb)
+        sheet_idx = 0
+        if target_sheet_name:
+            for i, sname in enumerate(rb.sheet_names()):
+                if sname.lower() == target_sheet_name.lower():
+                    sheet_idx = i
+                    break
+        sheet = wb.get_sheet(sheet_idx)
+        rb_sheet = rb.sheet_by_index(sheet_idx)
+
+        current_r = start_row - 1
+        written = 0
+        first_r = current_r + 1
+        last_r = current_r
+
+        for it in tallied_items:
+            cat = it.get("category", "Not Allowed")
+            cost = float(it.get("final_cost", 0.0) or it.get("cost", 0.0) or 0.0)
+            target_c = col_map.get(cat, 7)
+
+            part_name = str(it.get("est_particular") or it.get("est_desc") or "").strip()
+            est_amt = float(it.get("est_amount", 0.0) or 0.0)
+
+            # Ensure Col C has the part name
+            c_val = rb_sheet.cell_value(current_r, 2) if current_r < rb_sheet.nrows else ""
+            if not str(c_val).strip() and part_name:
+                sheet.write(current_r, 2, part_name)
+
+            # Ensure Col D has estimate amount
+            d_val = rb_sheet.cell_value(current_r, 3) if current_r < rb_sheet.nrows else ""
+            if (d_val == "" or d_val is None) and est_amt > 0:
+                sheet.write(current_r, 3, est_amt)
+
+            # Write to the designated column and clear other category columns in this row
+            for c_idx in [4, 5, 6, 7]:
+                if c_idx == target_c:
+                    sheet.write(current_r, c_idx, cost)
+                else:
+                    sheet.write(current_r, c_idx, "")
+
+            last_r = current_r + 1
+            current_r += 1
+            written += 1
+
+        wb.save(file_path)
+        invalidate_estimate_cache(file_path)
+        return {
+            "success": True,
+            "written_count": written,
+            "start_row": first_r,
+            "end_row": last_r,
+            "sheet": target_sheet_name,
+            "backup_created": backup_path
+        }
+    else:
+        import openpyxl
+        wb = openpyxl.load_workbook(file_path)
+        sheet = wb[target_sheet_name] if target_sheet_name in wb.sheetnames else wb.active
+
+        col_map_openpyxl = {
+            "Metal": 5,       # Col E (1-based in openpyxl)
+            "Non Metal": 6,   # Col F
+            "Glass": 7,       # Col G
+            "Not Allowed": 8  # Col H
+        }
+
+        current_r = start_row
+        written = 0
+        first_r = current_r
+        last_r = current_r
+
+        for it in tallied_items:
+            cat = it.get("category", "Not Allowed")
+            cost = float(it.get("final_cost", 0.0) or it.get("cost", 0.0) or 0.0)
+            target_col = col_map_openpyxl.get(cat, 8)
+
+            part_name = str(it.get("est_particular") or it.get("est_desc") or "").strip()
+            est_amt = float(it.get("est_amount", 0.0) or 0.0)
+
+            # Ensure Col C has the part name
+            c_cell = sheet.cell(row=current_r, column=3)
+            if not str(c_cell.value or "").strip() and part_name:
+                c_cell.value = part_name
+
+            # Ensure Col D has estimate amount
+            d_cell = sheet.cell(row=current_r, column=4)
+            if (d_cell.value is None or d_cell.value == "") and est_amt > 0:
+                d_cell.value = est_amt
+
+            for c_idx in [5, 6, 7, 8]:
+                if c_idx == target_col:
+                    sheet.cell(row=current_r, column=c_idx, value=cost)
+                else:
+                    sheet.cell(row=current_r, column=c_idx, value=None)
+
+            last_r = current_r
+            current_r += 1
+            written += 1
+
+        wb.save(file_path)
+        invalidate_estimate_cache(file_path)
+        return {
+            "success": True,
+            "written_count": written,
+            "start_row": first_r,
+            "end_row": last_r,
+            "sheet": target_sheet_name,
+            "backup_created": backup_path
+        }

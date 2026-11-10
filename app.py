@@ -5,6 +5,7 @@ Runs on localhost to provide an intuitive interface for PDF data extraction and 
 
 import os
 import sys
+import time
 import json
 import subprocess
 import threading
@@ -24,7 +25,15 @@ if sys.stderr is None:
 
 from extractor import extract_data_from_pdf, DEFAULT_TEMPLATES
 from excel_handler import get_excel_info, append_rows_to_excel, check_file_locked
-from estimate_handler import parse_estimate_pdf, inspect_estimate_excel, write_parts_to_excel, write_labour_to_excel
+from estimate_handler import (
+    parse_estimate_pdf,
+    inspect_estimate_excel,
+    write_parts_to_excel,
+    write_labour_to_excel,
+    tally_estimate_with_bill,
+    write_tallied_costs_to_excel,
+    categorize_part_material
+)
 
 if getattr(sys, "frozen", False):
     BASE_DIR = os.path.dirname(sys.executable)
@@ -898,6 +907,116 @@ def write_labour_api():
         return jsonify(res)
     except Exception as e:
         return jsonify({"success": False, "error": f"Error writing labour to Excel: {str(e)}"})
+
+
+@app.route("/api/extract-final-bill", methods=["POST"])
+def extract_final_bill_api():
+    """Extracts parts and labour from the workshop's final tax invoice/bill PDF."""
+    if "file" not in request.files:
+        return jsonify({"success": False, "error": "No final bill PDF uploaded."})
+
+    file = request.files["file"]
+    if not file or not file.filename:
+        return jsonify({"success": False, "error": "No file selected."})
+
+    if not file.filename.lower().endswith(".pdf"):
+        return jsonify({"success": False, "error": "Please upload a valid PDF document."})
+
+    try:
+        final_bills_dir = os.path.join(UPLOAD_FOLDER, "final_bills")
+        os.makedirs(final_bills_dir, exist_ok=True)
+        raw_name = secure_filename(file.filename) or "final_bill.pdf"
+        target_path = os.path.join(final_bills_dir, f"bill_{int(time.time())}_{raw_name}")
+        file.save(target_path)
+
+        res = parse_estimate_pdf(target_path)
+        if not res.get("success"):
+            return jsonify({"success": False, "error": res.get("error", "Failed to extract Final Bill PDF.")})
+
+        res["file_path"] = target_path
+        res["filename"] = file.filename
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Error parsing final bill: {str(e)}"})
+
+
+@app.route("/api/tally-parts", methods=["POST"])
+def tally_parts_api():
+    """Tallies estimate parts with final bill parts and categorizes into Metal, Non Metal, Glass, or Not Allowed."""
+    try:
+        data = request.json or {}
+        est_parts = data.get("estimate_parts", [])
+        bill_parts = data.get("bill_parts", [])
+
+        if not est_parts:
+            return jsonify({"success": False, "error": "No estimate parts provided to tally."})
+
+        tallied = tally_estimate_with_bill(est_parts, bill_parts)
+
+        matched_count = sum(1 for t in tallied if t.get("matched"))
+        disallowed_count = sum(1 for t in tallied if not t.get("matched"))
+
+        metal_items = [t for t in tallied if t.get("category") == "Metal"]
+        non_metal_items = [t for t in tallied if t.get("category") == "Non Metal"]
+        glass_items = [t for t in tallied if t.get("category") == "Glass"]
+        disallowed_items = [t for t in tallied if t.get("category") == "Not Allowed"]
+
+        return jsonify({
+            "success": True,
+            "tallied": tallied,
+            "total_count": len(tallied),
+            "matched_count": matched_count,
+            "disallowed_count": disallowed_count,
+            "metal_count": len(metal_items),
+            "non_metal_count": len(non_metal_items),
+            "glass_count": len(glass_items),
+            "metal_sum": sum(t.get("final_cost", 0.0) for t in metal_items),
+            "non_metal_sum": sum(t.get("final_cost", 0.0) for t in non_metal_items),
+            "glass_sum": sum(t.get("final_cost", 0.0) for t in glass_items),
+            "disallowed_sum": sum(t.get("final_cost", 0.0) for t in disallowed_items)
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Error tallying parts: {str(e)}"})
+
+
+@app.route("/api/write-tallied-costs", methods=["POST"])
+def write_tallied_costs_api():
+    """Writes reconciled/tallied costs into Excel (Metal Col E, Non Metal Col F, Glass Col G, Not Allowed Col H)."""
+    try:
+        data = request.json or {}
+        cfg = load_config()
+
+        file_path = data.get("file_path") or cfg.get("estimate_excel_path") or cfg.get("master_excel_path")
+        sheet_name = data.get("sheet_name") or cfg.get("estimate_selected_sheet")
+        start_row = int(data.get("start_row") or cfg.get("estimate_start_row") or 171)
+        tallied_items = data.get("tallied_items", [])
+
+        if not file_path or not os.path.exists(file_path):
+            return jsonify({"success": False, "error": f"Target Assessment Excel not found: {file_path}"})
+
+        if not tallied_items:
+            return jsonify({"success": False, "error": "No tallied items to write."})
+
+        res = write_tallied_costs_to_excel(
+            file_path=file_path,
+            sheet_name=sheet_name,
+            tallied_items=tallied_items,
+            start_row=start_row
+        )
+
+        if res.get("success"):
+            norm_path = os.path.normpath(os.path.abspath(file_path))
+            mtime = os.path.getmtime(norm_path)
+            size_kb = os.path.getsize(norm_path) / 1024
+            res["file_path"] = norm_path
+            res["filename"] = os.path.basename(norm_path)
+            res["folder"] = os.path.dirname(norm_path)
+            res["last_modified"] = datetime.fromtimestamp(mtime).strftime("%d-%b-%Y %I:%M:%S %p")
+            res["file_size"] = f"{size_kb:.1f} KB"
+
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Error writing tallied costs to Excel: {str(e)}"})
 
 
 @app.route("/api/open-estimate-excel", methods=["POST"])
