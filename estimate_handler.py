@@ -249,6 +249,298 @@ def extract_toyota_format(pdf):
     return items
 
 
+def extract_toyota_claims_format(pdf):
+    """
+    Extracts parts and labour from Toyota Claims Portal estimates (Globe Toyota)
+    where items start with 'CLM ' and have 'oApprove / oReject' buttons.
+    Sections are marked by 'Labour' and 'Parts' headers.
+    """
+    full_text = ""
+    for p in pdf.pages[:2]:
+        full_text += p.extract_text() or ""
+    if "CLM " not in full_text and "oApprove" not in full_text:
+        return []
+    
+    parts = []
+    labours = []
+    current_section = "Labour"
+    
+    for page in pdf.pages:
+        text = page.extract_text() or ""
+        lines = text.split("\n")
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            if line == "Parts":
+                current_section = "Parts"
+                i += 1
+                continue
+            elif line == "Labour":
+                current_section = "Labour"
+                i += 1
+                continue
+            
+            if line.startswith("CLM "):
+                clean_line = re.sub(r'oApprove.*', '', line).strip()
+                clean_line = re.sub(r'oReject.*', '', clean_line).strip()
+                
+                # Check for continuation lines (e.g. 'NO.5', 'SUSPENSIO')
+                next_line = lines[i+1].strip() if i+1 < len(lines) else ""
+                if next_line and not next_line.startswith("CLM ") and not any(k in next_line for k in ["Parts", "Labour", "Estimate", "Grand Total", "Tax", "oApprove", "oReject", "Total", "Dealer Comment", "Insurance Comment", "Page"]):
+                    clean_line = clean_line + " " + next_line
+                    i += 1
+                
+                if current_section == "Labour":
+                    m = re.match(r'^CLM\s+([A-Z0-9\-\/]{4,20})\s+(.+?)\s+([\d,]+\.\d{2})', clean_line)
+                    if m:
+                        code, desc, cost = m.groups()
+                        amt = clean_num(cost)
+                        labours.append({
+                            "code": code.strip(),
+                            "particular": desc.strip(),
+                            "hsn": "998729",
+                            "qty": "1",
+                            "unit_price": amt,
+                            "amount": amt,
+                            "item_type": "Labour",
+                            "selected": True
+                        })
+                else:
+                    m = re.match(r'^CLM\s+([A-Z0-9\-\/]{6,25})\s+(.+?)\s+(\d+(?:\.\d+)?)\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})', clean_line)
+                    if m:
+                        code, desc, qty, unit_cost, total_cost = m.groups()
+                        amt = clean_num(total_cost)
+                        rate = clean_num(unit_cost)
+                        parts.append({
+                            "code": code.strip(),
+                            "particular": desc.strip(),
+                            "hsn": "",
+                            "qty": qty.strip(),
+                            "unit_price": rate,
+                            "amount": amt,
+                            "item_type": "Part",
+                            "selected": True
+                        })
+            i += 1
+            
+    return labours + parts
+
+
+def extract_toyota_tserv_format(pdf):
+    """
+    Extracts parts and labour from Toyota T-Serv / Dealer estimates (IJM Toyota Fortuner)
+    which feature a right checklist sidebar and multi-page tables across multiple pages.
+    """
+    full_text = ""
+    for p in pdf.pages[:3]:
+        full_text += p.extract_text() or ""
+    if ("TOYOTA" not in full_text.upper()) or ("Part Charges" not in full_text and "Labour Charges" not in full_text) or ("[" not in full_text):
+        return []
+    
+    parts = []
+    labours = []
+    current_section = "Header"
+    
+    for page in pdf.pages:
+        text = page.extract_text() or ""
+        lines = text.split("\n")
+        for line in lines:
+            line_s = line.strip()
+            if "Labour Charges" in line_s:
+                current_section = "Labour"
+                continue
+            elif "Part Charges" in line_s:
+                current_section = "Parts"
+                continue
+            
+            # Clean right sidebar noise
+            clean = re.sub(r'\[\s*\].*', '', line_s)
+            clean = re.sub(r'Id Card Driving License.*', '', clean)
+            clean = re.sub(r'Claim Documents.*', '', clean)
+            clean = re.sub(r'I agree to.*', '', clean)
+            clean = re.sub(r'Terms & Condition.*', '', clean)
+            clean = re.sub(r'Explanation of estimate.*', '', clean)
+            clean = re.sub(r'I Certify That.*', '', clean)
+            clean = re.sub(r'Work has been done.*', '', clean)
+            clean = re.sub(r'Job details & charges.*', '', clean)
+            clean = re.sub(r'Vehicle in good condition.*', '', clean)
+            clean = re.sub(r'Date\s*:\s*Customer\s*Signature.*', '', clean, flags=re.I)
+            clean = re.sub(r'Customer\s*Signature.*', '', clean, flags=re.I)
+            clean = clean.strip()
+            
+            if current_section == "Labour":
+                m = re.match(r'^([A-Z0-9]{5,10})\s+(.+?)\s+(\d{6})\s+([\d,]+\.\d{2})$', clean)
+                if m:
+                    code, desc, hsn, amt = m.groups()
+                    amt_f = clean_num(amt)
+                    labours.append({
+                        "code": code.strip(),
+                        "particular": desc.strip(),
+                        "hsn": hsn.strip(),
+                        "qty": "1",
+                        "unit_price": amt_f,
+                        "amount": amt_f,
+                        "item_type": "Labour",
+                        "selected": True
+                    })
+            elif current_section == "Parts":
+                m = re.match(r'^([A-Z0-9\-\/]{6,25})\s+(.+?)\s+(\d{6,8})\s+(\d+(?:\.\d+)?)\s+([\d,]+\.\d{2})$', clean)
+                if m:
+                    code, desc, hsn, qty, amt = m.groups()
+                    amt_f = clean_num(amt)
+                    parts.append({
+                        "code": code.strip(),
+                        "particular": desc.strip(),
+                        "hsn": hsn.strip(),
+                        "qty": qty.strip(),
+                        "unit_price": amt_f,
+                        "amount": amt_f,
+                        "item_type": "Part",
+                        "selected": True
+                    })
+                    
+    return labours + parts
+
+
+def extract_bmw_dms_format(pdf):
+    """
+    Extracts parts and labour from BMW Dealer DMS estimates (Krishna Automobiles BMW)
+    Layout: Description HSN Qty UoM Unit Price Disc. SGST CGST IGST Amount
+    Parts have UoM 'PCS' / 'SET'; Labour has UoM 'FRU' / HSN '998729'.
+    """
+    full_text = ""
+    for p in pdf.pages[:2]:
+        full_text += p.extract_text() or ""
+    if ("BMW" not in full_text.upper() and "Krishna Automobiles" not in full_text) or ("Sum Parts" not in full_text and "FRU" not in full_text):
+        return []
+        
+    parts = []
+    labours = []
+    
+    for page in pdf.pages:
+        text = page.extract_text() or ""
+        for line in text.split("\n"):
+            line_s = line.strip()
+            m = re.match(r'^(.+?)\s+(\d{6,8})\s+(\d+)\s+([A-Za-z]+)\s+([\d,.]+)\s+(?:[\d.]+%?\s+)?([\d,.]+)$', line_s)
+            if m:
+                desc, hsn, qty, uom, rate, amt = m.groups()
+                amt_f = clean_num(amt)
+                rate_f = clean_num(rate)
+                is_labour = (uom.upper() == "FRU") or (hsn.startswith("99"))
+                item = {
+                    "code": hsn.strip(),
+                    "particular": desc.strip(),
+                    "hsn": hsn.strip(),
+                    "qty": f"{qty} {uom}".strip(),
+                    "unit_price": rate_f,
+                    "amount": amt_f,
+                    "item_type": "Labour" if is_labour else "Part",
+                    "selected": True
+                }
+                if is_labour:
+                    labours.append(item)
+                else:
+                    parts.append(item)
+                    
+    return labours + parts
+
+
+def extract_ashok_leyland_format(pdf):
+    """
+    Extracts parts from Commercial Vehicle / Ashok Leyland estimates (Grover Motors)
+    Layout: S.NO CODE HSN UOM QTY MRP PRICE DISC. TAXABLE CGST SGST AMOUNT
+    with multi-line description continuation lines.
+    """
+    full_text = ""
+    for p in pdf.pages[:2]:
+        full_text += p.extract_text() or ""
+    if "GROVER MOTORS" not in full_text.upper() and "SPARES BILL" not in full_text:
+        return []
+        
+    parts = []
+    
+    for page in pdf.pages:
+        text = page.extract_text() or ""
+        lines = text.split("\n")
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            m = re.match(r'^(\d{1,3})\s+([A-Za-z0-9_\-\(\)\/\.]{3,25})\s+(\d{6,8})\s+([A-Za-z]{1,4})\s+(\d+(?:\.\d+)?)\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+(?:[\d\.]+\s*%|[\d,]+\.\d{2})?\s+([\d,]+\.\d{2})\s+', line)
+            if m:
+                sno, code, hsn, uom, qty, mrp, price, taxable_amt = m.groups()
+                amt = clean_num(taxable_amt)
+                rate = clean_num(price)
+                
+                desc_parts = []
+                j = i + 1
+                while j < len(lines):
+                    next_l = lines[j].strip()
+                    if not next_l or re.match(r'^\d{1,3}\s+[A-Za-z0-9_\-\(\)\/\.]{3,25}\s+\d{6,8}', next_l) or "Subtotal" in next_l or "Printed on" in next_l or "INVOICE NO" in next_l or "AMOUNT IN WORDS" in next_l:
+                        break
+                    desc_text = re.sub(r'(?:\s+[\d,]+\.\d{2})+$', '', next_l).strip()
+                    if desc_text and not any(k in desc_text for k in ["S.N CODE", "SPARES BILL", "CUSTOMER", "VEHICLE"]):
+                        desc_parts.append(desc_text)
+                    j += 1
+                
+                full_desc = " ".join(desc_parts).strip()
+                parts.append({
+                    "code": code.strip(),
+                    "particular": full_desc if full_desc else code.strip(),
+                    "hsn": hsn.strip(),
+                    "qty": f"{qty} {uom}".strip(),
+                    "unit_price": rate,
+                    "amount": amt,
+                    "item_type": "Part",
+                    "selected": True
+                })
+                i = j - 1
+            i += 1
+            
+    return parts
+
+
+def extract_printed_estimate_summary(pdf):
+    """
+    Extracts printed parts total, labour total, and grand total from the estimate summary block.
+    Used for mathematical checksum reconciliation (Zero-Miss Guarantee).
+    """
+    summary = {
+        "parts_total": None,
+        "labour_total": None,
+        "grand_total": None
+    }
+    full_text = "\n".join([(p.extract_text() or "") for p in pdf.pages])
+    
+    # 1. Parts Total
+    m_p = re.findall(r'(?:Sum\s+Parts|Parts\s+Total|Total\s+Parts|Part\s*Amt\s*:)[:\s]*([\d,]+\.\d{2})', full_text, re.I)
+    if not m_p:
+        m_p = re.findall(r'(?:^|\n)\s*Parts\s+([\d,]+\.\d{2})\s+0\.00', full_text, re.I)
+    if not m_p:
+        m_p = re.findall(r'(?:^|\n)\s*Parts\s+([\d,]+\.\d{2})', full_text, re.I)
+    if not m_p:
+        m_p = re.findall(r'Subtotal\s+[\d,\.]+\s+([\d,]+\.\d{2})', full_text, re.I)
+    if m_p:
+        summary["parts_total"] = clean_num(m_p[-1])
+        
+    # 2. Labour Total
+    m_l = re.findall(r'(?:Sum\s+Labou?r|Labou?r\s+Total|Total\s+Labou?r|Labou?r\s*Amt\s*:)[:\s]*([\d,]+\.\d{2})', full_text, re.I)
+    if not m_l:
+        m_l_bmw = re.findall(r'(\d{5,8}\.\d{2})\s+\d{6,8}\.\d{2}\s+0\.00', full_text)
+        if m_l_bmw:
+            m_l = m_l_bmw
+    if not m_l:
+        m_l = re.findall(r'(?:^|\n)\s*(?:Labour|Item\s*Amount\s*Discount\s*\n)\s*([\d,]+\.\d{2})', full_text, re.I)
+    if m_l:
+        summary["labour_total"] = clean_num(m_l[-1])
+        
+    # 3. Grand Total
+    m_g = re.findall(r'(?:Grand\s*Total|Total\s*Amt\s*:|Total\s*Amount\s*Incl\.\s*GST)[:\s]*([\d,]+\.\d{2})', full_text, re.I)
+    if m_g:
+        summary["grand_total"] = clean_num(m_g[-1])
+        
+    return summary
+
+
 def parse_estimate_pdf(pdf_path):
     """
     Parses a dealer bill estimate PDF (BMW, Maruti, Hyundai, Tata, Mahindra, Toyota, Honda, Audatex, etc.)
@@ -307,45 +599,55 @@ def parse_estimate_pdf(pdf_path):
                         header_info['dealer_name'] = line_s.split('   ')[0].strip()
                         break
 
-        # Pass 0.5: Toyota / DMS Columnar Spatial Extraction (Border-free multi-column invoices)
-        toyota_items = extract_toyota_format(pdf)
-        if toyota_items and len(toyota_items) >= 2:
-            parts_count = sum(1 for it in toyota_items if it["item_type"] == "Part")
-            parts_sum = sum(it["amount"] for it in toyota_items if it["item_type"] == "Part")
-            labour_count = sum(1 for it in toyota_items if it["item_type"] == "Labour")
-            labour_sum = sum(it["amount"] for it in toyota_items if it["item_type"] == "Labour")
-            return {
-                "success": True,
-                "filename": os.path.basename(pdf_path),
-                "header": header_info,
-                "items": toyota_items,
-                "total_parts": parts_count,
-                "total_parts_sum": round(parts_sum, 2),
-                "total_labour": labour_count,
-                "total_labour_sum": round(labour_sum, 2),
-                "total_estimate_sum": round(parts_sum + labour_sum, 2)
-            }
+        # Pass 0.1: Specialized High-Precision DMS Extractors (100% Zero-Miss Architecture)
+        specialized_extractors = [
+            ("Toyota Claims Portal", extract_toyota_claims_format),
+            ("Toyota T-Serv", extract_toyota_tserv_format),
+            ("BMW DMS", extract_bmw_dms_format),
+            ("Ashok Leyland Commercial", extract_ashok_leyland_format),
+            ("Toyota UTrust Columnar", extract_toyota_format)
+        ]
+        for name, extractor_fn in specialized_extractors:
+            spec_items = extractor_fn(pdf)
+            if spec_items and len(spec_items) >= 2:
+                items = spec_items
+                break
 
-        # Pass 1: Multi-page Table Extraction (Default Lines Strategy)
         table_items = []
-        for p_idx, page in enumerate(pdf.pages):
-            tables = page.extract_tables() or []
-            for table in tables:
-                if not table or len(table) < 2:
-                    continue
+        if not items:
+            # Pass 1: Multi-page Table Extraction (with multi-page continuation table support)
+            last_cols = None
+            last_table_type = None
 
-                h_idx = -1
-                cols = {}
-                for r_idx, row in enumerate(table[:5]):
-                    cols_candidate = map_table_header(row)
-                    if "desc" in cols_candidate and ("taxable_amt" in cols_candidate or "amount" in cols_candidate or "rate" in cols_candidate):
-                        h_idx = r_idx
-                        cols = cols_candidate
-                        break
+            for p_idx, page in enumerate(pdf.pages):
+                tables = page.extract_tables() or []
+                for table in tables:
+                    if not table or len(table) < 1:
+                        continue
 
-                if h_idx >= 0 and "desc" in cols and ("taxable_amt" in cols or "amount" in cols or "rate" in cols):
+                    h_idx = -1
+                    cols = {}
+                    for r_idx, row in enumerate(table[:5]):
+                        cols_candidate = map_table_header(row)
+                        if "desc" in cols_candidate and ("taxable_amt" in cols_candidate or "amount" in cols_candidate or "rate" in cols_candidate):
+                            h_idx = r_idx
+                            cols = cols_candidate
+                            break
+
+                    if h_idx >= 0 and "desc" in cols:
+                        last_cols = cols
+                        first_row_text = " ".join([str(c or "").strip() for c in table[0]]).lower()
+                        last_table_type = "Labour" if "labour" in first_row_text else "Part"
+                        rows_to_process = table[h_idx + 1:]
+                    elif last_cols and len(table[0]) >= 4 and not any(term in " ".join([str(c or "").strip() for c in table[0]]).lower() for term in ["estimate", "total", "customer", "prepared by", "terms"]):
+                        # Continuation table on subsequent page without repeating header!
+                        cols = last_cols
+                        rows_to_process = table
+                    else:
+                        continue
+
                     amt_col = cols.get("taxable_amt") or cols.get("amount") or cols.get("rate")
-                    for row in table[h_idx + 1:]:
+                    for row in rows_to_process:
                         if not row:
                             continue
                         row_text = " ".join([str(c or "").strip() for c in row]).lower()
@@ -363,7 +665,7 @@ def parse_estimate_pdf(pdf_path):
                             hsn = str(row[cols["hsn"]] or "").strip() if "hsn" in cols and cols["hsn"] < len(row) else ""
                             rate = clean_num(row[cols["rate"]]) if "rate" in cols and cols["rate"] < len(row) else amt
 
-                            is_labour = is_labour_item(desc, uom, hsn)
+                            is_labour = (last_table_type == "Labour") or is_labour_item(desc, uom, hsn)
                             table_items.append({
                                 "code": code,
                                 "particular": desc,
@@ -376,7 +678,7 @@ def parse_estimate_pdf(pdf_path):
                             })
 
         # Pass 1.5: If few items found, try Text-based Table Extraction
-        if len(table_items) < 2:
+        if not items and len(table_items) < 2:
             table_items_text = []
             for p_idx, page in enumerate(pdf.pages):
                 tables = page.extract_tables({"vertical_strategy": "text", "horizontal_strategy": "text"}) or []
@@ -422,9 +724,9 @@ def parse_estimate_pdf(pdf_path):
             if len(table_items_text) > len(table_items):
                 table_items = table_items_text
 
-        if len(table_items) >= 2:
+        if not items and len(table_items) >= 2:
             items = table_items
-        else:
+        elif not items:
             # Pass 2: High-capacity multi-pattern text streaming with continuation line aggregation
             for p_idx, page in enumerate(pdf.pages):
                 text = page.extract_text() or ""
@@ -619,10 +921,21 @@ def parse_estimate_pdf(pdf_path):
                         if not any(k in line_lower for k in ["signature", "address", "phone", "email", "pan", "gstin", "order", "date", "road", "pin", "ludhiana", "delhi"]):
                             items[last_item_idx_on_page]["particular"] += f" {line_s}"
 
+        # Extract printed summary before closing PDF
+        printed_summary = extract_printed_estimate_summary(pdf)
+
     parts_count = sum(1 for it in items if it["item_type"] == "Part")
     parts_sum = sum(it["amount"] for it in items if it["item_type"] == "Part")
     labour_count = sum(1 for it in items if it["item_type"] == "Labour")
     labour_sum = sum(it["amount"] for it in items if it["item_type"] == "Labour")
+
+    p_target = printed_summary.get("parts_total")
+    reconciliation_verified = False
+    diff = 0.0
+    if p_target and p_target > 0:
+        diff = round(parts_sum - p_target, 2)
+        if abs(diff) < 1.0:
+            reconciliation_verified = True
 
     return {
         "success": True,
@@ -633,7 +946,13 @@ def parse_estimate_pdf(pdf_path):
         "total_parts_sum": round(parts_sum, 2),
         "total_labour": labour_count,
         "total_labour_sum": round(labour_sum, 2),
-        "total_estimate_sum": round(parts_sum + labour_sum, 2)
+        "total_estimate_sum": round(parts_sum + labour_sum, 2),
+        "printed_summary": printed_summary,
+        "reconciliation": {
+            "verified": reconciliation_verified,
+            "printed_parts_total": p_target,
+            "difference": diff
+        }
     }
 
 

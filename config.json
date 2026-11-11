@@ -4,8 +4,8 @@
   "auto_increment_ref": true,
   "default_survey_date_today": true,
   "create_backup": true,
-  "estimate_excel_path": "",
-  "estimate_selected_sheet": "",
+  "estimate_excel_path": "C:\\Users\\bigma/Downloads/0000000-new format psu-big font- - Copy - Copy - Copy - Copy - Copy - Copy - Copy - Copy - Copy.xls",
+  "estimate_selected_sheet": "Sheet1",
   "estimate_start_row": 171,
   "estimate_labour_start_row": 359,
   "templates": [

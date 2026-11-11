@@ -1736,8 +1736,12 @@
                     const pSum = items.filter(it => it.item_type === "Part").reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
                     const lSum = items.filter(it => it.item_type === "Labour").reduce((acc, it) => acc + (parseFloat(it.amount) || 0), 0);
 
+                    let reconBadge = "";
+                    if (data.reconciliation && data.reconciliation.verified) {
+                        reconBadge = ` &bull; <span class="badge bg-success-subtle text-success border border-success-subtle" title="Extracted parts sum matched printed estimate total"><i class="bi bi-shield-check"></i> 100% Subtotal Verified</span>`;
+                    }
                     document.getElementById("pdf-summary-text").innerHTML = 
-                        `Extracted <strong>${pCount} Parts</strong> (₹${pSum.toLocaleString('en-IN', {maximumFractionDigits:0})}) &bull; <strong>${lCount} Labour</strong> (₹${lSum.toLocaleString('en-IN', {maximumFractionDigits:0})})`;
+                        `Extracted <strong>${pCount} Parts</strong> (₹${pSum.toLocaleString('en-IN', {maximumFractionDigits:0})}) &bull; <strong>${lCount} Labour</strong> (₹${lSum.toLocaleString('en-IN', {maximumFractionDigits:0})})${reconBadge}`;
 
                     renderPartsTable();
                     updateHeroBanner();
@@ -2170,8 +2174,12 @@
                     document.getElementById("chip-final-bill-labour").innerText = lCount;
                     document.getElementById("chip-final-bill-total").innerText = `₹${totalSum.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
+                    let fbReconBadge = "";
+                    if (data.reconciliation && data.reconciliation.verified) {
+                        fbReconBadge = ` &bull; <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-shield-check"></i> 100% Subtotal Verified</span>`;
+                    }
                     document.getElementById("final-bill-summary-text").innerHTML = 
-                        `Extracted <strong>${pCount} parts</strong> &bull; Ready to tally with Step 2`;
+                        `Extracted <strong>${pCount} parts</strong>${fbReconBadge} &bull; Ready to tally with Step 2`;
 
                     showAlert(`Final Bill loaded! <strong>${pCount} parts</strong> extracted. Now click Step 4 to tally costs!`, "success");
 

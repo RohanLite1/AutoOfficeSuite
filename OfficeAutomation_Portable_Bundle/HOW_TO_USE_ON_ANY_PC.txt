@@ -1,6 +1,6 @@
 ================================================================================
 OFFICE AUTOMATION PORTABLE BUNDLE - USER GUIDE
-For Insurance Claim MIS Extractor & Estimate Assessment
+Estimate Reconciler, Parts & Labour Extractor, and Insurance MIS Suite
 ================================================================================
 
 This portable bundle can be transferred to ANY Windows 10 / 11 PC via USB drive,
@@ -20,7 +20,7 @@ email, Google Drive, or shared folder. No Python installation required!
    - Once loaded into Chrome, it stays permanently installed on that machine.
 
 3. HOW_TO_USE_ON_ANY_PC.txt
-   - This setup and troubleshooting guide.
+   - This setup and user guide.
 
 
 --------------------------------------------------------------------------------
@@ -33,23 +33,44 @@ email, Google Drive, or shared folder. No Python installation required!
 
 
 --------------------------------------------------------------------------------
-3. LINKING YOUR EXCEL SPREADSHEETS (BROWSE FEATURE IMPROVEMENTS)
+3. THE 4-STEP ESTIMATE & FINAL BILL RECONCILER
 --------------------------------------------------------------------------------
-On ANY computer, you can link your spreadsheets in 3 easy ways:
+The top ribbon guides you horizontally through the 4 steps:
 
-A. 📁 "Browse" Button:
-   - Click "📁 Browse" next to the Master Excel or Target Excel dropdown.
-   - A standard native Windows Explorer dialog will appear.
-   - Pick your file from Desktop, Documents, D:\, or Network Drive.
-   - The app links the REAL file path directly (NOT a temporary copy).
+STEP 1: Assessment Excel
+   - Click "📁 Add Excel File" to select your master assessment spreadsheet (.xls or .xlsx).
+   - Configure your target Sheet (e.g. Sheet1), Parts Starting Row (default 171),
+     and Labour Starting Row (default 359).
+   - The app links the real file directly on disk with automatic safety backups (.bak).
 
-B. ✏️ "Paste Path" Button:
-   - If your file is deep in folders, click "✏️ Paste Path" on the live card.
-   - Paste the exact file path (e.g. D:\Office\Claims\MIS-2026.xlsx) and click OK.
+STEP 2: Estimate PDF Bill
+   - Click "📄 Add Estimate PDF" to select your dealer / workshop repair estimate PDF.
+   - Automatically parses all parts and labour with Taxable Amounts (excluding GST).
+   - Both Parts and Labour are extracted and ready to write.
+   - Click "📦 Write Parts to Excel" to paste parts into Row 171 (Col C Particular, Col D Estimate).
+   - Click "🛠️ Write Labour to Excel" to paste labour charges into Row 359 (LABOUR COMPUTATION).
+   - Column B (Bill No) is intentionally left blank per user requirements.
 
-C. 📋 Dropdown Selection:
-   - The app automatically scans your Desktop, Downloads, and app folders
-     for spreadsheets and lists them in the dropdown.
+STEP 3: Import Bill PDF
+   - Click "📥 Import Bill PDF" to select your final workshop tax invoice PDF.
+   - Automatically extracts parts, labour, and billed amounts.
+
+STEP 4: Tally Parts and Paste Cost
+   - Click "⚡ Tally & Paste Cost" to automatically reconcile Step 2 parts against Step 3 bill.
+   - QUANTITY LIMITING: If the final bill has more parts than estimated (e.g. 20 clips in
+     bill but only 1 clip in estimate), the app automatically limits the bill quantity
+     to the estimate limit (at max) and calculates the cost accordingly.
+   - INTERACTIVE QUANTITY STEPPER: In the tally table, use the "−" and "+" buttons or type
+     directly in the Parts Qty input. The assessed cost recalculates in real-time
+     (e.g. 2 parts @ 100Rs -> drop to 1 part -> 50Rs).
+   - MATERIAL CATEGORIZATION: Automatically tags each item:
+       * Metal (Col E)
+       * Non-Metal (Col F)
+       * Glass (Col G)
+       * Not Allowed (Col H - Yellow cell for parts in estimate but not in final bill)
+     You can also click any category button to adjust the destination column manually.
+   - Click "✍️ Write Tallied Costs to Excel" to paste the assessed costs into their designated
+     columns (Col E, Col F, Col G, Col H).
 
 
 --------------------------------------------------------------------------------
@@ -58,24 +79,15 @@ C. 📋 Dropdown Selection:
 To guarantee you always know if and where your spreadsheet was updated:
 
 1. Live Target Excel Status Strip:
-   - At the top of every tab (MIS Claims, Estimate Parts, MIS from Web), there is
-     a dedicated live card:
-     * Green Dot: "Active Master Excel (Live)"
-     * Disk Path: displays the exact full path to the file being updated.
-     * Sheet: displays the active sheet name.
-     * Saved At: displays the exact date and timestamp of the last disk save.
-     * Size: displays current file size in KB.
+   - Green indicator confirms connected file, active sheet, last save time, and file size.
 
-2. Post-Save Audit Confirmation Banner:
-   - Whenever you click "Append Rows to Master Excel" or "Write Parts to Selected Excel",
-     a high-visibility green confirmation box appears at the top:
-     * Confirms the exact file name and path updated on disk.
-     * Confirms the rows inserted (e.g., Rows 796 to 798).
-     * Confirms the file modification time down to the second.
-   - Includes 1-Click buttons:
-     * [ 📂 Open in Excel to Verify ]: Launches your file in Microsoft Excel immediately.
-     * [ 📁 Show in Explorer ]: Opens the folder in Windows Explorer with the file highlighted.
-     * [ 📋 Copy Path ]: Copies the path to clipboard.
+2. Post-Save Audit Confirmation Modal:
+   - After writing parts, labour, or tallied costs, a confirmation popup shows:
+     * Sheet name and exact start/end rows written.
+     * Category distribution breakdown.
+   - 1-Click Buttons:
+     * [ 📂 Open in Excel ]: Launches the updated spreadsheet in Microsoft Excel.
+     * [ 📁 Explorer ]: Opens the folder in Windows Explorer with the file selected.
 
 
 --------------------------------------------------------------------------------
@@ -91,21 +103,11 @@ installed permanently on that computer:
    and press Enter.
 3. In the top-right corner, turn ON the switch that says "Developer mode".
 4. In the top-left corner, click the "Load unpacked" button.
-5. In the file picker dialog, select the "extension" folder inside this bundle:
-      (e.g., C:\Path\To\OfficeAutomation_Portable_Bundle\extension)
+5. In the file picker dialog, select the "extension" folder inside this bundle.
 6. Click "Select Folder".
 7. DONE!
    - The extension will appear in your Chrome toolbar.
-   - Click the puzzle piece icon in Chrome and click the Pin icon next to
-     "Office MIS Claim Assistant".
-   - It will stay permanently installed on this PC across computer restarts!
-
-HOW TO USE THE EXTENSION:
-- Open any Universal Sompo claim page or insurance portal.
-- You will see a floating "⚡ Send Claim to MIS" button on the webpage, or
-  you can click the extension icon in your Chrome toolbar and click "Send Claim to MIS".
-- Ensure OfficeAutomation.exe is running; the claim will instantly appear in the
-  "MIS from Web" tab ready to append to Excel!
+   - Pin "Office MIS Claim Assistant" for quick 1-click access.
 
 
 --------------------------------------------------------------------------------
@@ -113,8 +115,8 @@ HOW TO USE THE EXTENSION:
 --------------------------------------------------------------------------------
 - "File is locked / Permission Error":
   Microsoft Excel locks files exclusively when open. If the app displays a lock warning,
-  simply save and close the file in Excel, then click Append again.
+  simply save and close the file in Excel, then click Write again.
 - "Different PC Paths":
-  When moving the bundle to another computer, click "📁 Browse" once to select
-  where the MIS spreadsheet is stored on that new computer.
+  When moving the bundle to another computer, click "📁 Change File" once to select
+  where the assessment spreadsheet is stored on that new computer.
 ================================================================================
