@@ -32,7 +32,10 @@ from estimate_handler import (
     write_labour_to_excel,
     tally_estimate_with_bill,
     write_tallied_costs_to_excel,
-    categorize_part_material
+    categorize_part_material,
+    categorize_labour,
+    tally_estimate_labour_with_bill,
+    write_tallied_labour_to_excel
 )
 
 if getattr(sys, "frozen", False):
@@ -1017,6 +1020,85 @@ def write_tallied_costs_api():
         return jsonify(res)
     except Exception as e:
         return jsonify({"success": False, "error": f"Error writing tallied costs to Excel: {str(e)}"})
+
+
+@app.route("/api/tally-labour", methods=["POST"])
+def tally_labour_api():
+    """Tallies estimate labour with final bill labour and categorizes into Opening/rft, Denting, Painting, or Not Allowed."""
+    try:
+        data = request.json or {}
+        est_labour = data.get("estimate_labour", [])
+        bill_labour = data.get("bill_labour", [])
+
+        if not est_labour:
+            return jsonify({"success": False, "error": "No estimate labour items provided to tally."})
+
+        tallied = tally_estimate_labour_with_bill(est_labour, bill_labour)
+
+        matched_count = sum(1 for t in tallied if t.get("matched"))
+        disallowed_count = sum(1 for t in tallied if not t.get("matched"))
+
+        opening_items = [t for t in tallied if t.get("category") == "Opening/rft"]
+        denting_items = [t for t in tallied if t.get("category") == "Denting"]
+        painting_items = [t for t in tallied if t.get("category") == "Painting"]
+        disallowed_items = [t for t in tallied if t.get("category") == "Not Allowed"]
+
+        return jsonify({
+            "success": True,
+            "tallied": tallied,
+            "total_count": len(tallied),
+            "matched_count": matched_count,
+            "disallowed_count": disallowed_count,
+            "opening_count": len(opening_items),
+            "denting_count": len(denting_items),
+            "painting_count": len(painting_items),
+            "opening_sum": sum(t.get("final_cost", 0.0) for t in opening_items),
+            "denting_sum": sum(t.get("final_cost", 0.0) for t in denting_items),
+            "painting_sum": sum(t.get("final_cost", 0.0) for t in painting_items),
+            "disallowed_sum": sum(t.get("final_cost", 0.0) for t in disallowed_items)
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Error tallying labour: {str(e)}"})
+
+
+@app.route("/api/write-tallied-labour", methods=["POST"])
+def write_tallied_labour_api():
+    """Writes reconciled/tallied labour costs into Excel (Opening/rft Col E, Denting Col F, Painting Col G, Not Allowed Col H)."""
+    try:
+        data = request.json or {}
+        cfg = load_config()
+
+        file_path = data.get("file_path") or cfg.get("estimate_excel_path") or cfg.get("master_excel_path")
+        sheet_name = data.get("sheet_name") or cfg.get("estimate_selected_sheet")
+        start_row = int(data.get("start_row") or cfg.get("estimate_labour_start_row") or 359)
+        tallied_items = data.get("tallied_items", [])
+
+        if not file_path or not os.path.exists(file_path):
+            return jsonify({"success": False, "error": f"Target Assessment Excel not found: {file_path}"})
+
+        if not tallied_items:
+            return jsonify({"success": False, "error": "No tallied labour items to write."})
+
+        res = write_tallied_labour_to_excel(
+            file_path=file_path,
+            sheet_name=sheet_name,
+            tallied_labour=tallied_items,
+            start_row=start_row
+        )
+
+        if res.get("success"):
+            norm_path = os.path.normpath(os.path.abspath(file_path))
+            mtime = os.path.getmtime(norm_path)
+            size_kb = os.path.getsize(norm_path) / 1024
+            res["file_path"] = norm_path
+            res["filename"] = os.path.basename(norm_path)
+            res["folder"] = os.path.dirname(norm_path)
+            res["last_modified"] = datetime.fromtimestamp(mtime).strftime("%d-%b-%Y %I:%M:%S %p")
+            res["file_size"] = f"{size_kb:.1f} KB"
+
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Error writing tallied labour to Excel: {str(e)}"})
 
 
 @app.route("/api/open-estimate-excel", methods=["POST"])

@@ -2092,6 +2092,11 @@ def write_tallied_costs_to_excel(file_path, sheet_name=None, tallied_items=None,
         "Not Allowed": 7  # Col H
     }
 
+    metal_count = sum(1 for it in tallied_items if it.get("category") == "Metal")
+    non_metal_count = sum(1 for it in tallied_items if it.get("category") == "Non Metal")
+    glass_count = sum(1 for it in tallied_items if it.get("category") == "Glass")
+    disallowed_count = sum(1 for it in tallied_items if it.get("category") == "Not Allowed")
+
     if is_xls:
         import xlrd
         from xlutils.copy import copy
@@ -2148,7 +2153,11 @@ def write_tallied_costs_to_excel(file_path, sheet_name=None, tallied_items=None,
             "start_row": first_r,
             "end_row": last_r,
             "sheet": target_sheet_name,
-            "backup_created": backup_path
+            "backup_created": backup_path,
+            "metal_count": metal_count,
+            "non_metal_count": non_metal_count,
+            "glass_count": glass_count,
+            "disallowed_count": disallowed_count
         }
     else:
         import openpyxl
@@ -2203,5 +2212,359 @@ def write_tallied_costs_to_excel(file_path, sheet_name=None, tallied_items=None,
             "start_row": first_r,
             "end_row": last_r,
             "sheet": target_sheet_name,
-            "backup_created": backup_path
+            "backup_created": backup_path,
+            "metal_count": metal_count,
+            "non_metal_count": non_metal_count,
+            "glass_count": glass_count,
+            "disallowed_count": disallowed_count
+        }
+
+
+
+# ==============================================================================
+# LABOUR CATEGORIZATION & RECONCILIATION / TALLY WITH FINAL BILL
+# ==============================================================================
+
+def categorize_labour(desc, code=""):
+    """
+    Categorizes an automotive labour charge into:
+    - 'Painting' (Col G) - Paint preparation, refinishing, top coat, buffing, polishing, rubbing
+    - 'Denting' (Col F) - Sheet metal dent repair, panel beating, straightening, pulling, welding
+    - 'Opening/rft' (Col E) - R&R, removal, refitting, overhaul, dismantling, replacement, testing, scan, alignment
+    """
+    d = (desc or "").upper()
+    c = (code or "").upper()
+    text = f"{d} {c}"
+
+    # 1. Painting Category (Col G)
+    paint_patterns = [
+        r'\bPAINT\b', r'\bPAINTING\b', r'\bREPAINT\b', r'\bREFINISH\b',
+        r'\bSURFACER\b', r'\bBUFFING\b', r'\bPOLISHING\b', r'\bRUBBING\b',
+        r'\bCLEAR\s*COAT\b', r'\bTOUCH\s*UP\b', r'\bPRIMER\b', r'\bCOLOR\b',
+        r'\bBAKE\b', r'\bBOOTH\b', r'\bTOP\s*COAT\b'
+    ]
+    for pat in paint_patterns:
+        if re.search(pat, text):
+            return "Painting"
+
+    # 2. Denting Category (Col F)
+    dent_patterns = [
+        r'\bDENT\b', r'\bDENTING\b', r'\bPANEL\s*BEATING\b', r'\bSTRAIGHTENING\b',
+        r'\bPULLING\b', r'\bTINKERING\b', r'\bWELDING\b', r'\bBENCH\b',
+        r'\bCHASSIS\s*ALIGNMENT\b', r'\bFRAME\s*ALIGNMENT\b'
+    ]
+    for pat in dent_patterns:
+        if re.search(pat, text):
+            return "Denting"
+
+    # 3. Opening/rft Category (Col E) - Default for R&R, removal, replacement, overhaul, mechanical, alignment, or general labour
+    return "Opening/rft"
+
+
+def tally_estimate_labour_with_bill(estimate_labour, bill_labour):
+    """
+    Tallies each estimate labour item against final bill labour items.
+    - If in both Estimate and Final Bill:
+      Categorizes as 'Opening/rft' (Col E), 'Denting' (Col F), or 'Painting' (Col G).
+      Quantity limited to min(bill_qty, est_qty).
+      Cost = Final bill labour amount (or allowed_qty * bill_unit_price).
+    - If in Estimate but NOT in Final Bill:
+      Categorizes as 'Not Allowed' (Yellow Col H).
+      Cost = Estimate labour taxable amount.
+    """
+    bill_available = list(bill_labour or [])
+    used_bill_indices = set()
+    tallied = []
+
+    for idx, est in enumerate(estimate_labour or []):
+        est_desc = est.get("particular", "")
+        est_code = est.get("code", "")
+        est_amt = float(est.get("amount", 0.0) or 0.0)
+        est_code_norm = normalize_part_code(est_code)
+        est_tokens = tokenize_desc(est_desc)
+
+        best_match_idx = None
+        best_match_score = 0.0
+
+        # Pass 1: Code Match (if code is meaningful)
+        if est_code_norm and len(est_code_norm) >= 3:
+            for b_idx, b in enumerate(bill_available):
+                if b_idx in used_bill_indices:
+                    continue
+                b_code_norm = normalize_part_code(b.get("code", ""))
+                if b_code_norm and (b_code_norm == est_code_norm or b_code_norm in est_code_norm or est_code_norm in b_code_norm):
+                    best_match_idx = b_idx
+                    best_match_score = 1.0
+                    break
+
+        # Pass 2: Description token overlap if code did not match
+        if best_match_idx is None and est_tokens:
+            for b_idx, b in enumerate(bill_available):
+                if b_idx in used_bill_indices:
+                    continue
+                b_tokens = tokenize_desc(b.get("particular", ""))
+                if not b_tokens:
+                    continue
+                inter = est_tokens & b_tokens
+                if inter:
+                    score = len(inter) / max(len(est_tokens), len(b_tokens))
+                    if score > best_match_score and (score >= 0.40 or len(inter) >= 1):
+                        best_match_score = score
+                        best_match_idx = b_idx
+
+        # Parse estimate quantity
+        try:
+            est_qty = float(est.get("qty", 1.0) or 1.0)
+            if est_qty <= 0:
+                est_qty = 1.0
+        except (ValueError, TypeError):
+            est_qty = 1.0
+
+        if best_match_idx is not None:
+            used_bill_indices.add(best_match_idx)
+            matched_b = bill_available[best_match_idx]
+            b_amt = float(matched_b.get("amount", 0.0) or 0.0)
+
+            try:
+                b_qty = float(matched_b.get("qty", 1.0) or 1.0)
+                if b_qty <= 0:
+                    b_qty = 1.0
+            except (ValueError, TypeError):
+                b_qty = 1.0
+
+            b_unit = float(matched_b.get("unit_price", 0.0) or 0.0)
+            if b_unit <= 0 and b_qty > 0 and b_amt > 0:
+                b_unit = b_amt / b_qty
+            elif b_unit <= 0 and est_qty > 0 and est_amt > 0:
+                b_unit = est_amt / est_qty
+            elif b_unit <= 0:
+                b_unit = b_amt
+
+            allowed_qty = min(b_qty, est_qty)
+            final_cost = round(allowed_qty * b_unit, 2) if b_unit > 0 else (b_amt if b_amt > 0 else est_amt)
+
+            cat = categorize_labour(est_desc, est_code)
+            target_col = "E" if cat == "Opening/rft" else ("F" if cat == "Denting" else "G")
+
+            tallied.append({
+                "index": idx + 1,
+                "est_particular": est_desc,
+                "est_desc": est_desc,
+                "est_code": est_code,
+                "est_qty": est_qty,
+                "est_amount": est_amt,
+                "matched": True,
+                "bill_particular": matched_b.get("particular", ""),
+                "bill_desc": matched_b.get("particular", ""),
+                "bill_code": matched_b.get("code", ""),
+                "bill_qty": b_qty,
+                "bill_amount": b_amt,
+                "unit_price": round(b_unit, 2),
+                "qty": allowed_qty,
+                "max_qty": est_qty,
+                "category": cat,
+                "target_col": target_col,
+                "final_cost": round(final_cost, 2),
+                "item_type": "Labour"
+            })
+        else:
+            # Not in Final Bill -> Disallowed / Col H
+            est_unit = float(est.get("unit_price", 0.0) or 0.0)
+            if est_unit <= 0 and est_qty > 0 and est_amt > 0:
+                est_unit = est_amt / est_qty
+            elif est_unit <= 0:
+                est_unit = est_amt
+
+            tallied.append({
+                "index": idx + 1,
+                "est_particular": est_desc,
+                "est_desc": est_desc,
+                "est_code": est_code,
+                "est_qty": est_qty,
+                "est_amount": est_amt,
+                "matched": False,
+                "bill_particular": "",
+                "bill_desc": "",
+                "bill_code": "",
+                "bill_qty": 0.0,
+                "bill_amount": 0.0,
+                "unit_price": round(est_unit, 2),
+                "qty": est_qty,
+                "max_qty": est_qty,
+                "category": "Not Allowed",
+                "target_col": "H",
+                "final_cost": round(est_amt, 2),
+                "item_type": "Labour"
+            })
+
+    return tallied
+
+
+def write_tallied_labour_to_excel(file_path, sheet_name=None, tallied_labour=None, start_row=None):
+    """
+    Writes reconciled / tallied labour costs into the LABOUR COMPUTATION table:
+    - Col E (Opening/rft): if category == 'Opening/rft'
+    - Col F (Denting): if category == 'Denting'
+    - Col G (Painting): if category == 'Painting'
+    - Col H (Not Allowed): if category == 'Not Allowed'
+    Leaves Col D (Estimate) and Col B (Bill No) untouched.
+    """
+    if not file_path or not os.path.exists(file_path):
+        return {"success": False, "error": f"Target Assessment Excel not found: {file_path}"}
+
+    if not tallied_labour:
+        return {"success": False, "error": "No tallied labour items to write."}
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_path = f"{file_path}.bak_{timestamp}"
+    try:
+        shutil.copy2(file_path, backup_path)
+        _prune_old_backups(file_path)
+    except Exception as e:
+        print(f"Warning creating backup: {e}")
+
+    ext = os.path.splitext(file_path)[1].lower()
+    is_xls = ext == ".xls"
+
+    sheet_info = inspect_estimate_excel(file_path, target_sheet=sheet_name)
+    if not sheet_info.get("success"):
+        return {"success": False, "error": sheet_info.get("error", "Failed to inspect sheet.")}
+
+    target_sheet_name = sheet_info.get("selected_sheet")
+    detected_labour_start = sheet_info.get("labour_start_row", 359)
+    if start_row is None or int(start_row) <= 0:
+        start_row = detected_labour_start
+    else:
+        start_row = int(start_row)
+
+    col_map = {
+        "Opening/rft": 4,  # Col E (0-based)
+        "Denting": 5,      # Col F
+        "Painting": 6,     # Col G
+        "Not Allowed": 7   # Col H
+    }
+
+    opening_count = sum(1 for it in tallied_labour if it.get("category") == "Opening/rft")
+    denting_count = sum(1 for it in tallied_labour if it.get("category") == "Denting")
+    painting_count = sum(1 for it in tallied_labour if it.get("category") == "Painting")
+    disallowed_count = sum(1 for it in tallied_labour if it.get("category") == "Not Allowed")
+
+    if is_xls:
+        import xlrd
+        from xlutils.copy import copy
+        rb = xlrd.open_workbook(file_path, formatting_info=True)
+        wb = copy(rb)
+        sheet_idx = 0
+        if target_sheet_name:
+            for i, sname in enumerate(rb.sheet_names()):
+                if sname.lower() == target_sheet_name.lower():
+                    sheet_idx = i
+                    break
+        sheet = wb.get_sheet(sheet_idx)
+        rb_sheet = rb.sheet_by_index(sheet_idx)
+
+        current_r = start_row - 1
+        written = 0
+        first_r = current_r + 1
+        last_r = current_r
+
+        for it in tallied_labour:
+            cat = it.get("category", "Not Allowed")
+            cost = float(it.get("final_cost", 0.0) or it.get("cost", 0.0) or 0.0)
+            target_c = col_map.get(cat, 7)
+
+            lab_name = str(it.get("est_particular") or it.get("est_desc") or "").strip()
+            est_amt = float(it.get("est_amount", 0.0) or 0.0)
+
+            # Ensure Col C has the labour description
+            c_val = rb_sheet.cell_value(current_r, 2) if current_r < rb_sheet.nrows else ""
+            if not str(c_val).strip() and lab_name:
+                sheet.write(current_r, 2, lab_name)
+
+            # Ensure Col D has estimate amount
+            d_val = rb_sheet.cell_value(current_r, 3) if current_r < rb_sheet.nrows else ""
+            if (d_val == "" or d_val is None) and est_amt > 0:
+                sheet.write(current_r, 3, est_amt)
+
+            # Write to the designated column and clear other category columns in this row
+            for c_idx in [4, 5, 6, 7]:
+                if c_idx == target_c:
+                    sheet.write(current_r, c_idx, cost)
+                else:
+                    sheet.write(current_r, c_idx, "")
+
+            last_r = current_r + 1
+            current_r += 1
+            written += 1
+
+        wb.save(file_path)
+        invalidate_estimate_cache(file_path)
+        return {
+            "success": True,
+            "written_count": written,
+            "start_row": first_r,
+            "end_row": last_r,
+            "sheet": target_sheet_name,
+            "backup_created": backup_path,
+            "opening_count": opening_count,
+            "denting_count": denting_count,
+            "painting_count": painting_count,
+            "disallowed_count": disallowed_count
+        }
+    else:
+        import openpyxl
+        wb = openpyxl.load_workbook(file_path)
+        sheet = wb[target_sheet_name] if target_sheet_name in wb.sheetnames else wb.active
+
+        col_map_openpyxl = {
+            "Opening/rft": 5,  # Col E (1-based)
+            "Denting": 6,      # Col F
+            "Painting": 7,     # Col G
+            "Not Allowed": 8   # Col H
+        }
+
+        current_r = start_row
+        written = 0
+        first_r = current_r
+        last_r = current_r
+
+        for it in tallied_labour:
+            cat = it.get("category", "Not Allowed")
+            cost = float(it.get("final_cost", 0.0) or it.get("cost", 0.0) or 0.0)
+            target_col = col_map_openpyxl.get(cat, 8)
+
+            lab_name = str(it.get("est_particular") or it.get("est_desc") or "").strip()
+            est_amt = float(it.get("est_amount", 0.0) or 0.0)
+
+            c_cell = sheet.cell(row=current_r, column=3)
+            if not str(c_cell.value or "").strip() and lab_name:
+                c_cell.value = lab_name
+
+            d_cell = sheet.cell(row=current_r, column=4)
+            if (d_cell.value is None or d_cell.value == "") and est_amt > 0:
+                d_cell.value = est_amt
+
+            for c_idx in [5, 6, 7, 8]:
+                if c_idx == target_col:
+                    sheet.cell(row=current_r, column=c_idx, value=cost)
+                else:
+                    sheet.cell(row=current_r, column=c_idx, value=None)
+
+            last_r = current_r
+            current_r += 1
+            written += 1
+
+        wb.save(file_path)
+        invalidate_estimate_cache(file_path)
+        return {
+            "success": True,
+            "written_count": written,
+            "start_row": first_r,
+            "end_row": last_r,
+            "sheet": target_sheet_name,
+            "backup_created": backup_path,
+            "opening_count": opening_count,
+            "denting_count": denting_count,
+            "painting_count": painting_count,
+            "disallowed_count": disallowed_count
         }

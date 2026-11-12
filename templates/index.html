@@ -371,6 +371,21 @@
             color: white;
         }
 
+        .cat-btn.active-opening {
+            background: #0284c7;
+            color: white;
+        }
+
+        .cat-btn.active-denting {
+            background: #ea580c;
+            color: white;
+        }
+
+        .cat-btn.active-painting {
+            background: #7c3aed;
+            color: white;
+        }
+
         .cat-btn.active-disallowed {
             background: #eab308;
             color: #713f12;
@@ -1170,7 +1185,7 @@
                         <span>⚖️ Tally & Paste Cost</span>
                     </div>
                     <div class="card-subtitle">
-                        Tally parts vs bill: Metal, Non-Metal, Glass or Col H (Yellow).
+                        Tally parts & labour vs bill into Col E, F, G, or Col H.
                     </div>
 
                     <!-- BIG TALLY BUTTON -->
@@ -1197,8 +1212,8 @@
                         </div>
 
                         <div class="meta-chips-bar" id="tally-meta-chips" style="margin-top:0;">
-                            <span class="meta-chip" style="background:#f1f5f9; color:#334155;">Total: <strong id="stat-tally-total">0</strong></span>
-                            <span class="meta-chip" style="background:#dcfce7; color:#15803d;">Matched: <strong id="stat-tally-matched">0</strong></span>
+                            <span class="meta-chip" style="background:#f1f5f9; color:#334155;">📦 Parts: <strong id="stat-tally-parts-chip">0</strong></span>
+                            <span class="meta-chip" style="background:#f3e8ff; color:#6b21a8;">🛠️ Labour: <strong id="stat-tally-labour-chip">0</strong></span>
                             <span class="meta-chip" style="background:#fef9c3; color:#854d0e; border:1px solid #fde047;">Col H: <strong id="stat-tally-disallowed">0</strong></span>
                         </div>
                     </div>
@@ -1304,26 +1319,42 @@
 
         <!-- TALLY REVIEW TABLE CARD -->
         <div class="table-card" id="tally-review-card" style="display:none; margin-top:24px;">
-            <!-- Table Toolbar -->
+            <!-- Top View Mode & Write Actions Bar -->
+            <div style="padding:14px 20px; background:#f1f5f9; border-bottom:2px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:12px; font-weight:800; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.04em; margin-right:4px;">Tally Mode:</span>
+                    <button type="button" class="filter-tab active" id="btn-tally-view-parts" onclick="setTallyView('parts')" style="font-size:13px; padding:6px 14px;">
+                        📦 Parts Tally (<span id="tally-view-parts-count">0</span>)
+                    </button>
+                    <button type="button" class="filter-tab" id="btn-tally-view-labour" onclick="setTallyView('labour')" style="font-size:13px; padding:6px 14px;">
+                        🛠️ Labour Tally (<span id="tally-view-labour-count">0</span>)
+                    </button>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <button type="button" class="btn-write-huge" id="btn-write-tallied-costs" onclick="writeTalliedCostsToExcel()" style="padding:9px 16px; font-size:13px; background:#d97706; margin:0;" title="Writes assessed parts costs into Row 171 (Metal Col E, Non-Metal Col F, Glass Col G, Not Allowed Col H)">
+                        <span>📦 Write Tallied Parts to Excel</span>
+                    </button>
+                    <button type="button" class="btn-write-huge" id="btn-write-tallied-labour" onclick="writeTalliedLabourToExcel()" style="padding:9px 16px; font-size:13px; background:#7c3aed; margin:0;" title="Writes assessed labour costs into Row 359 (Opening/rft Col E, Denting Col F, Painting Col G, Not Allowed Col H)">
+                        <span>🛠️ Write Tallied Labour to Excel</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Table Filter Toolbar -->
             <div class="table-toolbar">
                 <div class="search-input-wrap">
                     <span class="search-input-icon">🔍</span>
-                    <input type="text" id="tally-search-input" placeholder="Search tallied parts..." oninput="handleTallySearch(this.value)">
+                    <input type="text" id="tally-search-input" placeholder="Search tallied items..." oninput="handleTallySearch(this.value)">
                 </div>
 
-                <div class="filter-group">
+                <div class="filter-group" id="tally-filter-group">
                     <button type="button" class="filter-tab active" id="tab-tally-all" onclick="setTallyCategoryFilter('all')">All (<span id="tally-count-all">0</span>)</button>
                     <button type="button" class="filter-tab" id="tab-tally-matched" onclick="setTallyCategoryFilter('matched')">Matched (<span id="tally-count-matched">0</span>)</button>
                     <button type="button" class="filter-tab" id="tab-tally-disallowed" onclick="setTallyCategoryFilter('disallowed')" style="color:#854d0e;">Col H: Not Allowed (<span id="tally-count-disallowed">0</span>)</button>
-                    <button type="button" class="filter-tab" id="tab-tally-metal" onclick="setTallyCategoryFilter('Metal')">Col E: Metal (<span id="tally-count-metal">0</span>)</button>
-                    <button type="button" class="filter-tab" id="tab-tally-nonmetal" onclick="setTallyCategoryFilter('Non Metal')">Col F: Non-Metal (<span id="tally-count-nonmetal">0</span>)</button>
-                    <button type="button" class="filter-tab" id="tab-tally-glass" onclick="setTallyCategoryFilter('Glass')">Col G: Glass (<span id="tally-count-glass">0</span>)</button>
-                </div>
-
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <button type="button" class="btn-write-huge" id="btn-write-tallied-costs" onclick="writeTalliedCostsToExcel()" style="padding:10px 18px; font-size:14px; background:#d97706; margin:0;" title="Writes assessed costs into Excel (Metal Col E, Non-Metal Col F, Glass Col G, Not Allowed Col H)">
-                        <span>✍️ Write Tallied Costs to Excel</span>
-                    </button>
+                    <button type="button" class="filter-tab" id="tab-tally-c1" onclick="setTallyCategoryFilter('c1')"><span id="tab-tally-c1-label">Col E: Metal</span> (<span id="tally-count-c1">0</span>)</button>
+                    <button type="button" class="filter-tab" id="tab-tally-c2" onclick="setTallyCategoryFilter('c2')"><span id="tab-tally-c2-label">Col F: Non-Metal</span> (<span id="tally-count-c2">0</span>)</button>
+                    <button type="button" class="filter-tab" id="tab-tally-c3" onclick="setTallyCategoryFilter('c3')"><span id="tab-tally-c3-label">Col G: Glass</span> (<span id="tally-count-c3">0</span>)</button>
                 </div>
             </div>
 
@@ -1333,11 +1364,11 @@
                     <thead>
                         <tr>
                             <th style="width: 45px; text-align: center;">#</th>
-                            <th style="min-width: 210px;">Estimate Part Name [Col C]</th>
+                            <th style="min-width: 210px;" id="th-tally-desc">Estimate Part Name [Col C]</th>
                             <th style="width: 110px; text-align: right;">Est Cost [Col D]</th>
                             <th style="min-width: 190px;">Final Bill Status</th>
-                            <th style="min-width: 270px; text-align: center;">Assessed Category</th>
-                            <th style="width: 140px; text-align: center;">Parts Qty</th>
+                            <th style="min-width: 280px; text-align: center;" id="th-tally-cat">Category (Destination Column)</th>
+                            <th style="width: 140px; text-align: center;" id="th-tally-qty">Parts Qty</th>
                             <th style="width: 125px; text-align: right;">Assessed Cost (₹)</th>
                             <th style="width: 110px; text-align: center;">Target Col</th>
                         </tr>
@@ -1390,7 +1421,9 @@
         };
 
         let talliedItems = [];
+        let talliedLabourItems = [];
         let tallyUiState = {
+            view: "parts",
             filter: "all",
             search: ""
         };
@@ -2198,38 +2231,69 @@
 
         async function runTallyProcess() {
             const estParts = (estimateData.items || []).filter(it => it.item_type === "Part");
-            if (estParts.length === 0) {
+            const estLabour = (estimateData.items || []).filter(it => it.item_type === "Labour");
+
+            if (estParts.length === 0 && estLabour.length === 0) {
                 showAlert("Please upload the Estimate PDF in Step 2 first.", "warning");
                 return;
             }
 
             const billParts = (finalBillData.items || []).filter(it => it.item_type === "Part");
-            if (billParts.length === 0) {
+            const billLabour = (finalBillData.items || []).filter(it => it.item_type === "Labour");
+
+            if (billParts.length === 0 && billLabour.length === 0) {
                 showAlert("Please import the Final Bill PDF in Step 3 first.", "warning");
                 return;
             }
 
             const btn = document.getElementById("btn-run-tally");
             btn.disabled = true;
-            btn.innerHTML = `<span>Matching parts & categorizing...</span>`;
+            btn.innerHTML = `<span>Matching parts & labour...</span>`;
+
+            let partsSuccess = false;
+            let labourSuccess = false;
 
             try {
-                const res = await fetch("/api/tally-parts", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        estimate_parts: estParts,
-                        bill_parts: billParts
-                    })
-                });
-                const data = await res.json();
+                if (estParts.length > 0) {
+                    const res = await fetch("/api/tally-parts", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            estimate_parts: estParts,
+                            bill_parts: billParts
+                        })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        talliedItems = data.tallied || [];
+                        partsSuccess = true;
+                    }
+                } else {
+                    talliedItems = [];
+                }
+
+                if (estLabour.length > 0) {
+                    const resL = await fetch("/api/tally-labour", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            estimate_labour: estLabour,
+                            bill_labour: billLabour
+                        })
+                    });
+                    const dataL = await resL.json();
+                    if (dataL.success) {
+                        talliedLabourItems = dataL.tallied || [];
+                        labourSuccess = true;
+                    }
+                } else {
+                    talliedLabourItems = [];
+                }
+
                 btn.disabled = false;
-                btn.innerHTML = `<span style="font-size:22px;">⚡</span><span id="btn-tally-label">Re-Tally Parts</span>`;
+                btn.innerHTML = `<span style="font-size:20px;">⚡</span><span id="btn-tally-label">Re-Tally Costs</span>`;
 
-                if (data.success) {
-                    talliedItems = data.tallied || [];
-
-                    // Update Step 4 card UI
+                if (partsSuccess || labourSuccess) {
                     document.getElementById("card-tally").classList.add("card-ready");
                     document.getElementById("pill-step-4").classList.add("ready");
                     document.getElementById("tally-status-badge").style.display = "inline";
@@ -2237,67 +2301,162 @@
                     if (tallyPlaceholder) tallyPlaceholder.style.display = "none";
                     document.getElementById("tally-details-box").style.display = "block";
 
-                    updateTallyReviewBadges();
+                    // If parts exist, view parts; otherwise view labour
+                    if (talliedItems.length > 0) {
+                        setTallyView("parts");
+                    } else {
+                        setTallyView("labour");
+                    }
+
                     document.getElementById("tally-review-card").style.display = "block";
-                    renderTallyTable();
                     scrollToTallyReview();
 
-                    showAlert(`Tally complete! <strong>${data.matched_count} parts</strong> matched across categories, <strong>${data.disallowed_count} parts</strong> marked Not Allowed (Col H - Yellow).`, "success");
+                    const pMatched = talliedItems.filter(t => t.matched).length;
+                    const lMatched = talliedLabourItems.filter(t => t.matched).length;
+                    showAlert(`Tally complete! <strong>${pMatched} parts</strong> and <strong>${lMatched} labour items</strong> matched and categorized.`, "success");
                 } else {
-                    showAlert(data.error || "Tally process failed.", "error");
+                    showAlert("Tally process failed. Please check inputs.", "error");
                 }
             } catch (err) {
                 btn.disabled = false;
-                btn.innerHTML = `<span style="font-size:22px;">⚡</span><span id="btn-tally-label">Tally parts and paste cost</span>`;
+                btn.innerHTML = `<span style="font-size:20px;">⚡</span><span id="btn-tally-label">Tally & Paste Cost</span>`;
                 showAlert("Server error during tally process.", "error");
             }
         }
 
+        function setTallyView(view) {
+            tallyUiState.view = view;
+            tallyUiState.filter = "all";
+
+            const btnParts = document.getElementById("btn-tally-view-parts");
+            const btnLabour = document.getElementById("btn-tally-view-labour");
+            if (btnParts) {
+                if (view === 'parts') btnParts.classList.add('active');
+                else btnParts.classList.remove('active');
+            }
+            if (btnLabour) {
+                if (view === 'labour') btnLabour.classList.add('active');
+                else btnLabour.classList.remove('active');
+            }
+
+            const l1 = document.getElementById("tab-tally-c1-label");
+            const l2 = document.getElementById("tab-tally-c2-label");
+            const l3 = document.getElementById("tab-tally-c3-label");
+            const thDesc = document.getElementById("th-tally-desc");
+            const thQty = document.getElementById("th-tally-qty");
+
+            if (view === 'parts') {
+                if (l1) l1.innerText = "Col E: Metal";
+                if (l2) l2.innerText = "Col F: Non-Metal";
+                if (l3) l3.innerText = "Col G: Glass";
+                if (thDesc) thDesc.innerText = "Estimate Part Name [Col C]";
+                if (thQty) thQty.innerText = "Parts Qty";
+            } else {
+                if (l1) l1.innerText = "Col E: Opening/rft";
+                if (l2) l2.innerText = "Col F: Denting";
+                if (l3) l3.innerText = "Col G: Painting";
+                if (thDesc) thDesc.innerText = "Labour Description [Col C]";
+                if (thQty) thQty.innerText = "Units / Qty";
+            }
+
+            ['all', 'matched', 'disallowed', 'c1', 'c2', 'c3'].forEach(f => {
+                const tab = document.getElementById(`tab-tally-${f}`);
+                if (tab) {
+                    if (f === 'all') tab.classList.add('active');
+                    else tab.classList.remove('active');
+                }
+            });
+
+            updateTallyReviewBadges();
+            renderTallyTable();
+        }
+
         function updateTallyReviewBadges() {
-            const allCount = talliedItems.length;
-            const matchedCount = talliedItems.filter(t => t.matched).length;
-            const disallowedCount = talliedItems.filter(t => t.category === "Not Allowed").length;
-            const metalCount = talliedItems.filter(t => t.category === "Metal").length;
-            const nonMetalCount = talliedItems.filter(t => t.category === "Non Metal").length;
-            const glassCount = talliedItems.filter(t => t.category === "Glass").length;
+            const partsCount = talliedItems.length;
+            const labourCount = talliedLabourItems.length;
+
+            const elVParts = document.getElementById("tally-view-parts-count");
+            if (elVParts) elVParts.innerText = partsCount;
+            const elVLabour = document.getElementById("tally-view-labour-count");
+            if (elVLabour) elVLabour.innerText = labourCount;
+
+            const partsMatched = talliedItems.filter(t => t.matched).length;
+            const partsDisallowed = talliedItems.filter(t => t.category === "Not Allowed").length;
+            const labourMatched = talliedLabourItems.filter(t => t.matched).length;
+            const labourDisallowed = talliedLabourItems.filter(t => t.category === "Not Allowed").length;
+
+            const chipP = document.getElementById("stat-tally-parts-chip");
+            if (chipP) chipP.innerText = `${partsMatched}/${partsCount}`;
+            const chipL = document.getElementById("stat-tally-labour-chip");
+            if (chipL) chipL.innerText = `${labourMatched}/${labourCount}`;
+            const chipD = document.getElementById("stat-tally-disallowed");
+            if (chipD) chipD.innerText = partsDisallowed + labourDisallowed;
+
+            const isLabour = (tallyUiState.view === 'labour');
+            const currentList = isLabour ? talliedLabourItems : talliedItems;
+            const allCount = currentList.length;
+            const matchedCount = currentList.filter(t => t.matched).length;
+            const disallowedCount = currentList.filter(t => t.category === "Not Allowed").length;
+
+            let c1Count = 0, c2Count = 0, c3Count = 0;
+            if (isLabour) {
+                c1Count = currentList.filter(t => t.category === "Opening/rft").length;
+                c2Count = currentList.filter(t => t.category === "Denting").length;
+                c3Count = currentList.filter(t => t.category === "Painting").length;
+            } else {
+                c1Count = currentList.filter(t => t.category === "Metal").length;
+                c2Count = currentList.filter(t => t.category === "Non Metal").length;
+                c3Count = currentList.filter(t => t.category === "Glass").length;
+            }
 
             const elAll = document.getElementById("tally-count-all"); if (elAll) elAll.innerText = allCount;
             const elMatched = document.getElementById("tally-count-matched"); if (elMatched) elMatched.innerText = matchedCount;
             const elDis = document.getElementById("tally-count-disallowed"); if (elDis) elDis.innerText = disallowedCount;
-            const elMetal = document.getElementById("tally-count-metal"); if (elMetal) elMetal.innerText = metalCount;
-            const elNonMetal = document.getElementById("tally-count-nonmetal"); if (elNonMetal) elNonMetal.innerText = nonMetalCount;
-            const elGlass = document.getElementById("tally-count-glass"); if (elGlass) elGlass.innerText = glassCount;
+            const elC1 = document.getElementById("tally-count-c1"); if (elC1) elC1.innerText = c1Count;
+            const elC2 = document.getElementById("tally-count-c2"); if (elC2) elC2.innerText = c2Count;
+            const elC3 = document.getElementById("tally-count-c3"); if (elC3) elC3.innerText = c3Count;
 
-            const statTot = document.getElementById("stat-tally-total"); if (statTot) statTot.innerText = allCount;
-            const statMatch = document.getElementById("stat-tally-matched"); if (statMatch) statMatch.innerText = matchedCount;
-            const statDis = document.getElementById("stat-tally-disallowed"); if (statDis) statDis.innerText = disallowedCount;
-            const statMet = document.getElementById("stat-tally-metal"); if (statMet) statMet.innerText = metalCount;
-            const statNM = document.getElementById("stat-tally-nonmetal"); if (statNM) statNM.innerText = nonMetalCount;
-            const statGl = document.getElementById("stat-tally-glass"); if (statGl) statGl.innerText = glassCount;
-
-            const totalAssessedSum = talliedItems.reduce((acc, it) => acc + (parseFloat(it.final_cost) || 0), 0);
+            const totalPartsSum = talliedItems.reduce((acc, it) => acc + (parseFloat(it.final_cost) || 0), 0);
+            const totalLabourSum = talliedLabourItems.reduce((acc, it) => acc + (parseFloat(it.final_cost) || 0), 0);
             const sumText = document.getElementById("tally-summary-text");
             if (sumText) {
-                sumText.innerHTML = `<strong>${matchedCount} matched</strong> &bull; <strong>${disallowedCount} not allowed</strong> &bull; Total: <strong>₹${totalAssessedSum.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>`;
+                sumText.innerHTML = `Parts: <strong>₹${totalPartsSum.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong> &bull; Labour: <strong>₹${totalLabourSum.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>`;
+            }
+
+            const btnWP = document.getElementById("btn-write-tallied-costs");
+            if (btnWP) {
+                btnWP.innerHTML = `<span>📦 Write Tallied Parts (${talliedItems.length})</span>`;
+            }
+            const btnWL = document.getElementById("btn-write-tallied-labour");
+            if (btnWL) {
+                btnWL.innerHTML = `<span>🛠️ Write Tallied Labour (${talliedLabourItems.length})</span>`;
             }
         }
 
         function stepTallyQty(index, delta) {
-            if (!talliedItems[index]) return;
-            const item = talliedItems[index];
+            const isLabour = (tallyUiState.view === 'labour');
+            const targetList = isLabour ? talliedLabourItems : talliedItems;
+            if (!targetList[index]) return;
+            const item = targetList[index];
             const cur = (typeof item.qty === 'number') ? item.qty : (parseFloat(item.qty) || 0);
             const newQty = Math.max(0, Math.round((cur + delta) * 100) / 100);
             applyTallyQtyChange(index, newQty);
         }
 
         function handleQtyInput(index, val) {
-            if (!talliedItems[index]) return;
+            const isLabour = (tallyUiState.view === 'labour');
+            const targetList = isLabour ? talliedLabourItems : talliedItems;
+            if (!targetList[index]) return;
             const newQty = Math.max(0, parseFloat(val) || 0);
             applyTallyQtyChange(index, newQty);
         }
 
         function applyTallyQtyChange(index, newQty) {
-            const item = talliedItems[index];
+            const isLabour = (tallyUiState.view === 'labour');
+            const targetList = isLabour ? talliedLabourItems : talliedItems;
+            const item = targetList[index];
+            if (!item) return;
+
             item.qty = newQty;
 
             let u = item.unit_price;
@@ -2320,37 +2479,47 @@
             const costInput = document.getElementById(`tally-cost-${index}`);
             if (costInput) costInput.value = item.final_cost.toFixed(2);
 
+            const unitLabel = isLabour ? 'unit' : 'pc';
             const unitHint = document.getElementById(`tally-unit-${index}`);
-            if (unitHint) unitHint.innerText = `@ ₹${item.unit_price.toFixed(2)}/pc`;
+            if (unitHint) unitHint.innerText = `@ ₹${item.unit_price.toFixed(2)}/${unitLabel}`;
 
             updateTallyReviewBadges();
         }
 
         function updateTallyItemCost(index, val) {
-            if (!talliedItems[index]) return;
-            const item = talliedItems[index];
+            const isLabour = (tallyUiState.view === 'labour');
+            const targetList = isLabour ? talliedLabourItems : talliedItems;
+            const item = targetList[index];
+            if (!item) return;
+
             item.final_cost = Math.max(0, parseFloat(val) || 0.0);
 
             if (item.qty && item.qty > 0) {
                 item.unit_price = Math.round((item.final_cost / item.qty) * 100) / 100;
+                const unitLabel = isLabour ? 'unit' : 'pc';
                 const unitHint = document.getElementById(`tally-unit-${index}`);
-                if (unitHint) unitHint.innerText = `@ ₹${item.unit_price.toFixed(2)}/pc`;
+                if (unitHint) unitHint.innerText = `@ ₹${item.unit_price.toFixed(2)}/${unitLabel}`;
             }
 
             updateTallyReviewBadges();
         }
 
         function setTallyItemCategory(index, newCategory) {
-            if (!talliedItems[index]) return;
-            talliedItems[index].category = newCategory;
-            if (newCategory === "Metal") {
-                talliedItems[index].target_col = "E";
-            } else if (newCategory === "Non Metal") {
-                talliedItems[index].target_col = "F";
-            } else if (newCategory === "Glass") {
-                talliedItems[index].target_col = "G";
+            const isLabour = (tallyUiState.view === 'labour');
+            const targetList = isLabour ? talliedLabourItems : talliedItems;
+            if (!targetList[index]) return;
+
+            targetList[index].category = newCategory;
+            if (isLabour) {
+                if (newCategory === "Opening/rft") targetList[index].target_col = "E";
+                else if (newCategory === "Denting") targetList[index].target_col = "F";
+                else if (newCategory === "Painting") targetList[index].target_col = "G";
+                else targetList[index].target_col = "H";
             } else {
-                talliedItems[index].target_col = "H";
+                if (newCategory === "Metal") targetList[index].target_col = "E";
+                else if (newCategory === "Non Metal") targetList[index].target_col = "F";
+                else if (newCategory === "Glass") targetList[index].target_col = "G";
+                else targetList[index].target_col = "H";
             }
             updateTallyReviewBadges();
             renderTallyTable();
@@ -2358,11 +2527,10 @@
 
         function setTallyCategoryFilter(filter) {
             tallyUiState.filter = filter;
-            ['all', 'matched', 'disallowed', 'metal', 'nonmetal', 'glass'].forEach(f => {
+            ['all', 'matched', 'disallowed', 'c1', 'c2', 'c3'].forEach(f => {
                 const tab = document.getElementById(`tab-tally-${f}`);
                 if (tab) {
-                    const matchKey = (f === 'metal' ? 'Metal' : (f === 'nonmetal' ? 'Non Metal' : (f === 'glass' ? 'Glass' : f)));
-                    if (matchKey.toLowerCase() === filter.toLowerCase()) tab.classList.add('active');
+                    if (f === filter) tab.classList.add('active');
                     else tab.classList.remove('active');
                 }
             });
@@ -2385,17 +2553,23 @@
             const tbody = document.getElementById("tally-table-body");
             if (!tbody) return;
 
+            const isLabour = (tallyUiState.view === 'labour');
+            const sourceList = isLabour ? talliedLabourItems : talliedItems;
             const q = (tallyUiState.search || "").toLowerCase().trim();
             const filter = tallyUiState.filter;
 
-            let filtered = talliedItems.map((item, idx) => ({ ...item, originalIndex: idx }));
+            let filtered = sourceList.map((item, idx) => ({ ...item, originalIndex: idx }));
 
             if (filter === "matched") {
                 filtered = filtered.filter(t => t.matched);
             } else if (filter === "disallowed") {
                 filtered = filtered.filter(t => t.category === "Not Allowed");
-            } else if (filter === "Metal" || filter === "Non Metal" || filter === "Glass") {
-                filtered = filtered.filter(t => t.category === filter);
+            } else if (filter === "c1") {
+                filtered = filtered.filter(t => t.category === (isLabour ? "Opening/rft" : "Metal"));
+            } else if (filter === "c2") {
+                filtered = filtered.filter(t => t.category === (isLabour ? "Denting" : "Non Metal"));
+            } else if (filter === "c3") {
+                filtered = filtered.filter(t => t.category === (isLabour ? "Painting" : "Glass"));
             }
 
             if (q) {
@@ -2408,7 +2582,7 @@
             }
 
             if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px; color:var(--text-light);">No tallied items match the current filter.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px; color:var(--text-light);">No ${isLabour ? 'labour' : 'parts'} items match the current filter.</td></tr>`;
                 return;
             }
 
@@ -2416,33 +2590,57 @@
                 const idx = item.originalIndex;
                 const cat = item.category || "Not Allowed";
                 const isMatched = item.matched;
-                const partName = (item.est_particular || item.est_desc || item.particular || "").trim();
+                const itemName = (item.est_particular || item.est_desc || item.particular || "").trim();
                 const billName = (item.bill_particular || item.bill_desc || item.bill_name || "").trim();
                 const currentQty = (item.qty !== undefined && item.qty !== null) ? item.qty : (item.est_qty || 1);
                 const unitPrice = (item.unit_price !== undefined && item.unit_price !== null) ? item.unit_price : 0;
                 const cost = (item.final_cost !== undefined && item.final_cost !== null) ? item.final_cost : 0;
                 const isCapped = item.bill_qty && item.est_qty && (item.bill_qty > item.est_qty);
+                const unitLabel = isLabour ? 'unit' : 'pc';
 
                 let matchStatusHtml = isMatched
                     ? `<div style="display:flex; flex-direction:column; gap:2px;"><span class="badge-matched">✓ In Final Bill</span>${billName ? `<span style="font-size:11px; color:#475569; overflow:hidden; text-overflow:ellipsis; max-width:200px;">${escapeHtml(billName)}</span>` : ''}</div>`
                     : `<span class="badge-disallowed" title="Not found in Final Bill - will be pasted to Col H">⚠ Not in Final Bill</span>`;
 
                 let destColPill = "";
-                if (cat === "Metal") {
-                    destColPill = `<span class="dest-col-pill dest-col-e">Col E: Metal</span>`;
-                } else if (cat === "Non Metal") {
-                    destColPill = `<span class="dest-col-pill dest-col-f">Col F: Non-Metal</span>`;
-                } else if (cat === "Glass") {
-                    destColPill = `<span class="dest-col-pill dest-col-g">Col G: Glass</span>`;
+                if (isLabour) {
+                    if (cat === "Opening/rft") destColPill = `<span class="dest-col-pill dest-col-opening">Col E: Opening/rft</span>`;
+                    else if (cat === "Denting") destColPill = `<span class="dest-col-pill dest-col-denting">Col F: Denting</span>`;
+                    else if (cat === "Painting") destColPill = `<span class="dest-col-pill dest-col-painting">Col G: Painting</span>`;
+                    else destColPill = `<span class="dest-col-pill dest-col-h">Col H: Yellow</span>`;
                 } else {
-                    destColPill = `<span class="dest-col-pill dest-col-h">Col H: Yellow</span>`;
+                    if (cat === "Metal") destColPill = `<span class="dest-col-pill dest-col-e">Col E: Metal</span>`;
+                    else if (cat === "Non Metal") destColPill = `<span class="dest-col-pill dest-col-f">Col F: Non-Metal</span>`;
+                    else if (cat === "Glass") destColPill = `<span class="dest-col-pill dest-col-g">Col G: Glass</span>`;
+                    else destColPill = `<span class="dest-col-pill dest-col-h">Col H: Yellow</span>`;
+                }
+
+                let catButtonsHtml = "";
+                if (isLabour) {
+                    catButtonsHtml = `
+                        <div class="cat-group">
+                            <button type="button" class="cat-btn ${cat === 'Opening/rft' ? 'active-opening' : ''}" onclick="setTallyItemCategory(${idx}, 'Opening/rft')">Opening/rft [E]</button>
+                            <button type="button" class="cat-btn ${cat === 'Denting' ? 'active-denting' : ''}" onclick="setTallyItemCategory(${idx}, 'Denting')">Denting [F]</button>
+                            <button type="button" class="cat-btn ${cat === 'Painting' ? 'active-painting' : ''}" onclick="setTallyItemCategory(${idx}, 'Painting')">Painting [G]</button>
+                            <button type="button" class="cat-btn ${cat === 'Not Allowed' ? 'active-disallowed' : ''}" onclick="setTallyItemCategory(${idx}, 'Not Allowed')">Not Allowed [H]</button>
+                        </div>
+                    `;
+                } else {
+                    catButtonsHtml = `
+                        <div class="cat-group">
+                            <button type="button" class="cat-btn ${cat === 'Metal' ? 'active-metal' : ''}" onclick="setTallyItemCategory(${idx}, 'Metal')">Metal [E]</button>
+                            <button type="button" class="cat-btn ${cat === 'Non Metal' ? 'active-nonmetal' : ''}" onclick="setTallyItemCategory(${idx}, 'Non Metal')">Non-Metal [F]</button>
+                            <button type="button" class="cat-btn ${cat === 'Glass' ? 'active-glass' : ''}" onclick="setTallyItemCategory(${idx}, 'Glass')">Glass [G]</button>
+                            <button type="button" class="cat-btn ${cat === 'Not Allowed' ? 'active-disallowed' : ''}" onclick="setTallyItemCategory(${idx}, 'Not Allowed')">Not Allowed [H]</button>
+                        </div>
+                    `;
                 }
 
                 return `
                     <tr style="${cat === 'Not Allowed' ? 'background: #fefce8;' : ''}">
                         <td style="font-weight:700; color:var(--text-light); text-align:center;">${idx + 1}</td>
                         <td>
-                            <div style="font-weight:700; color:var(--text-main); font-size:13px;">${escapeHtml(partName)}</div>
+                            <div style="font-weight:700; color:var(--text-main); font-size:13px;">${escapeHtml(itemName)}</div>
                         </td>
                         <td style="text-align:right; font-weight:700; color:#059669;">
                             ₹${(item.est_amount || 0).toFixed(2)}
@@ -2451,12 +2649,7 @@
                             ${matchStatusHtml}
                         </td>
                         <td style="text-align:center;">
-                            <div class="cat-group">
-                                <button type="button" class="cat-btn ${cat === 'Metal' ? 'active-metal' : ''}" onclick="setTallyItemCategory(${idx}, 'Metal')">Metal [E]</button>
-                                <button type="button" class="cat-btn ${cat === 'Non Metal' ? 'active-nonmetal' : ''}" onclick="setTallyItemCategory(${idx}, 'Non Metal')">Non-Metal [F]</button>
-                                <button type="button" class="cat-btn ${cat === 'Glass' ? 'active-glass' : ''}" onclick="setTallyItemCategory(${idx}, 'Glass')">Glass [G]</button>
-                                <button type="button" class="cat-btn ${cat === 'Not Allowed' ? 'active-disallowed' : ''}" onclick="setTallyItemCategory(${idx}, 'Not Allowed')">Not Allowed [H]</button>
-                            </div>
+                            ${catButtonsHtml}
                         </td>
                         <td style="text-align:center; vertical-align:middle;">
                             <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;">
@@ -2465,8 +2658,8 @@
                                     <input type="number" step="1" min="0" class="input-stepper" id="qty-input-${idx}" value="${currentQty}" onchange="handleQtyInput(${idx}, this.value)">
                                     <button type="button" class="btn-stepper" onclick="stepTallyQty(${idx}, 1)" title="Increase Quantity">+</button>
                                 </div>
-                                <span class="unit-price-hint" id="tally-unit-${idx}">@ ₹${unitPrice.toFixed(2)}/pc</span>
-                                ${isCapped ? `<span class="qty-capped-badge" title="Billed ${item.bill_qty} pcs in bill, capped at estimate limit ${item.est_qty} pcs">Capped (Bill: ${item.bill_qty})</span>` : ''}
+                                <span class="unit-price-hint" id="tally-unit-${idx}">@ ₹${unitPrice.toFixed(2)}/${unitLabel}</span>
+                                ${isCapped ? `<span class="qty-capped-badge" title="Billed ${item.bill_qty} in bill, capped at estimate limit ${item.est_qty}">Capped (Bill: ${item.bill_qty})</span>` : ''}
                             </div>
                         </td>
                         <td style="text-align:right; vertical-align:middle;">
@@ -2482,7 +2675,7 @@
 
         async function writeTalliedCostsToExcel() {
             if (talliedItems.length === 0) {
-                showAlert("No tallied items to write. Please run Step 4 tally first.", "warning");
+                showAlert("No tallied parts to write. Please run Step 4 tally first.", "warning");
                 return;
             }
 
@@ -2497,9 +2690,9 @@
 
             const btn = document.getElementById("btn-write-tallied-costs");
             btn.disabled = true;
-            btn.innerHTML = `<span>Writing Tallied Costs to Excel...</span>`;
+            btn.innerHTML = `<span>Writing Tallied Parts to Excel...</span>`;
 
-            showAlert(`Pasting assessed costs into Sheet "${sheet}" starting at Row ${startRow}...`, "info");
+            showAlert(`Pasting assessed parts costs into Sheet "${sheet}" starting at Row ${startRow}...`, "info");
 
             try {
                 const res = await fetch("/api/write-tallied-costs", {
@@ -2514,27 +2707,85 @@
                 });
                 const data = await res.json();
                 btn.disabled = false;
-                btn.innerHTML = `<span>✍️ Write Tallied Costs to Excel</span>`;
+                btn.innerHTML = `<span>📦 Write Tallied Parts to Excel</span>`;
 
                 if (data.success) {
-                    document.getElementById("modal-title").innerText = `⚖️ Wrote ${data.written_count} Assessed Costs to Excel!`;
+                    document.getElementById("modal-title").innerText = `⚖️ Wrote ${data.written_count} Assessed Parts Costs to Excel!`;
                     document.getElementById("modal-desc").innerHTML = 
-                        `Successfully pasted assessed costs into sheet <strong>${data.sheet}</strong> (Rows ${data.start_row} to ${data.end_row}):<br>` +
+                        `Successfully pasted assessed parts costs into sheet <strong>${data.sheet}</strong> (Rows ${data.start_row} to ${data.end_row}):<br>` +
                         `<div style="margin-top:8px; line-height:1.6;">` +
-                        `&bull; <strong>Metal:</strong> ${data.metal_count} parts &rarr; Col E<br>` +
-                        `&bull; <strong>Non Metal:</strong> ${data.non_metal_count} parts &rarr; Col F<br>` +
-                        `&bull; <strong>Glass:</strong> ${data.glass_count} parts &rarr; Col G<br>` +
-                        `&bull; <strong style="background:#fef08a; padding:1px 6px; border-radius:3px; color:#854d0e;">Not Allowed:</strong> ${data.disallowed_count} parts &rarr; Col H (Yellow cell)` +
+                        `&bull; <strong>Metal:</strong> ${data.metal_count || 0} parts &rarr; Col E<br>` +
+                        `&bull; <strong>Non Metal:</strong> ${data.non_metal_count || 0} parts &rarr; Col F<br>` +
+                        `&bull; <strong>Glass:</strong> ${data.glass_count || 0} parts &rarr; Col G<br>` +
+                        `&bull; <strong style="background:#fef08a; padding:1px 6px; border-radius:3px; color:#854d0e;">Not Allowed:</strong> ${data.disallowed_count || 0} parts &rarr; Col H (Yellow cell)` +
                         `</div>`;
                     document.getElementById("success-modal").classList.add("show");
                     refreshExcelFile();
                 } else {
-                    showAlert(data.error || "Failed to write tallied costs into Excel.", "error");
+                    showAlert(data.error || "Failed to write tallied parts into Excel.", "error");
                 }
             } catch (err) {
                 btn.disabled = false;
-                btn.innerHTML = `<span>✍️ Write Tallied Costs to Excel</span>`;
-                showAlert("Server error during writing tallied costs.", "error");
+                btn.innerHTML = `<span>📦 Write Tallied Parts to Excel</span>`;
+                showAlert("Server error during writing tallied parts.", "error");
+            }
+        }
+
+        async function writeTalliedLabourToExcel() {
+            if (talliedLabourItems.length === 0) {
+                showAlert("No tallied labour items to write. Please run Step 4 tally first.", "warning");
+                return;
+            }
+
+            const excelPath = appConfig.estimate_excel_path;
+            const sheet = document.getElementById("cfg-sheet-select").value.trim() || appConfig.estimate_selected_sheet || "Sheet1";
+            const startRow = parseInt(document.getElementById("cfg-labour-start-row").value) || appConfig.estimate_labour_start_row || 359;
+
+            if (!excelPath) {
+                showAlert("Please choose an Assessment Excel spreadsheet first (Step 1).", "error");
+                return;
+            }
+
+            const btn = document.getElementById("btn-write-tallied-labour");
+            btn.disabled = true;
+            btn.innerHTML = `<span>Writing Tallied Labour to Excel...</span>`;
+
+            showAlert(`Pasting assessed labour costs into Sheet "${sheet}" starting at Row ${startRow}...`, "info");
+
+            try {
+                const res = await fetch("/api/write-tallied-labour", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        file_path: excelPath,
+                        sheet_name: sheet,
+                        start_row: startRow,
+                        tallied_items: talliedLabourItems
+                    })
+                });
+                const data = await res.json();
+                btn.disabled = false;
+                btn.innerHTML = `<span>🛠️ Write Tallied Labour to Excel</span>`;
+
+                if (data.success) {
+                    document.getElementById("modal-title").innerText = `🛠️ Wrote ${data.written_count} Assessed Labour Items to Excel!`;
+                    document.getElementById("modal-desc").innerHTML = 
+                        `Successfully pasted assessed labour costs into sheet <strong>${data.sheet}</strong> (Rows ${data.start_row} to ${data.end_row}):<br>` +
+                        `<div style="margin-top:8px; line-height:1.6;">` +
+                        `&bull; <strong>Opening/rft:</strong> ${data.opening_count || 0} items &rarr; Col E<br>` +
+                        `&bull; <strong>Denting:</strong> ${data.denting_count || 0} items &rarr; Col F<br>` +
+                        `&bull; <strong>Painting:</strong> ${data.painting_count || 0} items &rarr; Col G<br>` +
+                        `&bull; <strong style="background:#fef08a; padding:1px 6px; border-radius:3px; color:#854d0e;">Not Allowed:</strong> ${data.disallowed_count || 0} items &rarr; Col H (Yellow cell)` +
+                        `</div>`;
+                    document.getElementById("success-modal").classList.add("show");
+                    refreshExcelFile();
+                } else {
+                    showAlert(data.error || "Failed to write tallied labour into Excel.", "error");
+                }
+            } catch (err) {
+                btn.disabled = false;
+                btn.innerHTML = `<span>🛠️ Write Tallied Labour to Excel</span>`;
+                showAlert("Server error during writing tallied labour.", "error");
             }
         }
 
