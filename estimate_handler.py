@@ -499,6 +499,83 @@ def extract_ashok_leyland_format(pdf):
     return parts
 
 
+def extract_maruti_sandhu_format(pdf):
+    """
+    Extracts parts and labour from Maruti Suzuki dealership estimates (Sandhu Automobiles / Service Estimate)
+    Columns: Srl | Part Number | Description | Tax | Qty. | Rate | Taxable Amount | Tax Paid Amount | Labor Amount
+    Extracts Taxable Amount (Col 6), ignoring the zero-filled Tax Paid Amount (Col 7).
+    """
+    full_text = ""
+    for p in pdf.pages[:2]:
+        full_text += p.extract_text() or ""
+    if "Service Estimate" not in full_text and "Tax Paid" not in full_text:
+        return []
+    if "Taxable" not in full_text:
+        return []
+
+    parts = []
+    labours = []
+    current_sec = "Parts"
+
+    for page in pdf.pages:
+        text = page.extract_text() or ""
+        lines = text.split("\n")
+        for line in lines:
+            line_s = line.strip()
+            if line_s == "Labour":
+                current_sec = "Labour"
+                continue
+            if line_s == "Parts":
+                current_sec = "Parts"
+                continue
+            if line_s.startswith("Total :") or line_s.startswith("Sub Total") or "Net Estimate" in line_s or "Estimated Days" in line_s or "SGST @" in line_s or "CGST @" in line_s:
+                continue
+
+            # Maruti 4-number Part Line: Srl | PartNo | Description | Qty | Rate | Taxable Amt | Tax Paid Amt
+            # e.g.: 1 17100M74L50 FAN ASSY, ENGINE COOLING 1.000 5,220.00 5,220.00 0.00
+            # e.g.: 25 72390M74L00 CROSSMEMBER, FRONT LOWER 1.000 1,299.50 1,299.50 0.00
+            m_part = re.match(
+                r"^(\d{1,4})\s+([A-Z0-9\-\/]{6,25})\s+(.+?)\s+(\d+(?:\.\d+)?)\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})$",
+                line_s
+            )
+            if m_part:
+                srl, code, desc, qty, rate, taxable_amt, tax_paid = m_part.groups()
+                amt = clean_num(taxable_amt)
+                rate_f = clean_num(rate)
+                qty_clean = f"{clean_num(qty):.0f}" if clean_num(qty).is_integer() else str(clean_num(qty))
+                parts.append({
+                    "code": code.strip(),
+                    "particular": desc.strip(),
+                    "hsn": "",
+                    "qty": qty_clean,
+                    "unit_price": rate_f,
+                    "amount": amt,
+                    "item_type": "Part",
+                    "selected": True
+                })
+                continue
+
+            # Maruti Labour Line: Srl | Code | Description | Amount
+            # e.g.: 1 ZF9993 PAINTING CHARGES 30,000.00
+            # e.g.: 2 ZF9992 DENTING CHARGES 10,000.00
+            m_lab = re.match(r"^(\d{1,4})\s+([A-Z0-9]{4,10})\s+(.+?)\s+([\d,]+\.\d{2})$", line_s)
+            if m_lab and current_sec == "Labour":
+                srl, code, desc, amt_s = m_lab.groups()
+                amt = clean_num(amt_s)
+                labours.append({
+                    "code": code.strip(),
+                    "particular": desc.strip(),
+                    "hsn": "998729",
+                    "qty": "1",
+                    "unit_price": amt,
+                    "amount": amt,
+                    "item_type": "Labour",
+                    "selected": True
+                })
+
+    return parts + labours
+
+
 def extract_printed_estimate_summary(pdf):
     """
     Extracts printed parts total, labour total, and grand total from the estimate summary block.
@@ -514,6 +591,14 @@ def extract_printed_estimate_summary(pdf):
     # 1. Parts Total
     m_p = re.findall(r'(?:Sum\s+Parts|Parts\s+Total|Total\s+Parts|Part\s*Amt\s*:)[:\s]*([\d,]+\.\d{2})', full_text, re.I)
     if not m_p:
+        # Maruti 3-column total line: Total : <PartsTotal> <TaxPaid> <LabourTotal>
+        # e.g.: Total : 1,15,547.50 0.00 40,000.00
+        m_maruti_tot = re.findall(r'Total\s*:\s*([\d,]+\.\d{2})\s+[\d,]+\.\d{2}\s+([\d,]+\.\d{2})', full_text)
+        if m_maruti_tot:
+            m_p = [m_maruti_tot[-1][0]]
+            if summary["labour_total"] is None:
+                summary["labour_total"] = clean_num(m_maruti_tot[-1][1])
+    if not m_p:
         m_p = re.findall(r'(?:^|\n)\s*Parts\s+([\d,]+\.\d{2})\s+0\.00', full_text, re.I)
     if not m_p:
         m_p = re.findall(r'(?:^|\n)\s*Parts\s+([\d,]+\.\d{2})', full_text, re.I)
@@ -523,18 +608,19 @@ def extract_printed_estimate_summary(pdf):
         summary["parts_total"] = clean_num(m_p[-1])
         
     # 2. Labour Total
-    m_l = re.findall(r'(?:Sum\s+Labou?r|Labou?r\s+Total|Total\s+Labou?r|Labou?r\s*Amt\s*:)[:\s]*([\d,]+\.\d{2})', full_text, re.I)
-    if not m_l:
-        m_l_bmw = re.findall(r'(\d{5,8}\.\d{2})\s+\d{6,8}\.\d{2}\s+0\.00', full_text)
-        if m_l_bmw:
-            m_l = m_l_bmw
-    if not m_l:
-        m_l = re.findall(r'(?:^|\n)\s*(?:Labour|Item\s*Amount\s*Discount\s*\n)\s*([\d,]+\.\d{2})', full_text, re.I)
-    if m_l:
-        summary["labour_total"] = clean_num(m_l[-1])
+    if summary["labour_total"] is None:
+        m_l = re.findall(r'(?:Sum\s+Labou?r|Labou?r\s+Total|Total\s+Labou?r|Labou?r\s*Amt\s*:)[:\s]*([\d,]+\.\d{2})', full_text, re.I)
+        if not m_l:
+            m_l_bmw = re.findall(r'(\d{5,8}\.\d{2})\s+\d{6,8}\.\d{2}\s+0\.00', full_text)
+            if m_l_bmw:
+                m_l = m_l_bmw
+        if not m_l:
+            m_l = re.findall(r'(?:^|\n)\s*(?:Labour|Item\s*Amount\s*Discount\s*\n)\s*([\d,]+\.\d{2})', full_text, re.I)
+        if m_l:
+            summary["labour_total"] = clean_num(m_l[-1])
         
     # 3. Grand Total
-    m_g = re.findall(r'(?:Grand\s*Total|Total\s*Amt\s*:|Total\s*Amount\s*Incl\.\s*GST)[:\s]*([\d,]+\.\d{2})', full_text, re.I)
+    m_g = re.findall(r'(?:Grand\s*Total|Total\s*Amt\s*:|Net\s*Estimate\s*Amounts?\s*:|Total\s*Amount\s*Incl\.\s*GST)[:\s]*([\d,]+\.\d{2})', full_text, re.I)
     if m_g:
         summary["grand_total"] = clean_num(m_g[-1])
         
@@ -592,12 +678,21 @@ def parse_estimate_pdf(pdf_path):
                 if m_adv:
                     header_info['service_advisor'] = m_adv.group(1).strip()
 
+            if not header_info["model"]:
+                m_model = re.search(r'Model\s*[:\s]*([A-Za-z0-9\s\-]+?)(?:\s+Sold by|\s+Engine|\s+Chassis|\n|$)', text, re.I)
+                if m_model:
+                    header_info['model'] = m_model.group(1).strip()
+
             if not header_info["dealer_name"]:
                 for line in lines[:8]:
                     line_s = line.strip()
                     if any(term in line_s.lower() for term in ['automobiles', 'motors', 'bmw', 'maruti', 'hyundai', 'workshop', 'services', 'dealership', 'garage', 'tata', 'mahindra', 'toyota', 'honda']):
                         header_info['dealer_name'] = line_s.split('   ')[0].strip()
                         break
+                if not header_info["dealer_name"]:
+                    m_dealer = re.search(r'For\s+([A-Za-z0-9\s\.\,\-]+?(?:AUTOMOBILES|MOTORS|WORKSHOP|SERVICES|PVT\.?\s*LTD\.?))', text, re.I)
+                    if m_dealer:
+                        header_info['dealer_name'] = m_dealer.group(1).strip()
 
         # Pass 0.1: Specialized High-Precision DMS Extractors (100% Zero-Miss Architecture)
         specialized_extractors = [
@@ -605,6 +700,7 @@ def parse_estimate_pdf(pdf_path):
             ("Toyota T-Serv", extract_toyota_tserv_format),
             ("BMW DMS", extract_bmw_dms_format),
             ("Ashok Leyland Commercial", extract_ashok_leyland_format),
+            ("Maruti Suzuki Service Estimate", extract_maruti_sandhu_format),
             ("Toyota UTrust Columnar", extract_toyota_format)
         ]
         for name, extractor_fn in specialized_extractors:
