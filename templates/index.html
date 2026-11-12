@@ -7,6 +7,18 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        // Early theme initialization to prevent flash of white screen
+        (function() {
+            try {
+                const savedTheme = localStorage.getItem("theme");
+                const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+                if (savedTheme === "dark" || (!savedTheme && prefersDark)) {
+                    document.documentElement.classList.add("dark");
+                }
+            } catch (e) {}
+        })();
+    </script>
     <style>
         :root {
             --primary: #2563eb;
@@ -36,6 +48,24 @@
             --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.05);
         }
 
+        html.dark, body.dark {
+            --bg: #0b1120;
+            --surface: #1e293b;
+            --border: #334155;
+            --border-strong: #475569;
+            --text-main: #f8fafc;
+            --text-muted: #cbd5e1;
+            --text-light: #94a3b8;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --primary-light: #1e293b;
+            --success-light: #064e3b;
+            --danger-light: #7f1d1d;
+            --warning-light: #78350f;
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.4);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.5);
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -50,6 +80,7 @@
             min-height: 100vh;
             display: flex;
             flex-direction: column;
+            transition: background-color 0.2s ease, color 0.2s ease;
         }
 
         /* Top Clean Navbar */
@@ -64,6 +95,46 @@
             position: sticky;
             top: 0;
             z-index: 50;
+            border-bottom: 1px solid transparent;
+        }
+
+        html.dark .top-navbar {
+            background: #020617;
+            border-bottom: 1px solid #1e293b;
+        }
+
+        .theme-toggle-btn {
+            background: #1e293b;
+            color: #f8fafc;
+            border: 1.5px solid #475569;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.2s ease;
+            outline: none;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .theme-toggle-btn:hover {
+            background: #334155;
+            border-color: #94a3b8;
+            transform: scale(1.08);
+        }
+
+        html.dark .theme-toggle-btn {
+            background: #334155;
+            border-color: #64748b;
+            color: #fde047;
+        }
+
+        html.dark .theme-toggle-btn:hover {
+            background: #475569;
+            border-color: #cbd5e1;
         }
 
         .brand-group {
@@ -965,6 +1036,244 @@
             gap: 12px;
             justify-content: center;
         }
+
+        /* Dark Mode Overrides */
+        html.dark .action-card {
+            background: #1e293b;
+            border-color: #334155;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.4);
+        }
+
+        html.dark .action-card.card-ready {
+            border-color: #22c55e;
+            background: #1e293b;
+        }
+
+        html.dark .action-card:hover {
+            border-color: #60a5fa;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5);
+        }
+
+        html.dark .card-placeholder-box {
+            background: #0f172a;
+            border-color: #334155;
+            color: #94a3b8;
+        }
+
+        html.dark .card-placeholder-text {
+            color: #cbd5e1;
+        }
+
+        html.dark .card-placeholder-sub {
+            color: #64748b;
+        }
+
+        html.dark .card-details-box {
+            background: #0f172a;
+            border-color: #334155;
+        }
+
+        html.dark .file-status-row {
+            border-bottom-color: #334155;
+        }
+
+        html.dark .meta-chip {
+            background: #1e293b;
+            color: #cbd5e1;
+            border-color: #334155;
+        }
+
+        html.dark .table-card {
+            background: #1e293b;
+            border-color: #334155;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+
+        html.dark .table-toolbar {
+            background: #0f172a;
+            border-bottom-color: #334155;
+        }
+
+        html.dark .search-input-wrap input {
+            background: #1e293b;
+            border-color: #475569;
+            color: #f8fafc;
+        }
+
+        html.dark .search-input-wrap input:focus {
+            border-color: #60a5fa;
+        }
+
+        html.dark .filter-group {
+            background: #1e293b;
+            border-color: #334155;
+        }
+
+        html.dark .filter-tab {
+            color: #94a3b8;
+        }
+
+        html.dark .filter-tab.active {
+            background: #334155;
+            color: #60a5fa;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+
+        html.dark thead {
+            background: #0f172a;
+            border-bottom-color: #334155;
+        }
+
+        html.dark th {
+            color: #94a3b8;
+        }
+
+        html.dark td {
+            border-bottom-color: #334155;
+            color: #f1f5f9;
+        }
+
+        html.dark tr:hover td {
+            background: #243044;
+        }
+
+        html.dark .form-control {
+            background: #0f172a;
+            color: #f8fafc;
+            border-color: #475569;
+        }
+
+        html.dark .form-control:focus {
+            border-color: #60a5fa;
+            background: #0f172a;
+        }
+
+        html.dark .btn-pill {
+            background: #1e293b;
+            color: #f8fafc;
+            border-color: #475569;
+        }
+
+        html.dark .btn-pill:hover {
+            background: #334155;
+            border-color: #64748b;
+        }
+
+        html.dark .pagination-bar {
+            background: #0f172a;
+            border-top-color: #334155;
+            color: #94a3b8;
+        }
+
+        html.dark .page-btn {
+            background: #1e293b;
+            color: #f8fafc;
+            border-color: #475569;
+        }
+
+        html.dark .page-btn:hover:not(:disabled) {
+            background: #334155;
+        }
+
+        html.dark .modal-card {
+            background: #1e293b;
+            color: #f8fafc;
+            border: 1px solid #475569;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
+        }
+
+        html.dark .modal-title {
+            color: #34d399;
+        }
+
+        html.dark .modal-desc {
+            color: #cbd5e1;
+        }
+
+        html.dark .cat-group {
+            background: #0f172a;
+            border-color: #475569;
+        }
+
+        html.dark .cat-btn {
+            color: #cbd5e1;
+        }
+
+        html.dark .cat-btn:hover {
+            background: #334155;
+        }
+
+        html.dark .input-stepper {
+            background: #0f172a;
+            color: #f8fafc;
+            border-color: #475569;
+        }
+
+        html.dark .btn-stepper {
+            background: #334155;
+            color: #f8fafc;
+            border-color: #475569;
+        }
+
+        html.dark .btn-stepper:hover {
+            background: #475569;
+        }
+
+        /* Bill Serial & Excess Cost badges */
+        .badge-bill-srl {
+            display: inline-flex;
+            align-items: center;
+            background: #ede9fe;
+            color: #6d28d9;
+            font-size: 11px;
+            font-weight: 800;
+            padding: 2px 7px;
+            border-radius: 6px;
+            border: 1px solid #c4b5fd;
+            letter-spacing: 0.02em;
+        }
+
+        html.dark .badge-bill-srl {
+            background: #4c1d95;
+            color: #ddd6fe;
+            border-color: #6d28d9;
+        }
+
+        .excess-badge {
+            margin-top: 4px;
+            padding: 4px 8px;
+            background: #fef9c3;
+            color: #854d0e;
+            border: 1px dashed #ca8a04;
+            border-radius: 6px;
+            font-size: 11px;
+            line-height: 1.35;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        html.dark .excess-badge {
+            background: #422006;
+            color: #fef08a;
+            border-color: #a16207;
+        }
+
+        /* High-visibility Buttons */
+        .btn-big-action {
+            font-size: 14px;
+            font-weight: 800;
+            letter-spacing: 0.01em;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.12), 0 2px 4px -2px rgba(0,0,0,0.08);
+        }
+
+        .btn-big-action:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 12px -2px rgba(0,0,0,0.18);
+        }
+
+        .btn-big-action:active {
+            transform: translateY(0);
+        }
     </style>
 </head>
 <body>
@@ -985,6 +1294,10 @@
         </div>
 
         <div class="header-actions">
+            <!-- Dark / Light Mode Toggle Button -->
+            <button type="button" class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()" title="Toggle Dark/Light Mode">
+                <span id="theme-icon">🌙</span>
+            </button>
             <button class="btn-header-open" onclick="openActiveExcel()" title="Open target assessment spreadsheet in Microsoft Excel">
                 📂 Open in Excel
             </button>
@@ -1332,10 +1645,10 @@
                 </div>
 
                 <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                    <button type="button" class="btn-write-huge" id="btn-write-tallied-costs" onclick="writeTalliedCostsToExcel()" style="padding:9px 16px; font-size:13px; background:#d97706; margin:0;" title="Writes assessed parts costs into Row 171 (Metal Col E, Non-Metal Col F, Glass Col G, Not Allowed Col H)">
+                    <button type="button" class="btn-write-huge" id="btn-write-tallied-costs" onclick="writeTalliedCostsToExcel()" style="padding:10px 20px; font-size:13.5px; font-weight:800; background:#059669; border:2px solid #047857; color:#ffffff; margin:0; box-shadow:0 4px 10px rgba(5,150,105,0.35);" title="Writes assessed parts costs into Row 171 (Metal Col E, Non-Metal Col F, Glass Col G, Not Allowed Col H)">
                         <span>📦 Write Tallied Parts to Excel</span>
                     </button>
-                    <button type="button" class="btn-write-huge" id="btn-write-tallied-labour" onclick="writeTalliedLabourToExcel()" style="padding:9px 16px; font-size:13px; background:#7c3aed; margin:0;" title="Writes assessed labour costs into Row 359 (Opening/rft Col E, Denting Col F, Painting Col G, Not Allowed Col H)">
+                    <button type="button" class="btn-write-huge" id="btn-write-tallied-labour" onclick="writeTalliedLabourToExcel()" style="padding:10px 20px; font-size:13.5px; font-weight:800; background:#7c3aed; border:2px solid #6d28d9; color:#ffffff; margin:0; box-shadow:0 4px 10px rgba(124,58,237,0.35);" title="Writes assessed labour costs into Row 359 (Opening/rft Col E, Denting Col F, Painting Col G, Not Allowed Col H)">
                         <span>🛠️ Write Tallied Labour to Excel</span>
                     </button>
                 </div>
@@ -1435,7 +1748,45 @@
             pageSize: 50
         };
 
+        // Theme Toggle (Dark / Light Mode)
+        function initTheme() {
+            try {
+                const savedTheme = localStorage.getItem("theme");
+                const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+                const isDark = (savedTheme === "dark") || (!savedTheme && prefersDark);
+                if (isDark) {
+                    document.documentElement.classList.add("dark");
+                    document.body.classList.add("dark");
+                } else {
+                    document.documentElement.classList.remove("dark");
+                    document.body.classList.remove("dark");
+                }
+                updateThemeToggleIcon(isDark);
+            } catch (e) {}
+        }
+
+        function toggleTheme() {
+            const isDark = document.body.classList.toggle("dark");
+            document.documentElement.classList.toggle("dark", isDark);
+            try {
+                localStorage.setItem("theme", isDark ? "dark" : "light");
+            } catch (e) {}
+            updateThemeToggleIcon(isDark);
+        }
+
+        function updateThemeToggleIcon(isDark) {
+            const iconEl = document.getElementById("theme-icon");
+            if (iconEl) {
+                iconEl.innerText = isDark ? "☀️" : "🌙";
+            }
+            const btnEl = document.getElementById("theme-toggle");
+            if (btnEl) {
+                btnEl.title = isDark ? "Switch to Light Mode" : "Switch to Dark Mode";
+            }
+        }
+
         document.addEventListener("DOMContentLoaded", async () => {
+            initTheme();
             setupDragAndDrop();
             await loadConfig();
         });
@@ -2458,6 +2809,7 @@
             if (!item) return;
 
             item.qty = newQty;
+            item.allowed_qty = newQty;
 
             let u = item.unit_price;
             if (!u || u <= 0) {
@@ -2472,6 +2824,16 @@
             }
 
             item.final_cost = Math.round(newQty * item.unit_price * 100) / 100;
+            item.allowed_cost = item.final_cost;
+
+            // Recalculate excess if matched with bill
+            if (item.matched && item.bill_qty !== undefined && item.bill_qty !== null) {
+                item.excess_qty = Math.max(0, Math.round((item.bill_qty - newQty) * 100) / 100);
+                item.excess_cost = Math.round(item.excess_qty * item.unit_price * 100) / 100;
+            } else {
+                item.excess_qty = 0;
+                item.excess_cost = 0;
+            }
 
             const qtyInput = document.getElementById(`qty-input-${index}`);
             if (qtyInput) qtyInput.value = item.qty;
@@ -2483,6 +2845,16 @@
             const unitHint = document.getElementById(`tally-unit-${index}`);
             if (unitHint) unitHint.innerText = `@ ₹${item.unit_price.toFixed(2)}/${unitLabel}`;
 
+            const excessEl = document.getElementById(`tally-excess-${index}`);
+            if (excessEl) {
+                if (item.excess_qty > 0) {
+                    excessEl.style.display = 'block';
+                    excessEl.innerHTML = `Allowed: <strong>${item.qty}</strong> (${item.category})<br>+ Excess: <strong>${item.excess_qty}</strong> &rarr; Col H (₹${item.excess_cost.toFixed(2)})`;
+                } else {
+                    excessEl.style.display = 'none';
+                }
+            }
+
             updateTallyReviewBadges();
         }
 
@@ -2493,12 +2865,21 @@
             if (!item) return;
 
             item.final_cost = Math.max(0, parseFloat(val) || 0.0);
+            item.allowed_cost = item.final_cost;
 
             if (item.qty && item.qty > 0) {
                 item.unit_price = Math.round((item.final_cost / item.qty) * 100) / 100;
                 const unitLabel = isLabour ? 'unit' : 'pc';
                 const unitHint = document.getElementById(`tally-unit-${index}`);
                 if (unitHint) unitHint.innerText = `@ ₹${item.unit_price.toFixed(2)}/${unitLabel}`;
+            }
+
+            if (item.matched && item.excess_qty > 0) {
+                item.excess_cost = Math.round(item.excess_qty * (item.unit_price || 0) * 100) / 100;
+                const excessEl = document.getElementById(`tally-excess-${index}`);
+                if (excessEl) {
+                    excessEl.innerHTML = `Allowed: <strong>${item.qty}</strong> (${item.category})<br>+ Excess: <strong>${item.excess_qty}</strong> &rarr; Col H (₹${item.excess_cost.toFixed(2)})`;
+                }
             }
 
             updateTallyReviewBadges();
@@ -2595,11 +2976,19 @@
                 const currentQty = (item.qty !== undefined && item.qty !== null) ? item.qty : (item.est_qty || 1);
                 const unitPrice = (item.unit_price !== undefined && item.unit_price !== null) ? item.unit_price : 0;
                 const cost = (item.final_cost !== undefined && item.final_cost !== null) ? item.final_cost : 0;
+                const excessQty = (item.excess_qty !== undefined && item.excess_qty !== null) ? item.excess_qty : 0;
+                const excessCost = (item.excess_cost !== undefined && item.excess_cost !== null) ? item.excess_cost : 0;
                 const isCapped = item.bill_qty && item.est_qty && (item.bill_qty > item.est_qty);
                 const unitLabel = isLabour ? 'unit' : 'pc';
 
                 let matchStatusHtml = isMatched
-                    ? `<div style="display:flex; flex-direction:column; gap:2px;"><span class="badge-matched">✓ In Final Bill</span>${billName ? `<span style="font-size:11px; color:#475569; overflow:hidden; text-overflow:ellipsis; max-width:200px;">${escapeHtml(billName)}</span>` : ''}</div>`
+                    ? `<div style="display:flex; flex-direction:column; gap:4px;">
+                        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                            <span class="badge-matched">✓ In Final Bill</span>
+                            ${item.bill_srl ? `<span class="badge-bill-srl" title="Bill Item #${item.bill_srl} - will be written to Col B in Excel">Bill #${escapeHtml(String(item.bill_srl))}</span>` : ''}
+                        </div>
+                        ${billName ? `<span style="font-size:11.5px; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; max-width:210px;" title="${escapeHtml(billName)}">${escapeHtml(billName)}</span>` : ''}
+                      </div>`
                     : `<span class="badge-disallowed" title="Not found in Final Bill - will be pasted to Col H">⚠ Not in Final Bill</span>`;
 
                 let destColPill = "";
@@ -2637,7 +3026,7 @@
                 }
 
                 return `
-                    <tr style="${cat === 'Not Allowed' ? 'background: #fefce8;' : ''}">
+                    <tr style="${cat === 'Not Allowed' ? 'background: rgba(254, 240, 138, 0.15);' : ''}">
                         <td style="font-weight:700; color:var(--text-light); text-align:center;">${idx + 1}</td>
                         <td>
                             <div style="font-weight:700; color:var(--text-main); font-size:13px;">${escapeHtml(itemName)}</div>
@@ -2659,7 +3048,10 @@
                                     <button type="button" class="btn-stepper" onclick="stepTallyQty(${idx}, 1)" title="Increase Quantity">+</button>
                                 </div>
                                 <span class="unit-price-hint" id="tally-unit-${idx}">@ ₹${unitPrice.toFixed(2)}/${unitLabel}</span>
-                                ${isCapped ? `<span class="qty-capped-badge" title="Billed ${item.bill_qty} in bill, capped at estimate limit ${item.est_qty}">Capped (Bill: ${item.bill_qty})</span>` : ''}
+                                <div id="tally-excess-${idx}" class="excess-badge" style="${excessQty > 0 ? '' : 'display:none;'}">
+                                    Allowed: <strong>${currentQty}</strong> (${cat})<br>
+                                    + Excess: <strong>${excessQty}</strong> &rarr; Col H (₹${excessCost.toFixed(2)})
+                                </div>
                             </div>
                         </td>
                         <td style="text-align:right; vertical-align:middle;">

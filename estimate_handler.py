@@ -484,6 +484,7 @@ def extract_ashok_leyland_format(pdf):
                 
                 full_desc = " ".join(desc_parts).strip()
                 parts.append({
+                    "srl": sno.strip(),
                     "code": code.strip(),
                     "particular": full_desc if full_desc else code.strip(),
                     "hsn": hsn.strip(),
@@ -544,6 +545,7 @@ def extract_maruti_sandhu_format(pdf):
                 rate_f = clean_num(rate)
                 qty_clean = f"{clean_num(qty):.0f}" if clean_num(qty).is_integer() else str(clean_num(qty))
                 parts.append({
+                    "srl": srl.strip(),
                     "code": code.strip(),
                     "particular": desc.strip(),
                     "hsn": "",
@@ -563,6 +565,7 @@ def extract_maruti_sandhu_format(pdf):
                 srl, code, desc, amt_s = m_lab.groups()
                 amt = clean_num(amt_s)
                 labours.append({
+                    "srl": srl.strip(),
                     "code": code.strip(),
                     "particular": desc.strip(),
                     "hsn": "998729",
@@ -1020,6 +1023,24 @@ def parse_estimate_pdf(pdf_path):
         # Extract printed summary before closing PDF
         printed_summary = extract_printed_estimate_summary(pdf)
 
+    # Ensure every item has a clean, reliable serial number (srl)
+    p_seq = 1
+    l_seq = 1
+    for it in items:
+        if not it.get("srl") and it.get("sno"):
+            it["srl"] = str(it["sno"]).strip()
+        if not it.get("srl") or not str(it.get("srl")).strip():
+            if it.get("item_type") == "Labour":
+                it["srl"] = str(l_seq)
+                l_seq += 1
+            else:
+                it["srl"] = str(p_seq)
+                p_seq += 1
+        else:
+            srl_str = re.sub(r'[\.\s]', '', str(it["srl"]))
+            if srl_str.isdigit():
+                it["srl"] = srl_str
+
     parts_count = sum(1 for it in items if it["item_type"] == "Part")
     parts_sum = sum(it["amount"] for it in items if it["item_type"] == "Part")
     labour_count = sum(1 for it in items if it["item_type"] == "Labour")
@@ -1441,8 +1462,11 @@ def write_parts_to_excel(file_path, sheet_name=None, parts=None, start_row=None,
                 except Exception:
                     pass
 
-                if bill_no:
-                    sheet.write(current_r, c_bill, str(bill_no).strip())
+                # User requirement: Leave Column B (Bill No.) blank when pasting from Estimate
+                try:
+                    sheet.write(current_r, c_bill, "")
+                except Exception:
+                    pass
 
                 sheet.write(current_r, c_part, desc)
                 sheet.write(current_r, c_est, amt_num)
@@ -1536,8 +1560,9 @@ def write_parts_to_excel(file_path, sheet_name=None, parts=None, start_row=None,
 
                 if c_es > 0:
                     sheet.cell(row=current_r, column=c_es, value=item_num)
-                if bill_no and c_bill > 0:
-                    sheet.cell(row=current_r, column=c_bill, value=str(bill_no).strip())
+                # User requirement: Leave Column B (Bill No.) blank when pasting from Estimate
+                if c_bill > 0:
+                    sheet.cell(row=current_r, column=c_bill, value=None)
                 sheet.cell(row=current_r, column=c_part, value=desc)
                 sheet.cell(row=current_r, column=c_est, value=amt_num)
 
@@ -1682,8 +1707,11 @@ def write_labour_to_excel(file_path, sheet_name=None, labour_items=None, start_r
                 except Exception:
                     pass
 
-                if bill_no:
-                    sheet.write(current_r, c_bill, str(bill_no).strip())
+                # User requirement: Leave Column B (Bill No.) blank when pasting from Estimate
+                try:
+                    sheet.write(current_r, c_bill, "")
+                except Exception:
+                    pass
 
                 sheet.write(current_r, c_part, desc)
                 sheet.write(current_r, c_est, amt_num)
@@ -1775,8 +1803,9 @@ def write_labour_to_excel(file_path, sheet_name=None, labour_items=None, start_r
 
                 if c_es > 0:
                     sheet.cell(row=current_r, column=c_es, value=item_num)
-                if bill_no and c_bill > 0:
-                    sheet.cell(row=current_r, column=c_bill, value=str(bill_no).strip())
+                # User requirement: Leave Column B (Bill No.) blank when pasting from Estimate
+                if c_bill > 0:
+                    sheet.cell(row=current_r, column=c_bill, value=None)
                 sheet.cell(row=current_r, column=c_part, value=desc)
                 sheet.cell(row=current_r, column=c_est, value=amt_num)
 
@@ -1989,9 +2018,17 @@ def tally_estimate_with_bill(estimate_parts, bill_parts):
             elif b_unit <= 0:
                 b_unit = b_amt
 
+            # Bill serial number tracking
+            raw_srl = matched_b.get("srl") or matched_b.get("sno") or (best_match_idx + 1)
+            b_srl = re.sub(r'[\.\s]', '', str(raw_srl)) or str(best_match_idx + 1)
+
             # Limit bill quantity to estimate quantity (estimate is the upper bound)
             allowed_qty = min(b_qty, est_qty)
-            final_cost = round(allowed_qty * b_unit, 2) if b_unit > 0 else (b_amt if b_amt > 0 else est_amt)
+            allowed_cost = round(allowed_qty * b_unit, 2) if b_unit > 0 else (b_amt if b_amt > 0 else est_amt)
+
+            # Excess quantity goes to Column H (Not Allowed)
+            excess_qty = max(0.0, round(b_qty - allowed_qty, 2))
+            excess_cost = round(excess_qty * b_unit, 2)
 
             cat = categorize_part_material(est_desc, est_code)
             target_col = "E" if cat == "Metal" else ("F" if cat == "Non Metal" else "G")
@@ -2004,6 +2041,7 @@ def tally_estimate_with_bill(estimate_parts, bill_parts):
                 "est_qty": est_qty,
                 "est_amount": est_amt,
                 "matched": True,
+                "bill_srl": b_srl,
                 "bill_particular": matched_b.get("particular", ""),
                 "bill_desc": matched_b.get("particular", ""),
                 "bill_code": matched_b.get("code", ""),
@@ -2011,10 +2049,14 @@ def tally_estimate_with_bill(estimate_parts, bill_parts):
                 "bill_amount": b_amt,
                 "unit_price": round(b_unit, 2),
                 "qty": allowed_qty,
+                "allowed_qty": allowed_qty,
+                "excess_qty": excess_qty,
                 "max_qty": est_qty,
                 "category": cat,
                 "target_col": target_col,
-                "final_cost": round(final_cost, 2)
+                "final_cost": round(allowed_cost, 2),
+                "allowed_cost": round(allowed_cost, 2),
+                "excess_cost": round(excess_cost, 2)
             })
         else:
             # Not in Final Bill -> Disallowed / Yellow Col H
@@ -2032,6 +2074,7 @@ def tally_estimate_with_bill(estimate_parts, bill_parts):
                 "est_qty": est_qty,
                 "est_amount": est_amt,
                 "matched": False,
+                "bill_srl": "",
                 "bill_particular": "",
                 "bill_desc": "",
                 "bill_code": "",
@@ -2039,10 +2082,14 @@ def tally_estimate_with_bill(estimate_parts, bill_parts):
                 "bill_amount": 0.0,
                 "unit_price": round(est_unit, 2),
                 "qty": est_qty,
+                "allowed_qty": 0.0,
+                "excess_qty": 0.0,
                 "max_qty": est_qty,
                 "category": "Not Allowed",
                 "target_col": "H",
-                "final_cost": round(est_amt, 2)
+                "final_cost": round(est_amt, 2),
+                "allowed_cost": 0.0,
+                "excess_cost": 0.0
             })
 
     return tallied
@@ -2119,10 +2166,22 @@ def write_tallied_costs_to_excel(file_path, sheet_name=None, tallied_items=None,
         for it in tallied_items:
             cat = it.get("category", "Not Allowed")
             cost = float(it.get("final_cost", 0.0) or it.get("cost", 0.0) or 0.0)
+            excess_cost = float(it.get("excess_cost", 0.0) or 0.0)
             target_c = col_map.get(cat, 7)
 
             part_name = str(it.get("est_particular") or it.get("est_desc") or "").strip()
             est_amt = float(it.get("est_amount", 0.0) or 0.0)
+
+            # Col B: Bill serial number for confirmation (or blank if unmatched)
+            b_srl = it.get("bill_srl")
+            if it.get("matched") and b_srl:
+                try:
+                    srl_val = int(b_srl)
+                except (ValueError, TypeError):
+                    srl_val = str(b_srl)
+                sheet.write(current_r, 1, srl_val)
+            else:
+                sheet.write(current_r, 1, "")
 
             # Ensure Col C has the part name
             c_val = rb_sheet.cell_value(current_r, 2) if current_r < rb_sheet.nrows else ""
@@ -2134,12 +2193,23 @@ def write_tallied_costs_to_excel(file_path, sheet_name=None, tallied_items=None,
             if (d_val == "" or d_val is None) and est_amt > 0:
                 sheet.write(current_r, 3, est_amt)
 
-            # Write to the designated column and clear other category columns in this row
-            for c_idx in [4, 5, 6, 7]:
-                if c_idx == target_c:
-                    sheet.write(current_r, c_idx, cost)
+            # Write costs to category columns:
+            # If matched and allowed: Col E/F/G gets allowed cost, and Col H gets excess_cost if any
+            # If unmatched: Col E/F/G are blank, Col H gets full cost / estimate amount
+            if it.get("matched") and cat != "Not Allowed":
+                for c_idx in [4, 5, 6]:
+                    if c_idx == target_c:
+                        sheet.write(current_r, c_idx, cost)
+                    else:
+                        sheet.write(current_r, c_idx, "")
+                if excess_cost > 0:
+                    sheet.write(current_r, 7, excess_cost)
                 else:
+                    sheet.write(current_r, 7, "")
+            else:
+                for c_idx in [4, 5, 6]:
                     sheet.write(current_r, c_idx, "")
+                sheet.write(current_r, 7, cost if cost > 0 else est_amt)
 
             last_r = current_r + 1
             current_r += 1
@@ -2179,10 +2249,22 @@ def write_tallied_costs_to_excel(file_path, sheet_name=None, tallied_items=None,
         for it in tallied_items:
             cat = it.get("category", "Not Allowed")
             cost = float(it.get("final_cost", 0.0) or it.get("cost", 0.0) or 0.0)
+            excess_cost = float(it.get("excess_cost", 0.0) or 0.0)
             target_col = col_map_openpyxl.get(cat, 8)
 
             part_name = str(it.get("est_particular") or it.get("est_desc") or "").strip()
             est_amt = float(it.get("est_amount", 0.0) or 0.0)
+
+            # Col B: Bill serial number for confirmation (or blank if unmatched)
+            b_srl = it.get("bill_srl")
+            if it.get("matched") and b_srl:
+                try:
+                    srl_val = int(b_srl)
+                except (ValueError, TypeError):
+                    srl_val = str(b_srl)
+                sheet.cell(row=current_r, column=2, value=srl_val)
+            else:
+                sheet.cell(row=current_r, column=2, value=None)
 
             # Ensure Col C has the part name
             c_cell = sheet.cell(row=current_r, column=3)
@@ -2194,11 +2276,21 @@ def write_tallied_costs_to_excel(file_path, sheet_name=None, tallied_items=None,
             if (d_cell.value is None or d_cell.value == "") and est_amt > 0:
                 d_cell.value = est_amt
 
-            for c_idx in [5, 6, 7, 8]:
-                if c_idx == target_col:
-                    sheet.cell(row=current_r, column=c_idx, value=cost)
+            # Write costs
+            if it.get("matched") and cat != "Not Allowed":
+                for c_idx in [5, 6, 7]:
+                    if c_idx == target_col:
+                        sheet.cell(row=current_r, column=c_idx, value=cost)
+                    else:
+                        sheet.cell(row=current_r, column=c_idx, value=None)
+                if excess_cost > 0:
+                    sheet.cell(row=current_r, column=8, value=excess_cost)
                 else:
+                    sheet.cell(row=current_r, column=8, value=None)
+            else:
+                for c_idx in [5, 6, 7]:
                     sheet.cell(row=current_r, column=c_idx, value=None)
+                sheet.cell(row=current_r, column=8, value=cost if cost > 0 else est_amt)
 
             last_r = current_r
             current_r += 1
@@ -2325,6 +2417,10 @@ def tally_estimate_labour_with_bill(estimate_labour, bill_labour):
             matched_b = bill_available[best_match_idx]
             b_amt = float(matched_b.get("amount", 0.0) or 0.0)
 
+            # Bill serial number tracking
+            raw_srl = matched_b.get("srl") or matched_b.get("sno") or (best_match_idx + 1)
+            b_srl = re.sub(r'[\.\s]', '', str(raw_srl)) or str(best_match_idx + 1)
+
             try:
                 b_qty = float(matched_b.get("qty", 1.0) or 1.0)
                 if b_qty <= 0:
@@ -2341,7 +2437,9 @@ def tally_estimate_labour_with_bill(estimate_labour, bill_labour):
                 b_unit = b_amt
 
             allowed_qty = min(b_qty, est_qty)
-            final_cost = round(allowed_qty * b_unit, 2) if b_unit > 0 else (b_amt if b_amt > 0 else est_amt)
+            allowed_cost = round(allowed_qty * b_unit, 2) if b_unit > 0 else (b_amt if b_amt > 0 else est_amt)
+            excess_qty = max(0.0, round(b_qty - allowed_qty, 2))
+            excess_cost = round(excess_qty * b_unit, 2)
 
             cat = categorize_labour(est_desc, est_code)
             target_col = "E" if cat == "Opening/rft" else ("F" if cat == "Denting" else "G")
@@ -2354,6 +2452,7 @@ def tally_estimate_labour_with_bill(estimate_labour, bill_labour):
                 "est_qty": est_qty,
                 "est_amount": est_amt,
                 "matched": True,
+                "bill_srl": b_srl,
                 "bill_particular": matched_b.get("particular", ""),
                 "bill_desc": matched_b.get("particular", ""),
                 "bill_code": matched_b.get("code", ""),
@@ -2361,10 +2460,14 @@ def tally_estimate_labour_with_bill(estimate_labour, bill_labour):
                 "bill_amount": b_amt,
                 "unit_price": round(b_unit, 2),
                 "qty": allowed_qty,
+                "allowed_qty": allowed_qty,
+                "excess_qty": excess_qty,
                 "max_qty": est_qty,
                 "category": cat,
                 "target_col": target_col,
-                "final_cost": round(final_cost, 2),
+                "final_cost": round(allowed_cost, 2),
+                "allowed_cost": round(allowed_cost, 2),
+                "excess_cost": round(excess_cost, 2),
                 "item_type": "Labour"
             })
         else:
@@ -2383,6 +2486,7 @@ def tally_estimate_labour_with_bill(estimate_labour, bill_labour):
                 "est_qty": est_qty,
                 "est_amount": est_amt,
                 "matched": False,
+                "bill_srl": "",
                 "bill_particular": "",
                 "bill_desc": "",
                 "bill_code": "",
@@ -2390,10 +2494,14 @@ def tally_estimate_labour_with_bill(estimate_labour, bill_labour):
                 "bill_amount": 0.0,
                 "unit_price": round(est_unit, 2),
                 "qty": est_qty,
+                "allowed_qty": 0.0,
+                "excess_qty": 0.0,
                 "max_qty": est_qty,
                 "category": "Not Allowed",
                 "target_col": "H",
                 "final_cost": round(est_amt, 2),
+                "allowed_cost": 0.0,
+                "excess_cost": 0.0,
                 "item_type": "Labour"
             })
 
@@ -2471,10 +2579,22 @@ def write_tallied_labour_to_excel(file_path, sheet_name=None, tallied_labour=Non
         for it in tallied_labour:
             cat = it.get("category", "Not Allowed")
             cost = float(it.get("final_cost", 0.0) or it.get("cost", 0.0) or 0.0)
+            excess_cost = float(it.get("excess_cost", 0.0) or 0.0)
             target_c = col_map.get(cat, 7)
 
             lab_name = str(it.get("est_particular") or it.get("est_desc") or "").strip()
             est_amt = float(it.get("est_amount", 0.0) or 0.0)
+
+            # Col B: Bill serial number for confirmation (or blank if unmatched)
+            b_srl = it.get("bill_srl")
+            if it.get("matched") and b_srl:
+                try:
+                    srl_val = int(b_srl)
+                except (ValueError, TypeError):
+                    srl_val = str(b_srl)
+                sheet.write(current_r, 1, srl_val)
+            else:
+                sheet.write(current_r, 1, "")
 
             # Ensure Col C has the labour description
             c_val = rb_sheet.cell_value(current_r, 2) if current_r < rb_sheet.nrows else ""
@@ -2486,12 +2606,21 @@ def write_tallied_labour_to_excel(file_path, sheet_name=None, tallied_labour=Non
             if (d_val == "" or d_val is None) and est_amt > 0:
                 sheet.write(current_r, 3, est_amt)
 
-            # Write to the designated column and clear other category columns in this row
-            for c_idx in [4, 5, 6, 7]:
-                if c_idx == target_c:
-                    sheet.write(current_r, c_idx, cost)
+            # Write costs to category columns
+            if it.get("matched") and cat != "Not Allowed":
+                for c_idx in [4, 5, 6]:
+                    if c_idx == target_c:
+                        sheet.write(current_r, c_idx, cost)
+                    else:
+                        sheet.write(current_r, c_idx, "")
+                if excess_cost > 0:
+                    sheet.write(current_r, 7, excess_cost)
                 else:
+                    sheet.write(current_r, 7, "")
+            else:
+                for c_idx in [4, 5, 6]:
                     sheet.write(current_r, c_idx, "")
+                sheet.write(current_r, 7, cost if cost > 0 else est_amt)
 
             last_r = current_r + 1
             current_r += 1
@@ -2531,24 +2660,48 @@ def write_tallied_labour_to_excel(file_path, sheet_name=None, tallied_labour=Non
         for it in tallied_labour:
             cat = it.get("category", "Not Allowed")
             cost = float(it.get("final_cost", 0.0) or it.get("cost", 0.0) or 0.0)
+            excess_cost = float(it.get("excess_cost", 0.0) or 0.0)
             target_col = col_map_openpyxl.get(cat, 8)
 
             lab_name = str(it.get("est_particular") or it.get("est_desc") or "").strip()
             est_amt = float(it.get("est_amount", 0.0) or 0.0)
 
+            # Col B: Bill serial number for confirmation (or blank if unmatched)
+            b_srl = it.get("bill_srl")
+            if it.get("matched") and b_srl:
+                try:
+                    srl_val = int(b_srl)
+                except (ValueError, TypeError):
+                    srl_val = str(b_srl)
+                sheet.cell(row=current_r, column=2, value=srl_val)
+            else:
+                sheet.cell(row=current_r, column=2, value=None)
+
+            # Ensure Col C has the labour description
             c_cell = sheet.cell(row=current_r, column=3)
             if not str(c_cell.value or "").strip() and lab_name:
                 c_cell.value = lab_name
 
+            # Ensure Col D has estimate amount
             d_cell = sheet.cell(row=current_r, column=4)
             if (d_cell.value is None or d_cell.value == "") and est_amt > 0:
                 d_cell.value = est_amt
 
-            for c_idx in [5, 6, 7, 8]:
-                if c_idx == target_col:
-                    sheet.cell(row=current_r, column=c_idx, value=cost)
+            # Write costs
+            if it.get("matched") and cat != "Not Allowed":
+                for c_idx in [5, 6, 7]:
+                    if c_idx == target_col:
+                        sheet.cell(row=current_r, column=c_idx, value=cost)
+                    else:
+                        sheet.cell(row=current_r, column=c_idx, value=None)
+                if excess_cost > 0:
+                    sheet.cell(row=current_r, column=8, value=excess_cost)
                 else:
+                    sheet.cell(row=current_r, column=8, value=None)
+            else:
+                for c_idx in [5, 6, 7]:
                     sheet.cell(row=current_r, column=c_idx, value=None)
+                sheet.cell(row=current_r, column=8, value=cost if cost > 0 else est_amt)
 
             last_r = current_r
             current_r += 1
