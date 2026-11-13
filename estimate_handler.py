@@ -1516,6 +1516,509 @@ def inspect_estimate_excel(file_path, target_sheet=None):
                     pass
 
 
+# ==============================================================================
+# DYNAMIC FORMULA INJECTION (APPROACH B) FOR MOTOR ASSESSMENT SPREADSHEETS
+# ==============================================================================
+
+def scan_surveyor_sheet_rows_xls(rb_sheet, parts_start_r=171, labour_start_r=359):
+    """
+    Scans an .xls sheet (xlrd sheet) to dynamically identify row numbers (1-based)
+    for parts computation totals, subtotals, GST, labour totals, and assessment summaries.
+    """
+    rows = {
+        "parts_total": 342,
+        "parts_less": 343,
+        "parts_stotal": 344,
+        "parts_cgst": 345,
+        "parts_sgst": 346,
+        "parts_igst": 347,
+        "parts_grand_total": 348,
+        "labour_total": 431,
+        "labour_less_paint": 432,
+        "labour_stotal": 433,
+        "labour_cgst": 434,
+        "labour_sgst": 435,
+        "labour_igst": 436,
+        "labour_grand_total": 437,
+        "total_labour_before_gst": 438,
+        "total_gst_on_labour": 439,
+        "total_labour_payable": 440,
+        "cost_of_parts_payable": 443,
+        "labor_cost_payable": 444,
+        "salvage": 446,
+        "excess": 447,
+        "est_amount_summary": 449,
+        "assessed_amount": 442,
+        "net_assessed": 451,
+        "net_receipt": 452,
+    }
+
+    try:
+        nrows = rb_sheet.nrows
+        ncols = min(15, rb_sheet.ncols)
+        p_start_idx = max(0, parts_start_r - 1)
+        l_start_idx = max(0, labour_start_r - 1)
+
+        found_parts_tot = False
+        found_labour_tot = False
+
+        for r in range(nrows):
+            row_vals = [str(rb_sheet.cell_value(r, c)).strip() for c in range(ncols)]
+            full_line = " ".join(row_vals).upper()
+            c0 = row_vals[0].upper() if len(row_vals) > 0 else ""
+            c1 = row_vals[1].upper() if len(row_vals) > 1 else ""
+            c2 = row_vals[2].upper() if len(row_vals) > 2 else ""
+            c3 = row_vals[3].upper() if len(row_vals) > 3 else ""
+
+            # Parts summary range (between parts_start and labour_start)
+            if p_start_idx <= r < l_start_idx:
+                if c0 == "TOTAL" and not found_parts_tot:
+                    rows["parts_total"] = r + 1
+                    found_parts_tot = True
+                elif "LESS" in c0 and "0%" in full_line:
+                    rows["parts_less"] = r + 1
+                elif "S.TOTAL" in (c0 + c2):
+                    rows["parts_stotal"] = r + 1
+                elif "CGST" in c1 and ("9%" in full_line or "14%" in full_line or "%" in full_line):
+                    rows["parts_cgst"] = r + 1
+                elif "SGST" in c1 and ("9%" in full_line or "14%" in full_line or "%" in full_line):
+                    rows["parts_sgst"] = r + 1
+                elif "IGST" in c1:
+                    rows["parts_igst"] = r + 1
+                elif "GRAND TOTAL" in (c0 + c2):
+                    rows["parts_grand_total"] = r + 1
+
+            # Labour and summary range
+            elif r >= l_start_idx:
+                if c0 == "TOTAL" and not found_labour_tot and (r - l_start_idx) < 120:
+                    rows["labour_total"] = r + 1
+                    found_labour_tot = True
+                elif ("12.5%" in full_line or "PAINT" in full_line) and r < rows.get("labour_total", 431) + 4:
+                    rows["labour_less_paint"] = r + 1
+                elif "S.TOTAL" in (c0 + c2) and r > rows.get("labour_total", 431):
+                    rows["labour_stotal"] = r + 1
+                elif "CGST" in c1 and r > rows.get("labour_total", 431):
+                    rows["labour_cgst"] = r + 1
+                elif "SGST" in c1 and r > rows.get("labour_total", 431):
+                    rows["labour_sgst"] = r + 1
+                elif "IGST" in c1 and r > rows.get("labour_total", 431):
+                    rows["labour_igst"] = r + 1
+                elif "GRAND TOTAL" in (c0 + c2) and r > rows.get("labour_total", 431):
+                    rows["labour_grand_total"] = r + 1
+                elif "TOTAL LABOUR(BEFORE GST)" in full_line:
+                    rows["total_labour_before_gst"] = r + 1
+                elif "TOTAL GST ON LABOUR" in full_line:
+                    rows["total_gst_on_labour"] = r + 1
+                elif "TOTAL COST OF LABOUR PAYABLE" in full_line:
+                    rows["total_labour_payable"] = r + 1
+                elif "COST OF PARTS PAYABLE" in full_line:
+                    rows["cost_of_parts_payable"] = r + 1
+                elif "LABOR COST" in full_line or "LABOUR COST" in full_line:
+                    rows["labor_cost_payable"] = r + 1
+                elif "SALVAGE" in full_line and "salvage" not in rows:
+                    rows["salvage"] = r + 1
+                elif "EXCESS CLAUSE" in full_line and "excess" not in rows and "V " not in full_line and "VOLUN" not in full_line:
+                    rows["excess"] = r + 1
+                elif "ESTIMATE AMOUNT IS" in full_line:
+                    rows["est_amount_summary"] = r + 1
+                elif "NET ASSESSED AMOUNT" in full_line:
+                    rows["net_assessed"] = r + 1
+                elif ("ASSESSED AMOUNT" in c3 or "ASSESSED AMOUNT" in c2) and "NET" not in full_line and "assessed_amount" not in rows:
+                    rows["assessed_amount"] = r + 1
+                elif "NET RECEIPT AMOUNT" in full_line:
+                    rows["net_receipt"] = r + 1
+
+    except Exception as e:
+        print(f"Warning scanning surveyor sheet rows: {e}")
+
+    return rows
+
+
+def scan_surveyor_sheet_rows_openpyxl(sheet, parts_start_r=171, labour_start_r=359):
+    """
+    Scans an openpyxl sheet to dynamically identify row numbers (1-based)
+    for parts computation totals, subtotals, GST, labour totals, and assessment summaries.
+    """
+    rows = {
+        "parts_total": 342,
+        "parts_less": 343,
+        "parts_stotal": 344,
+        "parts_cgst": 345,
+        "parts_sgst": 346,
+        "parts_igst": 347,
+        "parts_grand_total": 348,
+        "labour_total": 431,
+        "labour_less_paint": 432,
+        "labour_stotal": 433,
+        "labour_cgst": 434,
+        "labour_sgst": 435,
+        "labour_igst": 436,
+        "labour_grand_total": 437,
+        "total_labour_before_gst": 438,
+        "total_gst_on_labour": 439,
+        "total_labour_payable": 440,
+        "cost_of_parts_payable": 443,
+        "labor_cost_payable": 444,
+        "salvage": 446,
+        "excess": 447,
+        "est_amount_summary": 449,
+        "assessed_amount": 442,
+        "net_assessed": 451,
+        "net_receipt": 452,
+    }
+
+    try:
+        max_r = min(sheet.max_row, 600)
+        found_parts_tot = False
+        found_labour_tot = False
+
+        for r in range(1, max_r + 1):
+            row_vals = [str(sheet.cell(row=r, column=c).value or "").strip() for c in range(1, 15)]
+            full_line = " ".join(row_vals).upper()
+            c0 = row_vals[0].upper() if len(row_vals) > 0 else ""
+            c1 = row_vals[1].upper() if len(row_vals) > 1 else ""
+            c2 = row_vals[2].upper() if len(row_vals) > 2 else ""
+            c3 = row_vals[3].upper() if len(row_vals) > 3 else ""
+
+            if parts_start_r <= r < labour_start_r:
+                if c0 == "TOTAL" and not found_parts_tot:
+                    rows["parts_total"] = r
+                    found_parts_tot = True
+                elif "LESS" in c0 and "0%" in full_line:
+                    rows["parts_less"] = r
+                elif "S.TOTAL" in (c0 + c2):
+                    rows["parts_stotal"] = r
+                elif "CGST" in c1 and ("9%" in full_line or "14%" in full_line or "%" in full_line):
+                    rows["parts_cgst"] = r
+                elif "SGST" in c1 and ("9%" in full_line or "14%" in full_line or "%" in full_line):
+                    rows["parts_sgst"] = r
+                elif "IGST" in c1:
+                    rows["parts_igst"] = r
+                elif "GRAND TOTAL" in (c0 + c2):
+                    rows["parts_grand_total"] = r
+
+            elif r >= labour_start_r:
+                if c0 == "TOTAL" and not found_labour_tot and (r - labour_start_r) < 120:
+                    rows["labour_total"] = r
+                    found_labour_tot = True
+                elif ("12.5%" in full_line or "PAINT" in full_line) and r < rows.get("labour_total", 431) + 4:
+                    rows["labour_less_paint"] = r
+                elif "S.TOTAL" in (c0 + c2) and r > rows.get("labour_total", 431):
+                    rows["labour_stotal"] = r
+                elif "CGST" in c1 and r > rows.get("labour_total", 431):
+                    rows["labour_cgst"] = r
+                elif "SGST" in c1 and r > rows.get("labour_total", 431):
+                    rows["labour_sgst"] = r
+                elif "IGST" in c1 and r > rows.get("labour_total", 431):
+                    rows["labour_igst"] = r
+                elif "GRAND TOTAL" in (c0 + c2) and r > rows.get("labour_total", 431):
+                    rows["labour_grand_total"] = r
+                elif "TOTAL LABOUR(BEFORE GST)" in full_line:
+                    rows["total_labour_before_gst"] = r
+                elif "TOTAL GST ON LABOUR" in full_line:
+                    rows["total_gst_on_labour"] = r
+                elif "TOTAL COST OF LABOUR PAYABLE" in full_line:
+                    rows["total_labour_payable"] = r
+                elif "COST OF PARTS PAYABLE" in full_line:
+                    rows["cost_of_parts_payable"] = r
+                elif "LABOR COST" in full_line or "LABOUR COST" in full_line:
+                    rows["labor_cost_payable"] = r
+                elif "SALVAGE" in full_line and "salvage" not in rows:
+                    rows["salvage"] = r
+                elif "EXCESS CLAUSE" in full_line and "excess" not in rows and "V " not in full_line and "VOLUN" not in full_line:
+                    rows["excess"] = r
+                elif "ESTIMATE AMOUNT IS" in full_line:
+                    rows["est_amount_summary"] = r
+                elif "NET ASSESSED AMOUNT" in full_line:
+                    rows["net_assessed"] = r
+                elif ("ASSESSED AMOUNT" in c3 or "ASSESSED AMOUNT" in c2) and "NET" not in full_line and "assessed_amount" not in rows:
+                    rows["assessed_amount"] = r
+                elif "NET RECEIPT AMOUNT" in full_line:
+                    rows["net_receipt"] = r
+
+    except Exception as e:
+        print(f"Warning scanning openpyxl surveyor sheet rows: {e}")
+
+    return rows
+
+
+def inject_surveyor_sheet_formulas_xls(sheet, rb_sheet, parts_start_r=171, labour_start_r=359):
+    """
+    Injects dynamic xlwt.Formula instances into the surveyor assessment sheet for .xls files.
+    Restores all live Excel formulas (totals, subtotals, GST, net payable) that xlutils.copy strips.
+    """
+    try:
+        import xlwt
+        R = scan_surveyor_sheet_rows_xls(rb_sheet, parts_start_r, labour_start_r)
+
+        p_tot = R["parts_total"]
+        p_last_data = p_tot - 1
+        p_less = R["parts_less"]
+        p_sub = R["parts_stotal"]
+        p_cgst = R["parts_cgst"]
+        p_sgst = R["parts_sgst"]
+        p_igst = R["parts_igst"]
+        p_grd = R["parts_grand_total"]
+
+        l_tot = R["labour_total"]
+        l_last_data = l_tot - 1
+        l_paint_ded = R["labour_less_paint"]
+        l_sub = R["labour_stotal"]
+        l_cgst = R["labour_cgst"]
+        l_sgst = R["labour_sgst"]
+        l_igst = R["labour_igst"]
+        l_grd = R["labour_grand_total"]
+
+        # 1. PARTS COMPUTATION FORMULAS
+        # Total row (0-based: p_tot - 1)
+        sheet.write(p_tot - 1, 3, xlwt.Formula(f"SUM(D{parts_start_r}:D{p_last_data})"))
+        sheet.write(p_tot - 1, 4, xlwt.Formula(f"SUM(E{parts_start_r}:E{p_last_data})"))
+        sheet.write(p_tot - 1, 5, xlwt.Formula(f"SUM(F{parts_start_r}:F{p_last_data})"))
+        sheet.write(p_tot - 1, 6, xlwt.Formula(f"SUM(G{parts_start_r}:G{p_last_data})"))
+        sheet.write(p_tot - 1, 7, xlwt.Formula(f"SUM(H{parts_start_r}:H{p_last_data})"))
+        sheet.write(p_tot - 1, 8, xlwt.Formula(f"SUM(E{p_tot}:G{p_tot})"))
+
+        # LESS Metal Depreciation
+        sheet.write(p_less - 1, 4, xlwt.Formula(f"IF(B{p_less}=\"\", 0, ROUND(E{p_tot}*B{p_less}, 2))"))
+
+        # S.Total (Subtotal)
+        sheet.write(p_sub - 1, 3, xlwt.Formula(f"D{p_tot}"))
+        sheet.write(p_sub - 1, 4, xlwt.Formula(f"E{p_tot}-E{p_less}"))
+        sheet.write(p_sub - 1, 5, xlwt.Formula(f"F{p_tot}-F{p_less}"))
+        sheet.write(p_sub - 1, 6, xlwt.Formula(f"G{p_tot}-G{p_less}"))
+        sheet.write(p_sub - 1, 7, xlwt.Formula(f"H{p_tot}"))
+        sheet.write(p_sub - 1, 8, xlwt.Formula(f"SUM(E{p_sub}:G{p_sub})"))
+
+        # CGST 9%
+        sheet.write(p_cgst - 1, 4, xlwt.Formula(f"ROUND(E{p_sub}*0.09, 2)"))
+        sheet.write(p_cgst - 1, 5, xlwt.Formula(f"ROUND(F{p_sub}*0.09, 2)"))
+        sheet.write(p_cgst - 1, 6, xlwt.Formula(f"ROUND(G{p_sub}*0.09, 2)"))
+        sheet.write(p_cgst - 1, 8, xlwt.Formula(f"SUM(E{p_cgst}:G{p_cgst})"))
+
+        # SGST 9%
+        sheet.write(p_sgst - 1, 4, xlwt.Formula(f"ROUND(E{p_sub}*0.09, 2)"))
+        sheet.write(p_sgst - 1, 5, xlwt.Formula(f"ROUND(F{p_sub}*0.09, 2)"))
+        sheet.write(p_sgst - 1, 6, xlwt.Formula(f"ROUND(G{p_sub}*0.09, 2)"))
+        sheet.write(p_sgst - 1, 8, xlwt.Formula(f"SUM(E{p_sgst}:G{p_sgst})"))
+
+        # Grand Total Parts
+        sheet.write(p_grd - 1, 4, xlwt.Formula(f"SUM(E{p_sub}:E{p_igst})"))
+        sheet.write(p_grd - 1, 5, xlwt.Formula(f"SUM(F{p_sub}:F{p_igst})"))
+        sheet.write(p_grd - 1, 6, xlwt.Formula(f"SUM(G{p_sub}:G{p_igst})"))
+        sheet.write(p_grd - 1, 7, xlwt.Formula(f"H{p_sub}"))
+        sheet.write(p_grd - 1, 8, xlwt.Formula(f"SUM(E{p_grd}:G{p_grd})"))
+
+        # 2. LABOUR COMPUTATION FORMULAS
+        # Labour Total
+        sheet.write(l_tot - 1, 3, xlwt.Formula(f"SUM(D{labour_start_r}:D{l_last_data})"))
+        sheet.write(l_tot - 1, 4, xlwt.Formula(f"SUM(E{labour_start_r}:E{l_last_data})"))
+        sheet.write(l_tot - 1, 5, xlwt.Formula(f"SUM(F{labour_start_r}:F{l_last_data})"))
+        sheet.write(l_tot - 1, 6, xlwt.Formula(f"SUM(G{labour_start_r}:G{l_last_data})"))
+        sheet.write(l_tot - 1, 7, xlwt.Formula(f"SUM(H{labour_start_r}:H{l_last_data})"))
+        sheet.write(l_tot - 1, 8, xlwt.Formula(f"SUM(E{l_tot}:G{l_tot})"))
+
+        # Less 12.5% on Paint Charges
+        sheet.write(l_paint_ded - 1, 6, xlwt.Formula(f"ROUND(G{l_tot}*0.125, 2)"))
+
+        # Labour S.Total
+        sheet.write(l_sub - 1, 4, xlwt.Formula(f"E{l_tot}"))
+        sheet.write(l_sub - 1, 5, xlwt.Formula(f"F{l_tot}"))
+        sheet.write(l_sub - 1, 6, xlwt.Formula(f"G{l_tot}-G{l_paint_ded}"))
+        sheet.write(l_sub - 1, 8, xlwt.Formula(f"SUM(E{l_sub}:G{l_sub})"))
+
+        # Labour CGST 9%
+        sheet.write(l_cgst - 1, 4, xlwt.Formula(f"ROUND(E{l_sub}*0.09, 2)"))
+        sheet.write(l_cgst - 1, 5, xlwt.Formula(f"ROUND(F{l_sub}*0.09, 2)"))
+        sheet.write(l_cgst - 1, 6, xlwt.Formula(f"ROUND(G{l_sub}*0.09, 2)"))
+        sheet.write(l_cgst - 1, 8, xlwt.Formula(f"SUM(E{l_cgst}:G{l_cgst})"))
+
+        # Labour SGST 9%
+        sheet.write(l_sgst - 1, 4, xlwt.Formula(f"ROUND(E{l_sub}*0.09, 2)"))
+        sheet.write(l_sgst - 1, 5, xlwt.Formula(f"ROUND(F{l_sub}*0.09, 2)"))
+        sheet.write(l_sgst - 1, 6, xlwt.Formula(f"ROUND(G{l_sub}*0.09, 2)"))
+        sheet.write(l_sgst - 1, 8, xlwt.Formula(f"SUM(E{l_sgst}:G{l_sgst})"))
+
+        # Labour Grand total
+        sheet.write(l_grd - 1, 4, xlwt.Formula(f"SUM(E{l_sub}:E{l_igst})"))
+        sheet.write(l_grd - 1, 5, xlwt.Formula(f"SUM(F{l_sub}:F{l_igst})"))
+        sheet.write(l_grd - 1, 6, xlwt.Formula(f"SUM(G{l_sub}:G{l_igst})"))
+        sheet.write(l_grd - 1, 8, xlwt.Formula(f"SUM(E{l_grd}:G{l_grd})"))
+
+        # 3. LABOUR BREAKDOWN SUMMARY (Rows 438-440)
+        r_lb_bef = R["total_labour_before_gst"]
+        r_lb_gst = R["total_gst_on_labour"]
+        r_lb_pay = R["total_labour_payable"]
+        sheet.write(r_lb_bef - 1, 3, xlwt.Formula(f"SUM(E{l_sub}:G{l_sub})"))
+        sheet.write(r_lb_gst - 1, 3, xlwt.Formula(f"SUM(E{l_cgst}:G{l_sgst})"))
+        sheet.write(r_lb_pay - 1, 3, xlwt.Formula(f"D{r_lb_bef}+D{r_lb_gst}"))
+
+        # 4. FINAL ASSESSMENT SUMMARY (Rows 441-452)
+        r_pts_pay = R["cost_of_parts_payable"]
+        r_lab_pay = R["labor_cost_payable"]
+        r_salvage = R["salvage"]
+        r_excess = R["excess"]
+        r_est_sum = R["est_amount_summary"]
+        r_assessed = R["assessed_amount"]
+        r_net_ass = R["net_assessed"]
+        r_net_rec = R["net_receipt"]
+
+        # Parts and Labour estimate amounts in summary
+        sheet.write(441, 2, xlwt.Formula(f"D{p_tot}"))  # C442: Parts Estimate
+        sheet.write(442, 2, xlwt.Formula(f"D{p_tot}"))  # C443: Parts Estimate
+        sheet.write(444, 2, xlwt.Formula(f"D{l_tot}"))  # C445: Labour Estimate
+        sheet.write(r_est_sum - 1, 5, xlwt.Formula(f"D{p_tot}+D{l_tot}")) # F449: Total Estimate
+
+        # Cost of Parts Payable in G{r_pts_pay}
+        sheet.write(r_pts_pay - 1, 6, xlwt.Formula(f"SUM(E{p_grd}:G{p_grd})"))
+        # Labor cost in G{r_lab_pay}
+        sheet.write(r_lab_pay - 1, 6, xlwt.Formula(f"D{r_lb_pay}"))
+
+        # Assessed Amount in F{r_assessed} = Parts Payable + Labour Payable - Salvage - Excess
+        sheet.write(r_assessed - 1, 5, xlwt.Formula(f"G{r_pts_pay}+G{r_lab_pay}-G{r_salvage}-G{r_excess}"))
+
+        # Net Assessed Amount in F{r_net_ass}
+        sheet.write(r_net_ass - 1, 5, xlwt.Formula(f"F{r_assessed}"))
+
+        # Net Receipt amount in F{r_net_rec} and H{r_net_rec}
+        sheet.write(r_net_rec - 1, 5, xlwt.Formula(f"-F{r_net_ass}"))
+        sheet.write(r_net_rec - 1, 7, xlwt.Formula(f"F{r_net_ass}"))
+
+    except Exception as e:
+        print(f"Warning injecting .xls formulas: {e}")
+
+
+def inject_surveyor_sheet_formulas_openpyxl(sheet, parts_start_r=171, labour_start_r=359):
+    """
+    Injects dynamic formula strings (=SUM(...), etc.) into the surveyor assessment sheet for .xlsx files.
+    """
+    try:
+        R = scan_surveyor_sheet_rows_openpyxl(sheet, parts_start_r, labour_start_r)
+
+        p_tot = R["parts_total"]
+        p_last_data = p_tot - 1
+        p_less = R["parts_less"]
+        p_sub = R["parts_stotal"]
+        p_cgst = R["parts_cgst"]
+        p_sgst = R["parts_sgst"]
+        p_igst = R["parts_igst"]
+        p_grd = R["parts_grand_total"]
+
+        l_tot = R["labour_total"]
+        l_last_data = l_tot - 1
+        l_paint_ded = R["labour_less_paint"]
+        l_sub = R["labour_stotal"]
+        l_cgst = R["labour_cgst"]
+        l_sgst = R["labour_sgst"]
+        l_igst = R["labour_igst"]
+        l_grd = R["labour_grand_total"]
+
+        # 1. PARTS COMPUTATION FORMULAS
+        sheet[f"D{p_tot}"] = f"=SUM(D{parts_start_r}:D{p_last_data})"
+        sheet[f"E{p_tot}"] = f"=SUM(E{parts_start_r}:E{p_last_data})"
+        sheet[f"F{p_tot}"] = f"=SUM(F{parts_start_r}:F{p_last_data})"
+        sheet[f"G{p_tot}"] = f"=SUM(G{parts_start_r}:G{p_last_data})"
+        sheet[f"H{p_tot}"] = f"=SUM(H{parts_start_r}:H{p_last_data})"
+        sheet[f"I{p_tot}"] = f"=SUM(E{p_tot}:G{p_tot})"
+
+        # LESS Metal Depreciation
+        sheet[f"E{p_less}"] = f'=IF(B{p_less}="", 0, ROUND(E{p_tot}*B{p_less}, 2))'
+
+        # S.Total (Subtotal)
+        sheet[f"D{p_sub}"] = f"=D{p_tot}"
+        sheet[f"E{p_sub}"] = f"=E{p_tot}-E{p_less}"
+        sheet[f"F{p_sub}"] = f"=F{p_tot}-F{p_less}"
+        sheet[f"G{p_sub}"] = f"=G{p_tot}-G{p_less}"
+        sheet[f"H{p_sub}"] = f"=H{p_tot}"
+        sheet[f"I{p_sub}"] = f"=SUM(E{p_sub}:G{p_sub})"
+
+        # CGST 9%
+        sheet[f"E{p_cgst}"] = f"=ROUND(E{p_sub}*0.09, 2)"
+        sheet[f"F{p_cgst}"] = f"=ROUND(F{p_sub}*0.09, 2)"
+        sheet[f"G{p_cgst}"] = f"=ROUND(G{p_sub}*0.09, 2)"
+        sheet[f"I{p_cgst}"] = f"=SUM(E{p_cgst}:G{p_cgst})"
+
+        # SGST 9%
+        sheet[f"E{p_sgst}"] = f"=ROUND(E{p_sub}*0.09, 2)"
+        sheet[f"F{p_sgst}"] = f"=ROUND(F{p_sub}*0.09, 2)"
+        sheet[f"G{p_sgst}"] = f"=ROUND(G{p_sub}*0.09, 2)"
+        sheet[f"I{p_sgst}"] = f"=SUM(E{p_sgst}:G{p_sgst})"
+
+        # Grand Total Parts
+        sheet[f"E{p_grd}"] = f"=SUM(E{p_sub}:E{p_igst})"
+        sheet[f"F{p_grd}"] = f"=SUM(F{p_sub}:F{p_igst})"
+        sheet[f"G{p_grd}"] = f"=SUM(G{p_sub}:G{p_igst})"
+        sheet[f"H{p_grd}"] = f"=H{p_sub}"
+        sheet[f"I{p_grd}"] = f"=SUM(E{p_grd}:G{p_grd})"
+
+        # 2. LABOUR COMPUTATION FORMULAS
+        sheet[f"D{l_tot}"] = f"=SUM(D{labour_start_r}:D{l_last_data})"
+        sheet[f"E{l_tot}"] = f"=SUM(E{labour_start_r}:E{l_last_data})"
+        sheet[f"F{l_tot}"] = f"=SUM(F{labour_start_r}:F{l_last_data})"
+        sheet[f"G{l_tot}"] = f"=SUM(G{labour_start_r}:G{l_last_data})"
+        sheet[f"H{l_tot}"] = f"=SUM(H{labour_start_r}:H{l_last_data})"
+        sheet[f"I{l_tot}"] = f"=SUM(E{l_tot}:G{l_tot})"
+
+        # Less 12.5% on Paint Charges
+        sheet[f"G{l_paint_ded}"] = f"=ROUND(G{l_tot}*0.125, 2)"
+
+        # Labour S.Total
+        sheet[f"E{l_sub}"] = f"=E{l_tot}"
+        sheet[f"F{l_sub}"] = f"=F{l_tot}"
+        sheet[f"G{l_sub}"] = f"=G{l_tot}-G{l_paint_ded}"
+        sheet[f"I{l_sub}"] = f"=SUM(E{l_sub}:G{l_sub})"
+
+        # Labour CGST 9%
+        sheet[f"E{l_cgst}"] = f"=ROUND(E{l_sub}*0.09, 2)"
+        sheet[f"F{l_cgst}"] = f"=ROUND(F{l_sub}*0.09, 2)"
+        sheet[f"G{l_cgst}"] = f"=ROUND(G{l_sub}*0.09, 2)"
+        sheet[f"I{l_cgst}"] = f"=SUM(E{l_cgst}:G{l_cgst})"
+
+        # Labour SGST 9%
+        sheet[f"E{l_sgst}"] = f"=ROUND(E{l_sub}*0.09, 2)"
+        sheet[f"F{l_sgst}"] = f"=ROUND(F{l_sub}*0.09, 2)"
+        sheet[f"G{l_sgst}"] = f"=ROUND(G{l_sub}*0.09, 2)"
+        sheet[f"I{l_sgst}"] = f"=SUM(E{l_sgst}:G{l_sgst})"
+
+        # Labour Grand total
+        sheet[f"E{l_grd}"] = f"=SUM(E{l_sub}:E{l_igst})"
+        sheet[f"F{l_grd}"] = f"=SUM(F{l_sub}:F{l_igst})"
+        sheet[f"G{l_grd}"] = f"=SUM(G{l_sub}:G{l_igst})"
+        sheet[f"I{l_grd}"] = f"=SUM(E{l_grd}:G{l_grd})"
+
+        # 3. LABOUR BREAKDOWN SUMMARY (Rows 438-440)
+        r_lb_bef = R["total_labour_before_gst"]
+        r_lb_gst = R["total_gst_on_labour"]
+        r_lb_pay = R["total_labour_payable"]
+        sheet[f"D{r_lb_bef}"] = f"=SUM(E{l_sub}:G{l_sub})"
+        sheet[f"D{r_lb_gst}"] = f"=SUM(E{l_cgst}:G{l_sgst})"
+        sheet[f"D{r_lb_pay}"] = f"=D{r_lb_bef}+D{r_lb_gst}"
+
+        # 4. FINAL ASSESSMENT SUMMARY (Rows 441-452)
+        r_pts_pay = R["cost_of_parts_payable"]
+        r_lab_pay = R["labor_cost_payable"]
+        r_salvage = R["salvage"]
+        r_excess = R["excess"]
+        r_est_sum = R["est_amount_summary"]
+        r_assessed = R["assessed_amount"]
+        r_net_ass = R["net_assessed"]
+        r_net_rec = R["net_receipt"]
+
+        sheet[f"C442"] = f"=D{p_tot}"
+        sheet[f"C443"] = f"=D{p_tot}"
+        sheet[f"C445"] = f"=D{l_tot}"
+        sheet[f"F{r_est_sum}"] = f"=D{p_tot}+D{l_tot}"
+
+        sheet[f"G{r_pts_pay}"] = f"=SUM(E{p_grd}:G{p_grd})"
+        sheet[f"G{r_lab_pay}"] = f"=D{r_lb_pay}"
+        sheet[f"F{r_assessed}"] = f"=G{r_pts_pay}+G{r_lab_pay}-G{r_salvage}-G{r_excess}"
+        sheet[f"F{r_net_ass}"] = f"=F{r_assessed}"
+        sheet[f"F{r_net_rec}"] = f"=-F{r_net_ass}"
+        sheet[f"H{r_net_rec}"] = f"=F{r_net_ass}"
+
+    except Exception as e:
+        print(f"Warning injecting openpyxl formulas: {e}")
+
+
 def write_parts_to_excel(file_path, sheet_name=None, parts=None, start_row=None, bill_no=""):
     """
     Writes extracted parts into the PARTS COMPUTATION table:
@@ -1644,6 +2147,7 @@ def write_parts_to_excel(file_path, sheet_name=None, parts=None, start_row=None,
                 item_num += 1
                 written += 1
 
+            inject_surveyor_sheet_formulas_xls(sheet, rb_sheet, parts_start_r=first_written_row or start_row, labour_start_r=sheet_info.get("labour_start_row", 359))
             wb.save(file_path)
             invalidate_estimate_cache(file_path)
 
@@ -1739,6 +2243,7 @@ def write_parts_to_excel(file_path, sheet_name=None, parts=None, start_row=None,
                 item_num += 1
                 written += 1
 
+            inject_surveyor_sheet_formulas_openpyxl(sheet, parts_start_r=first_written_row or start_row, labour_start_r=sheet_info.get("labour_start_row", 359))
             wb.save(file_path)
             invalidate_estimate_cache(file_path)
 
@@ -1889,6 +2394,7 @@ def write_labour_to_excel(file_path, sheet_name=None, labour_items=None, start_r
                 item_num += 1
                 written += 1
 
+            inject_surveyor_sheet_formulas_xls(sheet, rb_sheet, parts_start_r=sheet_info.get("data_start_row", 171), labour_start_r=first_written_row or start_row)
             wb.save(file_path)
             invalidate_estimate_cache(file_path)
 
@@ -1982,6 +2488,7 @@ def write_labour_to_excel(file_path, sheet_name=None, labour_items=None, start_r
                 item_num += 1
                 written += 1
 
+            inject_surveyor_sheet_formulas_openpyxl(sheet, parts_start_r=sheet_info.get("data_start_row", 171), labour_start_r=first_written_row or start_row)
             wb.save(file_path)
             invalidate_estimate_cache(file_path)
 
@@ -2434,6 +2941,7 @@ def write_tallied_costs_to_excel(file_path, sheet_name=None, tallied_items=None,
             current_r += 1
             written += 1
 
+        inject_surveyor_sheet_formulas_xls(sheet, rb_sheet, parts_start_r=start_row, labour_start_r=sheet_info.get("labour_start_row", 359))
         wb.save(file_path)
         invalidate_estimate_cache(file_path)
         return {
@@ -2515,6 +3023,7 @@ def write_tallied_costs_to_excel(file_path, sheet_name=None, tallied_items=None,
             current_r += 1
             written += 1
 
+        inject_surveyor_sheet_formulas_openpyxl(sheet, parts_start_r=start_row, labour_start_r=sheet_info.get("labour_start_row", 359))
         wb.save(file_path)
         invalidate_estimate_cache(file_path)
         return {
@@ -2835,6 +3344,7 @@ def write_tallied_labour_to_excel(file_path, sheet_name=None, tallied_labour=Non
             current_r += 1
             written += 1
 
+        inject_surveyor_sheet_formulas_xls(sheet, rb_sheet, parts_start_r=sheet_info.get("data_start_row", 171), labour_start_r=start_row)
         wb.save(file_path)
         invalidate_estimate_cache(file_path)
         return {
@@ -2916,6 +3426,7 @@ def write_tallied_labour_to_excel(file_path, sheet_name=None, tallied_labour=Non
             current_r += 1
             written += 1
 
+        inject_surveyor_sheet_formulas_openpyxl(sheet, parts_start_r=sheet_info.get("data_start_row", 171), labour_start_r=start_row)
         wb.save(file_path)
         invalidate_estimate_cache(file_path)
         return {
