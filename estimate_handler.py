@@ -66,6 +66,21 @@ def clean_num(val):
     return 0.0
 
 
+def clean_qty(val):
+    """Parses numeric quantity from string, handling UOM suffixes like '10.00 EA', '1.0000 NA', etc."""
+    if val is None:
+        return 1.0
+    val_s = str(val).replace(",", "").strip()
+    m = re.search(r"[-+]?\d*\.?\d+", val_s)
+    if m:
+        try:
+            v = float(m.group(0))
+            return v if v > 0 else 1.0
+        except (ValueError, TypeError):
+            return 1.0
+    return 1.0
+
+
 def is_labour_item(desc, uom="", hsn=""):
     """
     Determines if a line item is Labour/Service vs a physical Part.
@@ -105,23 +120,37 @@ def map_table_header(row):
     """Maps columns from a table header row using robust regular expressions."""
     cols = {}
     for idx, cell in enumerate(row):
-        c_u = str(cell or "").lower().strip()
-        if re.search(r'\b(s\.?\s*no|sl\.?\s*no|item\s*no|pos|sr\.?\s*no|es\.?)\b|^s[\.\s]*no$', c_u):
+        c_raw = str(cell or "").lower().strip()
+        c_u = re.sub(r'[\/\\_\-\(\)\.]+', ' ', c_raw).strip()
+
+        # Check for tax rate or tax amount first so they are never misidentified as rate or amount
+        is_tax = any(t in c_u for t in ["cgst", "sgst", "igst", "tax amt", "tax rate", "tax paid"]) or "%" in c_raw
+        if is_tax:
+            if "rate" in c_u or "%" in c_raw:
+                cols["tax_rate"] = idx
+            else:
+                cols["tax_amt"] = idx
+            continue
+
+        if re.search(r'\b(s\s*no|sl\s*no|item\s*no|pos|sr\s*no|es)\b|^s\s*no$', c_u):
             cols['sno'] = idx
-        elif re.search(r'\b(part\s*no|part\s*#|part\s*code|item\s*code|code|catalogue)\b', c_u):
+        elif re.search(r'\b(part\s*no|part\s*code|labr\s*code|labour\s*code|item\s*code|part\s*#|catalogue)\b', c_u) or c_u == 'code':
             cols['code'] = idx
-        elif re.search(r'\b(desc|description|particular|particulars|part\s*name|item\s*name|details|nomenclature)\b', c_u):
+        elif re.search(r'\b(desc|description|particular|particulars|part\s*name|item\s*name|details|nomenclature|labourdescription|partdescription)\b', c_u) or 'description' in c_u or 'particular' in c_u:
             cols['desc'] = idx
-        elif re.search(r'\b(taxable\s*amount|taxable\s*amt|taxable\s*value|taxable)\b', c_u):
+        elif re.search(r'\b(taxable\s*amount|taxable\s*amt|taxable\s*value|taxable)\b', c_u) or c_u == 'taxable' or 'taxable' in c_u:
             cols['taxable_amt'] = idx
-        elif re.search(r'\b(rate|unit\s*price|price|mrp|unit\s*cost)\b', c_u):
+        elif re.search(r'\b(rate|unit\s*price|price|mrp|unit\s*cost)\b', c_u) or c_u == 'rate':
             cols['rate'] = idx
-        elif re.search(r'\b(uom|unit\s*of\s*measure|u\.o\.m|^units?$)\b', c_u):
+        elif re.search(r'\b(uom|unit\s*of\s*measure|u\s*o\s*m|^units?$)\b', c_u):
             cols['uom'] = idx
-        elif re.search(r'\b(qty|quantity|qnty)\b', c_u):
+        elif re.search(r'\b(qty|quantity|qnty|part\s*qty)\b', c_u) or 'qty' in c_u:
             cols['qty'] = idx
-        elif re.search(r'\b(amount|total|net|value|sum)\b', c_u):
+        elif c_u == 'total' or re.search(r'\b(total|net\s*amount|taxable\s*total)\b', c_u):
             cols['amount'] = idx
+        elif re.search(r'\b(amount|net|value|sum)\b', c_u):
+            if 'amount' not in cols:
+                cols['amount'] = idx
         elif re.search(r'\b(hsn|sac)\b', c_u):
             cols['hsn'] = idx
     return cols
@@ -579,6 +608,145 @@ def extract_maruti_sandhu_format(pdf):
     return parts + labours
 
 
+def extract_mahindra_novelty_format(pdf):
+    """
+    Extracts parts and labour from Mahindra / Novelty Wheels DMS estimates and RO Pre-Invoices.
+    Identifies 14-column layout:
+    Sr.No. | PartNo/Labour Code | Part/LabourDescription | Sharing% | HSN/SAC | Qty. | Unit | Rate(per item) | Total | Disc | Taxablevalue | SGST+CGST rate% | SGST+CGST Amt | Amount
+    Guarantees extraction of Base Total (before GST) and distinguishes unit rates from GST tax rates.
+    """
+    items = []
+    full_text = ""
+    for p in pdf.pages[:2]:
+        full_text += (p.extract_text() or "") + "\n"
+
+    is_mahindra_novelty = any(kw in full_text.upper() for kw in [
+        "NOVELTY WHEELS", "SERVICE QUOTATION", "RO PRE-INVOICE", "RO PRE INVOICE", "MAHINDRA & MAHINDRA"
+    ]) or ("PART/LABOURDESCRIPTION" in full_text.replace(" ", "").upper())
+
+    if not is_mahindra_novelty:
+        return []
+
+    p_seq = 1
+    l_seq = 1
+    current_section = None
+    last_cols = {}
+
+    for page in pdf.pages:
+        tables = page.extract_tables() or []
+        for table in tables:
+            if not table or len(table) < 1:
+                continue
+
+            h_idx = -1
+            cols = dict(last_cols)
+
+            for r_idx, row in enumerate(table):
+                row_str = " ".join([str(c or "").strip() for c in row]).upper()
+                if "LABOUR DETAILS:" in row_str or "LABOURDETAILS:" in row_str:
+                    current_section = "Labour"
+                if "PART DETAILS:" in row_str or "PARTDETAILS:" in row_str:
+                    current_section = "Part"
+                if any(kw in row_str for kw in ["SUB TOTAL", "SUBTOTAL", "GRAND TOTAL", "TOTAL:", "REMARKS:", "GST SUMMARY"]):
+                    continue
+
+                # Check for header row
+                norm_cells = [re.sub(r'[^A-Z0-9]', '', str(c or '').upper()) for c in row]
+                if any('SRNO' in c for c in norm_cells) and (any('PART' in c for c in norm_cells) or any('LABOUR' in c for c in norm_cells) or any('DESCRIPTION' in c for c in norm_cells)):
+                    h_idx = r_idx
+                    cols = {}
+                    for c_i, c_val in enumerate(row):
+                        clean_c = re.sub(r'[\s\n\/\-_]+', ' ', str(c_val or '')).strip().lower()
+                        if re.search(r'\b(sr|sl|s)\.?\s*no\b|^sno$', clean_c):
+                            cols['srl'] = c_i
+                        elif 'code' in clean_c or 'part no' in clean_c or 'labr code' in clean_c:
+                            cols['code'] = c_i
+                        elif 'desc' in clean_c or 'particular' in clean_c or 'nomenclature' in clean_c:
+                            cols['desc'] = c_i
+                        elif 'hsn' in clean_c or 'sac' in clean_c:
+                            cols['hsn'] = c_i
+                        elif 'qty' in clean_c:
+                            cols['qty'] = c_i
+                        elif 'uom' in clean_c or 'unit' in clean_c:
+                            cols['uom'] = c_i
+                        elif ('sgst' in clean_c or 'cgst' in clean_c or 'tax' in clean_c) and 'rate' in clean_c:
+                            cols['tax_rate'] = c_i
+                        elif 'rate' in clean_c or 'price' in clean_c or 'mrp' in clean_c:
+                            cols['rate'] = c_i
+                        elif clean_c == 'total':
+                            cols['total'] = c_i
+                        elif 'taxable' in clean_c:
+                            cols['taxable'] = c_i
+                        elif 'amt' in clean_c or 'amount' in clean_c:
+                            if 'sgst' in clean_c or 'cgst' in clean_c or 'tax' in clean_c:
+                                cols['tax_amt'] = c_i
+                            else:
+                                cols['amount'] = c_i
+                    last_cols = dict(cols)
+                    continue
+
+                # Process data row
+                if cols and len(row) >= 8:
+                    s_no = str(row[cols.get('srl', 0)] or '').strip()
+                    code = str(row[cols.get('code', 1)] or '').strip().replace('\n', '')
+                    desc = str(row[cols.get('desc', 2)] or '').strip().replace('\n', ' ')
+
+                    if not desc or any(kw in desc.upper() for kw in ['SUB TOTAL', 'TOTAL', 'GRAND TOTAL', 'GST SUMMARY', 'REMARKS', 'WHETHER TAX IS PAYABLE', 'CUSTOMER SIGNATURE']):
+                        continue
+
+                    # Extract Total (Base) vs Taxable vs Amount
+                    tot_idx = cols.get('total')
+                    taxable_idx = cols.get('taxable')
+                    amt_idx = cols.get('amount')
+
+                    total_val = 0.0
+                    if tot_idx is not None and tot_idx < len(row):
+                        total_val = float(re.sub(r'[^\d\.]', '', str(row[tot_idx] or '')) or 0.0)
+                    if total_val <= 0 and taxable_idx is not None and taxable_idx < len(row):
+                        total_val = float(re.sub(r'[^\d\.]', '', str(row[taxable_idx] or '')) or 0.0)
+                    if total_val <= 0 and amt_idx is not None and amt_idx < len(row):
+                        total_val = float(re.sub(r'[^\d\.]', '', str(row[amt_idx] or '')) or 0.0)
+
+                    if total_val <= 0:
+                        continue
+
+                    qty_idx = cols.get('qty', 5)
+                    qty_str = str(row[qty_idx] or '1.0').strip().replace('\n', ' ') if qty_idx < len(row) else '1.0'
+                    uom_idx = cols.get('uom', 6)
+                    uom_str = str(row[uom_idx] or '').strip().replace('\n', '') if uom_idx < len(row) else ''
+
+                    rate_idx = cols.get('rate', 7)
+                    rate_val = 0.0
+                    if rate_idx is not None and rate_idx < len(row):
+                        rate_val = float(re.sub(r'[^\d\.]', '', str(row[rate_idx] or '')) or 0.0)
+                    if rate_val <= 0:
+                        rate_val = total_val
+
+                    hsn_idx = cols.get('hsn', 4)
+                    hsn_str = str(row[hsn_idx] or '').strip().replace('\n', '') if hsn_idx < len(row) else ''
+
+                    is_labour = (current_section == "Labour") or is_labour_item(desc, uom_str, hsn_str)
+
+                    srl_val = s_no if s_no.isdigit() else str(l_seq if is_labour else p_seq)
+                    if is_labour:
+                        l_seq += 1
+                    else:
+                        p_seq += 1
+
+                    items.append({
+                        "srl": srl_val,
+                        "code": code,
+                        "particular": desc,
+                        "hsn": hsn_str,
+                        "qty": f"{qty_str} {uom_str}".strip(),
+                        "unit_price": rate_val if rate_val > 0 else total_val,
+                        "amount": round(total_val, 2),
+                        "item_type": "Labour" if is_labour else "Part",
+                        "selected": True
+                    })
+    return items
+
+
 def extract_printed_estimate_summary(pdf):
     """
     Extracts printed parts total, labour total, and grand total from the estimate summary block.
@@ -592,7 +760,7 @@ def extract_printed_estimate_summary(pdf):
     full_text = "\n".join([(p.extract_text() or "") for p in pdf.pages])
     
     # 1. Parts Total
-    m_p = re.findall(r'(?:Sum\s+Parts|Parts\s+Total|Total\s+Parts|Part\s*Amt\s*:)[:\s]*([\d,]+\.\d{2})', full_text, re.I)
+    m_p = re.findall(r'(?:Part\s*Sub\s*Total|Sum\s+Parts|Parts\s+Total|Total\s+Parts|Part\s*Amt\s*:)[:\s]*([\d,]+\.?\d*)', full_text, re.I)
     if not m_p:
         # Maruti 3-column total line: Total : <PartsTotal> <TaxPaid> <LabourTotal>
         # e.g.: Total : 1,15,547.50 0.00 40,000.00
@@ -612,7 +780,7 @@ def extract_printed_estimate_summary(pdf):
         
     # 2. Labour Total
     if summary["labour_total"] is None:
-        m_l = re.findall(r'(?:Sum\s+Labou?r|Labou?r\s+Total|Total\s+Labou?r|Labou?r\s*Amt\s*:)[:\s]*([\d,]+\.\d{2})', full_text, re.I)
+        m_l = re.findall(r'(?:Labour\s*Sub\s*Total|Sum\s+Labou?r|Labou?r\s+Total|Total\s+Labou?r|Labou?r\s*Amt\s*:)[:\s]*([\d,]+\.?\d*)', full_text, re.I)
         if not m_l:
             m_l_bmw = re.findall(r'(\d{5,8}\.\d{2})\s+\d{6,8}\.\d{2}\s+0\.00', full_text)
             if m_l_bmw:
@@ -699,6 +867,7 @@ def parse_estimate_pdf(pdf_path):
 
         # Pass 0.1: Specialized High-Precision DMS Extractors (100% Zero-Miss Architecture)
         specialized_extractors = [
+            ("Mahindra Novelty DMS", extract_mahindra_novelty_format),
             ("Toyota Claims Portal", extract_toyota_claims_format),
             ("Toyota T-Serv", extract_toyota_tserv_format),
             ("BMW DMS", extract_bmw_dms_format),
@@ -1947,67 +2116,117 @@ def tally_estimate_with_bill(estimate_parts, bill_parts):
     - If in Estimate but NOT in Final Bill:
       Categorizes as 'Not Allowed' (Yellow Col H).
       Cost = Estimate taxable amount.
+    Includes Ballpark Estimate Verification:
+      Compares bill candidates against estimate amounts to disambiguate codes and ensure
+      that Base Taxable Amounts are matched while rejecting Tax Amounts or Gross Amounts.
     """
     bill_available = list(bill_parts or [])
     used_bill_indices = set()
-    tallied = []
+    matches = {}  # est_idx -> (bill_idx, score)
 
+    # Pass 1: Exact code match + Ballpark cost scoring
+    for est_idx, est in enumerate(estimate_parts or []):
+        est_code_norm = normalize_part_code(est.get("code", ""))
+        est_tokens = tokenize_desc(est.get("particular", ""))
+        est_amt = float(est.get("amount", 0.0) or 0.0)
+
+        best_b_idx = None
+        best_score = -1.0
+
+        for b_idx, b in enumerate(bill_available):
+            if b_idx in used_bill_indices:
+                continue
+            b_code_norm = normalize_part_code(b.get("code", ""))
+            b_tokens = tokenize_desc(b.get("particular", ""))
+            b_amt = float(b.get("amount", 0.0) or 0.0)
+
+            if est_code_norm and b_code_norm and est_code_norm == b_code_norm:
+                score = 100.0
+                # Ballpark cost bonus (Base amount alignment)
+                if est_amt > 0 and b_amt > 0:
+                    diff_pct = abs(b_amt - est_amt) / est_amt
+                    if diff_pct <= 0.05:
+                        score += 50.0
+                    elif diff_pct <= 0.15:
+                        score += 30.0
+                # Token overlap bonus
+                if est_tokens and b_tokens and (est_tokens & b_tokens):
+                    score += 20.0
+
+                if score > best_score:
+                    best_score = score
+                    best_b_idx = b_idx
+
+        if best_b_idx is not None and best_score >= 100.0:
+            used_bill_indices.add(best_b_idx)
+            matches[est_idx] = (best_b_idx, best_score)
+
+    # Pass 2: Description token overlap + partial code match + Ballpark cost check
+    for est_idx, est in enumerate(estimate_parts or []):
+        if est_idx in matches:
+            continue
+        est_code_norm = normalize_part_code(est.get("code", ""))
+        est_tokens = tokenize_desc(est.get("particular", ""))
+        est_amt = float(est.get("amount", 0.0) or 0.0)
+
+        best_b_idx = None
+        best_score = -1.0
+
+        for b_idx, b in enumerate(bill_available):
+            if b_idx in used_bill_indices:
+                continue
+            b_code_norm = normalize_part_code(b.get("code", ""))
+            b_tokens = tokenize_desc(b.get("particular", ""))
+            b_amt = float(b.get("amount", 0.0) or 0.0)
+
+            score = 0.0
+            # Partial code match (only if lengths are substantial and codes are related)
+            code_partial = False
+            if est_code_norm and b_code_norm and len(est_code_norm) >= 5 and len(b_code_norm) >= 5:
+                if est_code_norm in b_code_norm or b_code_norm in est_code_norm:
+                    code_partial = True
+
+            inter = est_tokens & b_tokens if (est_tokens and b_tokens) else set()
+            token_ratio = len(inter) / max(len(est_tokens), len(b_tokens)) if (est_tokens and b_tokens) else 0.0
+
+            # Ballpark cost check (crucial for rejecting unrelated parts with similar prefix)
+            cost_close = False
+            if est_amt > 0 and b_amt > 0:
+                diff_pct = abs(b_amt - est_amt) / est_amt
+                if diff_pct <= 0.05:
+                    cost_close = True
+                    score += 40.0
+                elif diff_pct <= 0.15:
+                    cost_close = True
+                    score += 20.0
+
+            if code_partial and (cost_close or token_ratio >= 0.3):
+                score += 50.0
+            if token_ratio >= 0.5:
+                score += 40.0
+            elif len(inter) >= 2:
+                score += 25.0
+
+            if score >= 50.0 and score > best_score:
+                best_score = score
+                best_b_idx = b_idx
+
+        if best_b_idx is not None:
+            used_bill_indices.add(best_b_idx)
+            matches[est_idx] = (best_b_idx, best_score)
+
+    tallied = []
     for idx, est in enumerate(estimate_parts or []):
         est_desc = est.get("particular", "")
         est_code = est.get("code", "")
         est_amt = float(est.get("amount", 0.0) or 0.0)
-        est_code_norm = normalize_part_code(est_code)
-        est_tokens = tokenize_desc(est_desc)
+        est_qty = clean_qty(est.get("qty", 1.0))
 
-        best_match_idx = None
-        best_match_score = 0.0
-
-        # Pass 1: Exact / Normalized Code Match
-        if est_code_norm and len(est_code_norm) >= 4:
-            for b_idx, b in enumerate(bill_available):
-                if b_idx in used_bill_indices:
-                    continue
-                b_code_norm = normalize_part_code(b.get("code", ""))
-                if b_code_norm and (b_code_norm == est_code_norm or b_code_norm in est_code_norm or est_code_norm in b_code_norm):
-                    best_match_idx = b_idx
-                    best_match_score = 1.0
-                    break
-
-        # Pass 2: Description token overlap if code did not match
-        if best_match_idx is None and est_tokens:
-            for b_idx, b in enumerate(bill_available):
-                if b_idx in used_bill_indices:
-                    continue
-                b_tokens = tokenize_desc(b.get("particular", ""))
-                if not b_tokens:
-                    continue
-                inter = est_tokens & b_tokens
-                if inter:
-                    score = len(inter) / max(len(est_tokens), len(b_tokens))
-                    if score > best_match_score and (score >= 0.50 or len(inter) >= 2):
-                        best_match_score = score
-                        best_match_idx = b_idx
-
-        # Parse estimate quantity
-        try:
-            est_qty = float(est.get("qty", 1.0) or 1.0)
-            if est_qty <= 0:
-                est_qty = 1.0
-        except (ValueError, TypeError):
-            est_qty = 1.0
-
-        if best_match_idx is not None:
-            used_bill_indices.add(best_match_idx)
-            matched_b = bill_available[best_match_idx]
+        if idx in matches:
+            b_idx, _ = matches[idx]
+            matched_b = bill_available[b_idx]
             b_amt = float(matched_b.get("amount", 0.0) or 0.0)
-
-            # Parse bill quantity
-            try:
-                b_qty = float(matched_b.get("qty", 1.0) or 1.0)
-                if b_qty <= 0:
-                    b_qty = 1.0
-            except (ValueError, TypeError):
-                b_qty = 1.0
+            b_qty = clean_qty(matched_b.get("qty", 1.0))
 
             # Calculate unit price from bill
             b_unit = float(matched_b.get("unit_price", 0.0) or 0.0)
@@ -2019,8 +2238,8 @@ def tally_estimate_with_bill(estimate_parts, bill_parts):
                 b_unit = b_amt
 
             # Bill serial number tracking
-            raw_srl = matched_b.get("srl") or matched_b.get("sno") or (best_match_idx + 1)
-            b_srl = re.sub(r'[\.\s]', '', str(raw_srl)) or str(best_match_idx + 1)
+            raw_srl = matched_b.get("srl") or matched_b.get("sno") or (b_idx + 1)
+            b_srl = re.sub(r'[\.\s]', '', str(raw_srl)) or str(b_idx + 1)
 
             # Limit bill quantity to estimate quantity (estimate is the upper bound)
             allowed_qty = min(b_qty, est_qty)
@@ -2404,13 +2623,8 @@ def tally_estimate_labour_with_bill(estimate_labour, bill_labour):
                         best_match_score = score
                         best_match_idx = b_idx
 
-        # Parse estimate quantity
-        try:
-            est_qty = float(est.get("qty", 1.0) or 1.0)
-            if est_qty <= 0:
-                est_qty = 1.0
-        except (ValueError, TypeError):
-            est_qty = 1.0
+        # Parse estimate quantity safely
+        est_qty = clean_qty(est.get("qty", 1.0))
 
         if best_match_idx is not None:
             used_bill_indices.add(best_match_idx)
@@ -2421,12 +2635,7 @@ def tally_estimate_labour_with_bill(estimate_labour, bill_labour):
             raw_srl = matched_b.get("srl") or matched_b.get("sno") or (best_match_idx + 1)
             b_srl = re.sub(r'[\.\s]', '', str(raw_srl)) or str(best_match_idx + 1)
 
-            try:
-                b_qty = float(matched_b.get("qty", 1.0) or 1.0)
-                if b_qty <= 0:
-                    b_qty = 1.0
-            except (ValueError, TypeError):
-                b_qty = 1.0
+            b_qty = clean_qty(matched_b.get("qty", 1.0))
 
             b_unit = float(matched_b.get("unit_price", 0.0) or 0.0)
             if b_unit <= 0 and b_qty > 0 and b_amt > 0:

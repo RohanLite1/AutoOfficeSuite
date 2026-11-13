@@ -1274,9 +1274,178 @@
         .btn-big-action:active {
             transform: translateY(0);
         }
+
+        /* ================= STARTUP LOADER & SLEEK ANIMATIONS ================= */
+        .startup-loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: var(--bg-main);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.4s;
+        }
+        .startup-loader.loaded {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .startup-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            animation: startupFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes startupFadeIn {
+            from { opacity: 0; transform: scale(0.96) translateY(8px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .startup-emblem {
+            position: relative;
+            width: 76px;
+            height: 76px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 18px;
+        }
+        .startup-ring {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+        .ring-bg {
+            fill: none;
+            stroke: var(--border-color);
+            stroke-width: 3.5;
+        }
+        .ring-accent {
+            fill: none;
+            stroke: var(--color-primary);
+            stroke-width: 3.5;
+            stroke-linecap: round;
+            stroke-dasharray: 264;
+            stroke-dashoffset: 264;
+            animation: ringProgress 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+        @keyframes ringProgress {
+            0% { stroke-dashoffset: 264; transform: rotate(0deg); }
+            50% { stroke-dashoffset: 66; transform: rotate(180deg); }
+            100% { stroke-dashoffset: 264; transform: rotate(360deg); }
+        }
+        .startup-center-icon {
+            color: var(--color-primary);
+            animation: emblemPulse 1.8s ease-in-out infinite;
+        }
+        @keyframes emblemPulse {
+            0%, 100% { transform: scale(1); opacity: 0.9; }
+            50% { transform: scale(1.06); opacity: 1; }
+        }
+        .startup-title {
+            font-size: 14px;
+            font-weight: 800;
+            letter-spacing: 0.14em;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+        .startup-subtitle {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+        .startup-progress-track {
+            width: 160px;
+            height: 3px;
+            background: var(--border-color);
+            border-radius: 999px;
+            overflow: hidden;
+            position: relative;
+        }
+        .startup-progress-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 45%;
+            background: linear-gradient(90deg, var(--color-primary), var(--color-purple));
+            border-radius: 999px;
+            animation: startupBarAnim 1.1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+        @keyframes startupBarAnim {
+            0% { left: -50%; width: 30%; }
+            50% { left: 35%; width: 50%; }
+            100% { left: 100%; width: 30%; }
+        }
+
+        /* CARDS STAGGERED ENTRANCE & HOVER MICRO-ANIMATION */
+        .top-navbar {
+            animation: navSlideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes navSlideDown {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .action-card {
+            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+            animation: cardFadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+        }
+        .action-card:hover {
+            transform: translateY(-2px);
+        }
+        .action-cards-grid > .action-card:nth-child(1) { animation-delay: 0.04s; }
+        .action-cards-grid > .action-card:nth-child(2) { animation-delay: 0.10s; }
+        .action-cards-grid > .action-card:nth-child(3) { animation-delay: 0.16s; }
+        .action-cards-grid > .action-card:nth-child(4) { animation-delay: 0.22s; }
+
+        @keyframes cardFadeUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        button, .btn-pill, .btn-big-action, .link-action {
+            transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        button:active, .btn-pill:active, .btn-big-action:active {
+            transform: scale(0.98);
+        }
+
     </style>
 </head>
 <body>
+
+    <!-- Startup Transition Overlay -->
+    <div id="startup-loader" class="startup-loader">
+        <div class="startup-content">
+            <div class="startup-emblem">
+                <svg class="startup-ring" viewBox="0 0 100 100">
+                    <circle class="ring-bg" cx="50" cy="50" r="42"/>
+                    <circle class="ring-accent" cx="50" cy="50" r="42"/>
+                </svg>
+                <div class="startup-center-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                        <line x1="8" y1="21" x2="16" y2="21"/>
+                        <line x1="12" y1="17" x2="12" y2="21"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="startup-title">OFFICE AUTOMATION SUITE</div>
+            <div class="startup-subtitle">Precision Parts & Labour Assessment</div>
+            <div class="startup-progress-track">
+                <div class="startup-progress-bar"></div>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Hidden Native File Pickers -->
     <input type="file" id="excel-file-picker" accept=".xlsx,.xls,.xlsm" style="display:none;" onchange="handleExcelFileSelected(this.files)">
@@ -1286,7 +1455,7 @@
     <!-- Top Navbar -->
     <header class="top-navbar">
         <div class="brand-group">
-            <span class="brand-icon">🧾</span>
+            <span class="brand-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg></span>
             <div>
                 <span class="brand-title">Estimate Parts Extractor</span>
                 <span class="brand-badge">Taxable Amount Mode</span>
@@ -1296,13 +1465,13 @@
         <div class="header-actions">
             <!-- Dark / Light Mode Toggle Button -->
             <button type="button" class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()" title="Toggle Dark/Light Mode">
-                <span id="theme-icon">🌙</span>
+                <span id="theme-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg></span>
             </button>
             <button class="btn-header-open" onclick="openActiveExcel()" title="Open target assessment spreadsheet in Microsoft Excel">
-                📂 Open in Excel
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg> Open in Excel
             </button>
             <button class="btn-pill" style="color:white; border-color:#475569; background:transparent;" onclick="showInFolder()" title="Show in Windows Explorer">
-                📁 Explorer
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg> Explorer
             </button>
         </div>
     </header>
@@ -1312,7 +1481,7 @@
         <!-- Global Alert Message -->
         <div id="alert-banner" class="alert">
             <span id="alert-text">Message</span>
-            <button type="button" class="btn-pill" style="padding:2px 8px;" onclick="hideAlert()">✕</button>
+            <button type="button" class="btn-pill" style="padding:2px 8px;" onclick="hideAlert()">&times;</button>
         </div>
 
         <!-- 4-STEP HERO ACTION CARDS -->
@@ -1323,11 +1492,11 @@
                 <div>
                     <div class="card-header-row">
                         <span class="step-pill" id="pill-step-1">STEP 1</span>
-                        <span id="excel-status-badge" style="font-size:12px; font-weight:700; color:#15803d; display:none;">✓ Connected</span>
+                        <span id="excel-status-badge" style="font-size:12px; font-weight:700; color:#15803d; display:none;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:3px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Connected</span>
                     </div>
 
                     <div class="card-title">
-                        <span>📊 Assessment Excel</span>
+                        <span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:6px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line></svg> Assessment Excel</span>
                     </div>
                     <div class="card-subtitle">
                         Select master assessment sheet (.xls, .xlsx) where parts are pasted.
@@ -1335,13 +1504,13 @@
 
                     <!-- BIG ADD EXCEL BUTTON -->
                     <button type="button" class="btn-big-action btn-big-excel" onclick="triggerBrowseExcel()">
-                        <span style="font-size:20px;">📁</span>
+                        <span style="font-size:18px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></span>
                         <span id="btn-excel-label">Add Excel File</span>
                     </button>
 
                     <!-- PLACEHOLDER WHEN NOT CONNECTED -->
                     <div class="card-placeholder-box" id="excel-placeholder-box">
-                        <span class="card-placeholder-icon">📊</span>
+                        <span class="card-placeholder-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:6px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line></svg></span>
                         <span class="card-placeholder-text">No Excel File Linked</span>
                         <span class="card-placeholder-sub">Click above to select master spreadsheet</span>
                     </div>
@@ -1377,7 +1546,7 @@
 
                 <div class="card-footer-actions">
                     <span id="excel-meta-text" style="color:var(--text-light);">Ready to link</span>
-                    <button type="button" class="link-action" onclick="promptManualPath()">✏️ Paste Path Manually</button>
+                    <button type="button" class="link-action" onclick="promptManualPath()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:3px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg> Paste Path Manually</button>
                 </div>
             </div>
 
@@ -1386,11 +1555,11 @@
                 <div>
                     <div class="card-header-row">
                         <span class="step-pill" id="pill-step-2">STEP 2</span>
-                        <span id="pdf-status-badge" style="font-size:12px; font-weight:700; color:#2563eb; display:none;">✓ Parsed</span>
+                        <span id="pdf-status-badge" style="font-size:12px; font-weight:700; color:#2563eb; display:none;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:3px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Parsed</span>
                     </div>
 
                     <div class="card-title">
-                        <span>🧾 Estimate PDF Bill</span>
+                        <span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:6px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg> Estimate PDF Bill</span>
                     </div>
                     <div class="card-subtitle">
                         Upload repair estimate PDF (Maruti Suzuki, Hyundai, Toyota, etc.)
@@ -1398,13 +1567,13 @@
 
                     <!-- BIG ADD PDF BILL BUTTON -->
                     <button type="button" class="btn-big-action btn-big-pdf" onclick="triggerBrowsePdf()">
-                        <span style="font-size:20px;">📄</span>
+                        <span style="font-size:18px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:6px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg></span>
                         <span id="btn-pdf-label">Add Estimate PDF</span>
                     </button>
 
                     <!-- PLACEHOLDER WHEN NOT UPLOADED -->
                     <div class="card-placeholder-box" id="pdf-placeholder-box">
-                        <span class="card-placeholder-icon">📄</span>
+                        <span class="card-placeholder-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:6px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg></span>
                         <span class="card-placeholder-text">No Estimate PDF Loaded</span>
                         <span class="card-placeholder-sub">Upload dealer / workshop estimate bill</span>
                     </div>
@@ -1420,10 +1589,10 @@
                         </div>
 
                         <div class="meta-chips-bar" id="pdf-meta-chips">
-                            <span class="meta-chip">🚗 Reg: <strong id="chip-reg">--</strong></span>
-                            <span class="meta-chip">📝 Bill: <strong id="chip-inv">--</strong></span>
-                            <span class="meta-chip">📅 Date: <strong id="chip-date">--</strong></span>
-                            <span class="meta-chip">👤 SA: <strong id="chip-sa">--</strong></span>
+                            <span class="meta-chip">Reg: <strong id="chip-reg">--</strong></span>
+                            <span class="meta-chip">Bill: <strong id="chip-inv">--</strong></span>
+                            <span class="meta-chip">Date: <strong id="chip-date">--</strong></span>
+                            <span class="meta-chip">SA: <strong id="chip-sa">--</strong></span>
                         </div>
                     </div>
                 </div>
@@ -1439,11 +1608,11 @@
                 <div>
                     <div class="card-header-row">
                         <span class="step-pill" id="pill-step-3">STEP 3</span>
-                        <span id="final-bill-status-badge" style="font-size:12px; font-weight:700; color:#7c3aed; display:none;">✓ Parsed</span>
+                        <span id="final-bill-status-badge" style="font-size:12px; font-weight:700; color:#7c3aed; display:none;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:3px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Parsed</span>
                     </div>
 
                     <div class="card-title">
-                        <span>📑 Import Bill PDF</span>
+                        <span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg> Import Bill PDF</span>
                     </div>
                     <div class="card-subtitle">
                         Upload final workshop tax invoice to tally against estimate parts.
@@ -1451,13 +1620,13 @@
 
                     <!-- BIG ADD FINAL BILL BUTTON -->
                     <button type="button" class="btn-big-action btn-big-purple" onclick="triggerBrowseFinalBill()">
-                        <span style="font-size:20px;">📥</span>
+                        <span style="font-size:18px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></span>
                         <span id="btn-final-bill-label">Import Bill PDF</span>
                     </button>
 
                     <!-- PLACEHOLDER WHEN NOT UPLOADED -->
                     <div class="card-placeholder-box" id="final-bill-placeholder-box">
-                        <span class="card-placeholder-icon">📑</span>
+                        <span class="card-placeholder-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></span>
                         <span class="card-placeholder-text">No Final Bill PDF Loaded</span>
                         <span class="card-placeholder-sub">Upload final tax invoice to reconcile parts</span>
                     </div>
@@ -1473,9 +1642,9 @@
                         </div>
 
                         <div class="meta-chips-bar" id="final-bill-meta-chips">
-                            <span class="meta-chip">📦 Parts: <strong id="chip-final-bill-parts">0</strong></span>
-                            <span class="meta-chip">🛠️ Labour: <strong id="chip-final-bill-labour">0</strong></span>
-                            <span class="meta-chip">💰 Total: <strong id="chip-final-bill-total">₹0</strong></span>
+                            <span class="meta-chip">Parts: <strong id="chip-final-bill-parts">0</strong></span>
+                            <span class="meta-chip">Labour: <strong id="chip-final-bill-labour">0</strong></span>
+                            <span class="meta-chip">Total: <strong id="chip-final-bill-total">₹0</strong></span>
                         </div>
                     </div>
                 </div>
@@ -1491,11 +1660,11 @@
                 <div>
                     <div class="card-header-row">
                         <span class="step-pill" id="pill-step-4">STEP 4</span>
-                        <span id="tally-status-badge" style="font-size:12px; font-weight:700; color:#d97706; display:none;">✓ Tallied</span>
+                        <span id="tally-status-badge" style="font-size:12px; font-weight:700; color:#d97706; display:none;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:3px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Tallied</span>
                     </div>
 
                     <div class="card-title">
-                        <span>⚖️ Tally & Paste Cost</span>
+                        <span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:6px;"><line x1="12" y1="3" x2="12" y2="21"></line><polyline points="3 7 12 5 21 7"></polyline><path d="M5 10l-2 5a3 3 0 0 0 6 0l-2-5"></path><path d="M19 10l-2 5a3 3 0 0 0 6 0l-2-5"></path><line x1="8" y1="21" x2="16" y2="21"></line></svg> Tally & Paste Cost</span>
                     </div>
                     <div class="card-subtitle">
                         Tally parts & labour vs bill into Col E, F, G, or Col H.
@@ -1503,13 +1672,13 @@
 
                     <!-- BIG TALLY BUTTON -->
                     <button type="button" class="btn-big-action btn-big-amber" id="btn-run-tally" onclick="runTallyProcess()">
-                        <span style="font-size:20px;">⚡</span>
+                        <span style="font-size:18px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></span>
                         <span id="btn-tally-label">Tally & Paste Cost</span>
                     </button>
 
                     <!-- PLACEHOLDER WHEN NOT RUN -->
                     <div class="card-placeholder-box" id="tally-placeholder-box">
-                        <span class="card-placeholder-icon">⚖️</span>
+                        <span class="card-placeholder-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:6px;"><line x1="12" y1="3" x2="12" y2="21"></line><polyline points="3 7 12 5 21 7"></polyline><path d="M5 10l-2 5a3 3 0 0 0 6 0l-2-5"></path><path d="M19 10l-2 5a3 3 0 0 0 6 0l-2-5"></path><line x1="8" y1="21" x2="16" y2="21"></line></svg></span>
                         <span class="card-placeholder-text">Awaiting Tally Execution</span>
                         <span class="card-placeholder-sub">Click above to reconcile Step 2 and Step 3</span>
                     </div>
@@ -1525,8 +1694,8 @@
                         </div>
 
                         <div class="meta-chips-bar" id="tally-meta-chips" style="margin-top:0;">
-                            <span class="meta-chip" style="background:#f1f5f9; color:#334155;">📦 Parts: <strong id="stat-tally-parts-chip">0</strong></span>
-                            <span class="meta-chip" style="background:#f3e8ff; color:#6b21a8;">🛠️ Labour: <strong id="stat-tally-labour-chip">0</strong></span>
+                            <span class="meta-chip" style="background:#f1f5f9; color:#334155;">Parts: <strong id="stat-tally-parts-chip">0</strong></span>
+                            <span class="meta-chip" style="background:#f3e8ff; color:#6b21a8;">Labour: <strong id="stat-tally-labour-chip">0</strong></span>
                             <span class="meta-chip" style="background:#fef9c3; color:#854d0e; border:1px solid #fde047;">Col H: <strong id="stat-tally-disallowed">0</strong></span>
                         </div>
                     </div>
@@ -1549,10 +1718,10 @@
 
             <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
                 <button type="button" class="btn-write-huge" id="btn-write-main" onclick="writePartsToExcel()" title="Writes selected parts (Col C) and taxable amounts (Col D)">
-                    <span>📦 Write Parts to Excel</span>
+                    <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> Write Parts to Excel</span>
                 </button>
                 <button type="button" class="btn-write-huge btn-write-labour-action" id="btn-write-labour" onclick="writeLabourToExcel()" title="Writes selected labour charges into LABOUR COMPUTATION (Col B, C, D)">
-                    <span>🛠️ Write Labour to Excel</span>
+                    <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg> Write Labour to Excel</span>
                 </button>
             </div>
         </div>
@@ -1563,7 +1732,7 @@
             <!-- Table Toolbar -->
             <div class="table-toolbar">
                 <div class="search-input-wrap">
-                    <span class="search-input-icon">🔍</span>
+                    <span class="search-input-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span>
                     <input type="text" id="parts-search-input" placeholder="Search parts by name, code, or amount..." oninput="handleSearchChange(this.value)">
                 </div>
 
@@ -1574,11 +1743,11 @@
                 </div>
 
                 <div style="display:flex; align-items:center; gap:8px;">
-                    <button type="button" class="btn-pill" onclick="selectPartsOnly()" title="Select all parts and unselect labour items">📦 Parts Only</button>
-                    <button type="button" class="btn-pill" onclick="selectLabourOnly()" title="Select all labour and unselect parts">🛠️ Labour Only</button>
-                    <button type="button" class="btn-pill" onclick="toggleAllVisible(true)">☑ Select All</button>
-                    <button type="button" class="btn-pill" onclick="toggleAllVisible(false)">☐ Deselect All</button>
-                    <button type="button" class="btn-pill" onclick="addNewManualPart()">➕ Add Item</button>
+                    <button type="button" class="btn-pill" onclick="selectPartsOnly()" title="Select all parts and unselect labour items"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> Parts Only</button>
+                    <button type="button" class="btn-pill" onclick="selectLabourOnly()" title="Select all labour and unselect parts"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg> Labour Only</button>
+                    <button type="button" class="btn-pill" onclick="toggleAllVisible(true)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:3px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Select All</button>
+                    <button type="button" class="btn-pill" onclick="toggleAllVisible(false)">Deselect All</button>
+                    <button type="button" class="btn-pill" onclick="addNewManualPart()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:3px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Add Item</button>
                 </div>
             </div>
 
@@ -1637,19 +1806,19 @@
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span style="font-size:12px; font-weight:800; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.04em; margin-right:4px;">Tally Mode:</span>
                     <button type="button" class="filter-tab active" id="btn-tally-view-parts" onclick="setTallyView('parts')" style="font-size:13px; padding:6px 14px;">
-                        📦 Parts Tally (<span id="tally-view-parts-count">0</span>)
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> Parts Tally (<span id="tally-view-parts-count">0</span>)
                     </button>
                     <button type="button" class="filter-tab" id="btn-tally-view-labour" onclick="setTallyView('labour')" style="font-size:13px; padding:6px 14px;">
-                        🛠️ Labour Tally (<span id="tally-view-labour-count">0</span>)
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg> Labour Tally (<span id="tally-view-labour-count">0</span>)
                     </button>
                 </div>
 
                 <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                     <button type="button" class="btn-write-huge" id="btn-write-tallied-costs" onclick="writeTalliedCostsToExcel()" style="padding:10px 20px; font-size:13.5px; font-weight:800; background:#059669; border:2px solid #047857; color:#ffffff; margin:0; box-shadow:0 4px 10px rgba(5,150,105,0.35);" title="Writes assessed parts costs into Row 171 (Metal Col E, Non-Metal Col F, Glass Col G, Not Allowed Col H)">
-                        <span>📦 Write Tallied Parts to Excel</span>
+                        <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> Write Tallied Parts to Excel</span>
                     </button>
                     <button type="button" class="btn-write-huge" id="btn-write-tallied-labour" onclick="writeTalliedLabourToExcel()" style="padding:10px 20px; font-size:13.5px; font-weight:800; background:#7c3aed; border:2px solid #6d28d9; color:#ffffff; margin:0; box-shadow:0 4px 10px rgba(124,58,237,0.35);" title="Writes assessed labour costs into Row 359 (Opening/rft Col E, Denting Col F, Painting Col G, Not Allowed Col H)">
-                        <span>🛠️ Write Tallied Labour to Excel</span>
+                        <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg> Write Tallied Labour to Excel</span>
                     </button>
                 </div>
             </div>
@@ -1657,7 +1826,7 @@
             <!-- Table Filter Toolbar -->
             <div class="table-toolbar">
                 <div class="search-input-wrap">
-                    <span class="search-input-icon">🔍</span>
+                    <span class="search-input-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span>
                     <input type="text" id="tally-search-input" placeholder="Search tallied items..." oninput="handleTallySearch(this.value)">
                 </div>
 
@@ -1698,14 +1867,14 @@
     <!-- POST-WRITE SUCCESS MODAL -->
     <div class="modal-overlay" id="success-modal">
         <div class="modal-card">
-            <div class="modal-icon">🎉</div>
+            <div class="modal-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></div>
             <div class="modal-title" id="modal-title">Success! Parts Written to Excel</div>
             <div class="modal-desc" id="modal-desc">
                 Successfully pasted 105 parts into rows 171 to 275 in Sheet1.
             </div>
             <div class="modal-btn-row">
                 <button type="button" class="btn-big-action btn-big-excel" style="margin:0; padding:12px 20px; font-size:14px;" onclick="openActiveExcel()">
-                    📂 Open in Excel
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg> Open in Excel
                 </button>
                 <button type="button" class="btn-pill" style="padding:12px 18px; font-size:14px;" onclick="closeModal()">
                     Done
@@ -1777,7 +1946,7 @@
         function updateThemeToggleIcon(isDark) {
             const iconEl = document.getElementById("theme-icon");
             if (iconEl) {
-                iconEl.innerText = isDark ? "☀️" : "🌙";
+                iconEl.innerHTML = isDark ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>` : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>`;
             }
             const btnEl = document.getElementById("theme-toggle");
             if (btnEl) {
@@ -2253,7 +2422,7 @@
                     </td>
                     <td><input type="number" step="0.01" class="td-input" value="${it.amount || 0}" oninput="updateItemField(${globalIdx}, 'amount', this.value)" style="font-weight:700; color:#065f46; text-align:right;"></td>
                     <td style="text-align:center;">
-                        <button class="btn-pill" style="border:none; padding:2px 6px; color:#ef4444;" onclick="deleteItem(${globalIdx})" title="Remove item">✕</button>
+                        <button class="btn-pill" style="border:none; padding:2px 6px; color:#ef4444;" onclick="deleteItem(${globalIdx})" title="Remove item">&times;</button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -2285,13 +2454,13 @@
 
             const btnParts = document.getElementById("btn-write-main");
             if (btnParts) {
-                btnParts.innerHTML = `<span>📦 Write Parts to Excel (${selectedParts.length} • ₹${partsSum.toLocaleString('en-IN', {maximumFractionDigits:0})})</span>`;
+                btnParts.innerHTML = `<span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> Write Parts to Excel (${selectedParts.length} • ₹${partsSum.toLocaleString('en-IN', {maximumFractionDigits:0})})</span>`;
                 btnParts.disabled = (selectedParts.length === 0);
             }
 
             const btnLabour = document.getElementById("btn-write-labour");
             if (btnLabour) {
-                btnLabour.innerHTML = `<span>🛠️ Write Labour to Excel (${selectedLabour.length} • ₹${labourSum.toLocaleString('en-IN', {maximumFractionDigits:0})})</span>`;
+                btnLabour.innerHTML = `<span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg> Write Labour to Excel (${selectedLabour.length} • ₹${labourSum.toLocaleString('en-IN', {maximumFractionDigits:0})})</span>`;
                 btnLabour.disabled = (selectedLabour.length === 0);
             }
         }
@@ -2421,7 +2590,7 @@
                 updateHeroBanner();
 
                 if (data.success) {
-                    document.getElementById("modal-title").innerText = `✅ Wrote ${data.written_count} Parts to Excel!`;
+                    document.getElementById("modal-title").innerText = `Wrote ${data.written_count} Parts to Excel!`;
                     document.getElementById("modal-desc").innerHTML = 
                         `Successfully pasted <strong>${data.written_count} parts</strong> into rows <strong>${data.start_row} to ${data.end_row}</strong> in sheet <strong>${data.sheet}</strong>.<br><small style="color:#059669;">Descriptions written to Col C &bull; Taxable Amounts written to Col D.</small>`;
                     document.getElementById("success-modal").classList.add("show");
@@ -2489,7 +2658,7 @@
                 updateHeroBanner();
 
                 if (data.success) {
-                    document.getElementById("modal-title").innerText = `🛠️ Wrote ${data.written_count} Labour Charges to Excel!`;
+                    document.getElementById("modal-title").innerText = `Wrote ${data.written_count} Labour Charges to Excel!`;
                     document.getElementById("modal-desc").innerHTML = 
                         `Successfully pasted <strong>${data.written_count} labour charges</strong> into rows <strong>${data.start_row} to ${data.end_row}</strong> under <strong>LABOUR COMPUTATION</strong> in sheet <strong>${data.sheet}</strong>.<br><small style="color:#7c3aed;">Bill No Col B &bull; Particular Col C &bull; Taxable Amount Col D.</small>`;
                     document.getElementById("success-modal").classList.add("show");
@@ -2642,7 +2811,7 @@
                 }
 
                 btn.disabled = false;
-                btn.innerHTML = `<span style="font-size:20px;">⚡</span><span id="btn-tally-label">Re-Tally Costs</span>`;
+                btn.innerHTML = `<span style="font-size:18px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></span><span id="btn-tally-label">Re-Tally Costs</span>`;
 
                 if (partsSuccess || labourSuccess) {
                     document.getElementById("card-tally").classList.add("card-ready");
@@ -2670,7 +2839,7 @@
                 }
             } catch (err) {
                 btn.disabled = false;
-                btn.innerHTML = `<span style="font-size:20px;">⚡</span><span id="btn-tally-label">Tally & Paste Cost</span>`;
+                btn.innerHTML = `<span style="font-size:18px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></span><span id="btn-tally-label">Tally & Paste Cost</span>`;
                 showAlert("Server error during tally process.", "error");
             }
         }
@@ -2776,11 +2945,11 @@
 
             const btnWP = document.getElementById("btn-write-tallied-costs");
             if (btnWP) {
-                btnWP.innerHTML = `<span>📦 Write Tallied Parts (${talliedItems.length})</span>`;
+                btnWP.innerHTML = `<span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> Write Tallied Parts (${talliedItems.length})</span>`;
             }
             const btnWL = document.getElementById("btn-write-tallied-labour");
             if (btnWL) {
-                btnWL.innerHTML = `<span>🛠️ Write Tallied Labour (${talliedLabourItems.length})</span>`;
+                btnWL.innerHTML = `<span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg> Write Tallied Labour (${talliedLabourItems.length})</span>`;
             }
         }
 
@@ -2984,12 +3153,12 @@
                 let matchStatusHtml = isMatched
                     ? `<div style="display:flex; flex-direction:column; gap:4px;">
                         <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                            <span class="badge-matched">✓ In Final Bill</span>
+                            <span class="badge-matched"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:3px;"><polyline points="20 6 9 17 4 12"></polyline></svg> In Final Bill</span>
                             ${item.bill_srl ? `<span class="badge-bill-srl" title="Bill Item #${item.bill_srl} - will be written to Col B in Excel">Bill #${escapeHtml(String(item.bill_srl))}</span>` : ''}
                         </div>
                         ${billName ? `<span style="font-size:11.5px; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; max-width:210px;" title="${escapeHtml(billName)}">${escapeHtml(billName)}</span>` : ''}
                       </div>`
-                    : `<span class="badge-disallowed" title="Not found in Final Bill - will be pasted to Col H">⚠ Not in Final Bill</span>`;
+                    : `<span class="badge-disallowed" title="Not found in Final Bill - will be pasted to Col H"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:3px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg> Not in Final Bill</span>`;
 
                 let destColPill = "";
                 if (isLabour) {
@@ -3099,10 +3268,10 @@
                 });
                 const data = await res.json();
                 btn.disabled = false;
-                btn.innerHTML = `<span>📦 Write Tallied Parts to Excel</span>`;
+                btn.innerHTML = `<span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> Write Tallied Parts to Excel</span>`;
 
                 if (data.success) {
-                    document.getElementById("modal-title").innerText = `⚖️ Wrote ${data.written_count} Assessed Parts Costs to Excel!`;
+                    document.getElementById("modal-title").innerText = `Wrote ${data.written_count} Assessed Parts Costs to Excel!`;
                     document.getElementById("modal-desc").innerHTML = 
                         `Successfully pasted assessed parts costs into sheet <strong>${data.sheet}</strong> (Rows ${data.start_row} to ${data.end_row}):<br>` +
                         `<div style="margin-top:8px; line-height:1.6;">` +
@@ -3118,7 +3287,7 @@
                 }
             } catch (err) {
                 btn.disabled = false;
-                btn.innerHTML = `<span>📦 Write Tallied Parts to Excel</span>`;
+                btn.innerHTML = `<span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> Write Tallied Parts to Excel</span>`;
                 showAlert("Server error during writing tallied parts.", "error");
             }
         }
@@ -3157,10 +3326,10 @@
                 });
                 const data = await res.json();
                 btn.disabled = false;
-                btn.innerHTML = `<span>🛠️ Write Tallied Labour to Excel</span>`;
+                btn.innerHTML = `<span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg> Write Tallied Labour to Excel</span>`;
 
                 if (data.success) {
-                    document.getElementById("modal-title").innerText = `🛠️ Wrote ${data.written_count} Assessed Labour Items to Excel!`;
+                    document.getElementById("modal-title").innerText = `Wrote ${data.written_count} Assessed Labour Items to Excel!`;
                     document.getElementById("modal-desc").innerHTML = 
                         `Successfully pasted assessed labour costs into sheet <strong>${data.sheet}</strong> (Rows ${data.start_row} to ${data.end_row}):<br>` +
                         `<div style="margin-top:8px; line-height:1.6;">` +
@@ -3176,7 +3345,7 @@
                 }
             } catch (err) {
                 btn.disabled = false;
-                btn.innerHTML = `<span>🛠️ Write Tallied Labour to Excel</span>`;
+                btn.innerHTML = `<span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg> Write Tallied Labour to Excel</span>`;
                 showAlert("Server error during writing tallied labour.", "error");
             }
         }
