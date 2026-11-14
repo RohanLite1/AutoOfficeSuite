@@ -1587,11 +1587,8 @@
             </div>
 
             <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-                <button type="button" class="btn-write-huge" id="btn-write-main" onclick="writePartsToExcel()" title="Writes selected parts (Col C) and taxable amounts (Col D)">
-                    <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> Write Parts to Excel</span>
-                </button>
-                <button type="button" class="btn-write-huge btn-write-labour-action" id="btn-write-labour" onclick="writeLabourToExcel()" title="Writes selected labour charges into LABOUR COMPUTATION (Col B, C, D)">
-                    <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg> Write Labour to Excel</span>
+                <button type="button" class="btn-write-huge" id="btn-write-all" onclick="writeEstimateAllToExcel()" title="Writes selected parts and labour into Excel in one single click">
+                    <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:6px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg> Write Parts &amp; Labour to Excel</span>
                 </button>
             </div>
         </div>
@@ -1684,11 +1681,8 @@
                 </div>
 
                 <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                    <button type="button" class="btn-write-huge" id="btn-write-tallied-costs" onclick="writeTalliedCostsToExcel()" style="padding:10px 20px; font-size:13.5px; font-weight:800; background:#059669; border:2px solid #047857; color:#ffffff; margin:0; box-shadow:0 4px 10px rgba(5,150,105,0.35);" title="Writes assessed parts costs into Row 171 (Metal Col E, Non-Metal Col F, Glass Col G, Not Allowed Col H)">
-                        <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> Write Tallied Parts to Excel</span>
-                    </button>
-                    <button type="button" class="btn-write-huge" id="btn-write-tallied-labour" onclick="writeTalliedLabourToExcel()" style="padding:10px 20px; font-size:13.5px; font-weight:800; background:#7c3aed; border:2px solid #6d28d9; color:#ffffff; margin:0; box-shadow:0 4px 10px rgba(124,58,237,0.35);" title="Writes assessed labour costs into Row 359 (Opening/rft Col E, Denting Col F, Painting Col G, Not Allowed Col H)">
-                        <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg> Write Tallied Labour to Excel</span>
+                    <button type="button" class="btn-write-huge" id="btn-write-tallied-all" onclick="writeTalliedAllToExcel()" style="padding:10px 22px; font-size:14px; font-weight:800; background:#059669; border:2px solid #047857; color:#ffffff; margin:0; box-shadow:0 4px 12px rgba(5,150,105,0.35);" title="Writes both assessed parts and assessed labour costs into Excel in one single click">
+                        <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:6px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg> Write Tallied Parts &amp; Labour to Excel</span>
                     </button>
                 </div>
             </div>
@@ -2323,6 +2317,14 @@
             document.getElementById("write-hero-subtitle").innerHTML = 
                 `Sheet: <strong>${sheet}</strong> &bull; Parts Row: <strong>${partsRow}</strong> &bull; Labour Row: <strong>${labourRow}</strong>`;
 
+            const btnAll = document.getElementById("btn-write-all");
+            if (btnAll) {
+                const totalCount = selectedParts.length + selectedLabour.length;
+                const totalSum = partsSum + labourSum;
+                btnAll.innerHTML = `<span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:6px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg> Write Parts &amp; Labour to Excel (${selectedParts.length} Parts • ${selectedLabour.length} Labour • ₹${totalSum.toLocaleString('en-IN', {maximumFractionDigits:0})})</span>`;
+                btnAll.disabled = (totalCount === 0);
+            }
+
             const btnParts = document.getElementById("btn-write-main");
             if (btnParts) {
                 btnParts.innerHTML = `<span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> Write Parts to Excel (${selectedParts.length} • ₹${partsSum.toLocaleString('en-IN', {maximumFractionDigits:0})})</span>`;
@@ -2411,6 +2413,91 @@
                 selected: true
             });
             renderPartsTable();
+        }
+
+        // Write Parts & Labour into Excel Action (Unified Single Button)
+        async function writeEstimateAllToExcel() {
+            let selectedParts = (estimateData.items || []).filter(it => it.item_type !== "Labour" && it.selected);
+            let selectedLabour = (estimateData.items || []).filter(it => it.item_type === "Labour" && it.selected);
+
+            if (selectedParts.length === 0 && selectedLabour.length === 0) {
+                (estimateData.items || []).forEach(it => it.selected = true);
+                renderPartsTable();
+                selectedParts = (estimateData.items || []).filter(it => it.item_type !== "Labour");
+                selectedLabour = (estimateData.items || []).filter(it => it.item_type === "Labour");
+                if (selectedParts.length === 0 && selectedLabour.length === 0) {
+                    showAlert("No parts or labour items found to write.", "warning");
+                    return;
+                }
+            }
+
+            const excelPath = appConfig.estimate_excel_path;
+            const sheet = document.getElementById("cfg-sheet-select").value.trim() || appConfig.estimate_selected_sheet || "Sheet1";
+            const partsStartRow = parseInt(document.getElementById("cfg-start-row").value) || appConfig.estimate_start_row || 171;
+            const labourStartRow = parseInt(document.getElementById("cfg-labour-start-row").value) || appConfig.estimate_labour_start_row || 359;
+            const billNo = (estimateData.header && estimateData.header.invoice_no) || "";
+
+            if (!excelPath) {
+                showAlert("Please choose an Assessment Excel spreadsheet first (Step 1).", "error");
+                return;
+            }
+
+            const btn = document.getElementById("btn-write-all");
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = "<span>Writing Parts &amp; Labour into Excel...</span>";
+            }
+
+            showAlert(`Pasting ${selectedParts.length} parts and ${selectedLabour.length} labour charges into Sheet "${sheet}"...`, "info");
+
+            try {
+                const res = await fetch("/api/write-estimate-all", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        file_path: excelPath,
+                        sheet_name: sheet,
+                        parts_start_row: partsStartRow,
+                        labour_start_row: labourStartRow,
+                        bill_no: billNo,
+                        parts: selectedParts,
+                        labour: selectedLabour
+                    })
+                });
+                const data = await res.json();
+                if (btn) btn.disabled = false;
+                updateHeroBanner();
+
+                if (data.success) {
+                    document.getElementById("modal-title").innerText = `Wrote Parts & Labour to Excel!`;
+                    let modalHtml = `Successfully pasted into sheet <strong>${data.sheet}</strong>:<br><div style="margin-top:8px; line-height:1.6;">`;
+                    if (data.parts_count > 0) {
+                        modalHtml += `&bull; <strong>${data.parts_count} Parts:</strong> Rows ${data.parts_start_row} to ${data.parts_end_row} (Col C &bull; Taxable Col D)<br>`;
+                    }
+                    if (data.labour_count > 0) {
+                        modalHtml += `&bull; <strong>${data.labour_count} Labour Charges:</strong> Rows ${data.labour_start_row} to ${data.labour_end_row} under LABOUR COMPUTATION (Col C &bull; Taxable Col D)<br>`;
+                    }
+                    modalHtml += `</div>`;
+                    document.getElementById("modal-desc").innerHTML = modalHtml;
+                    document.getElementById("success-modal").classList.add("show");
+
+                    if (data.parts_end_row) {
+                        document.getElementById("cfg-start-row").value = data.parts_end_row + 1;
+                        appConfig.estimate_start_row = data.parts_end_row + 1;
+                    }
+                    if (data.labour_end_row) {
+                        document.getElementById("cfg-labour-start-row").value = data.labour_end_row + 1;
+                        appConfig.estimate_labour_start_row = data.labour_end_row + 1;
+                    }
+                    refreshExcelFile();
+                } else {
+                    showAlert(data.error || "Failed to write into Excel.", "error");
+                }
+            } catch (err) {
+                if (btn) btn.disabled = false;
+                updateHeroBanner();
+                showAlert("Server error during write.", "error");
+            }
         }
 
         // Write Parts into Excel Action
@@ -2818,6 +2905,13 @@
                 sumText.innerHTML = `Parts: <strong>₹${totalPartsSum.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong> &bull; Labour: <strong>₹${totalLabourSum.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>`;
             }
 
+            const btnTalliedAll = document.getElementById("btn-write-tallied-all");
+            if (btnTalliedAll) {
+                const totalCount = talliedItems.length + talliedLabourItems.length;
+                btnTalliedAll.innerHTML = `<span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:6px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg> Write Tallied Parts &amp; Labour (${talliedItems.length} Parts • ${talliedLabourItems.length} Labour)</span>`;
+                btnTalliedAll.disabled = (totalCount === 0);
+            }
+
             const btnWP = document.getElementById("btn-write-tallied-costs");
             if (btnWP) {
                 btnWP.innerHTML = `<span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:4px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> Write Tallied Parts (${talliedItems.length})</span>`;
@@ -3156,6 +3250,81 @@
                     </tr>
                 `;
             }).join("");
+        }
+
+        // Write Tallied Parts & Labour into Excel Action (Unified Single Button)
+        async function writeTalliedAllToExcel() {
+            if (talliedItems.length === 0 && talliedLabourItems.length === 0) {
+                showAlert("No tallied parts or labour items to write. Please run Step 4 tally first.", "warning");
+                return;
+            }
+
+            const excelPath = appConfig.estimate_excel_path;
+            const sheet = document.getElementById("cfg-sheet-select").value.trim() || appConfig.estimate_selected_sheet || "Sheet1";
+            const partsStartRow = parseInt(document.getElementById("cfg-start-row").value) || appConfig.estimate_start_row || 171;
+            const labourStartRow = parseInt(document.getElementById("cfg-labour-start-row").value) || appConfig.estimate_labour_start_row || 359;
+
+            if (!excelPath) {
+                showAlert("Please choose an Assessment Excel spreadsheet first (Step 1).", "error");
+                return;
+            }
+
+            const btn = document.getElementById("btn-write-tallied-all");
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<span>Writing Tallied Parts &amp; Labour to Excel...</span>`;
+            }
+
+            showAlert(`Pasting assessed parts and labour costs into Sheet "${sheet}"...`, "info");
+
+            try {
+                const res = await fetch("/api/write-tallied-all", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        file_path: excelPath,
+                        sheet_name: sheet,
+                        parts_start_row: partsStartRow,
+                        labour_start_row: labourStartRow,
+                        tallied_parts: talliedItems,
+                        tallied_labour: talliedLabourItems
+                    })
+                });
+                const data = await res.json();
+                if (btn) btn.disabled = false;
+                updateTallyReviewBadges();
+
+                if (data.success) {
+                    document.getElementById("modal-title").innerText = `Wrote Assessed Parts & Labour Costs to Excel!`;
+                    let modalHtml = `Successfully pasted assessed costs into sheet <strong>${data.sheet}</strong>:<br><div style="margin-top:8px; line-height:1.6;">`;
+                    if (data.parts_written > 0) {
+                        modalHtml += `<strong>Parts Computation (Rows ${data.parts_start_row} to ${data.parts_end_row}):</strong><br>` +
+                            `&bull; <strong>Metal:</strong> ${data.parts_metal_count || 0} &rarr; Col E<br>` +
+                            `&bull; <strong>Non Metal:</strong> ${data.parts_non_metal_count || 0} &rarr; Col F<br>` +
+                            `&bull; <strong>Glass:</strong> ${data.parts_glass_count || 0} &rarr; Col G<br>` +
+                            `&bull; <strong style="background:#fef08a; padding:1px 6px; border-radius:3px; color:#854d0e;">Not Allowed:</strong> ${data.parts_disallowed_count || 0} &rarr; Col H (Yellow cell)<br>` +
+                            `&bull; <strong style="background:#f1f5f9; padding:1px 6px; border-radius:3px; color:#475569;">Left Blank:</strong> ${data.parts_blank_count || 0} &rarr; Blank (not in bill)<br>`;
+                    }
+                    if (data.labour_written > 0) {
+                        modalHtml += `<div style="margin-top:6px;"><strong>Labour Computation (Rows ${data.labour_start_row} to ${data.labour_end_row}):</strong><br>` +
+                            `&bull; <strong>Opening/rft:</strong> ${data.labour_opening_count || 0} &rarr; Col E<br>` +
+                            `&bull; <strong>Denting:</strong> ${data.labour_denting_count || 0} &rarr; Col F<br>` +
+                            `&bull; <strong>Painting:</strong> ${data.labour_painting_count || 0} &rarr; Col G<br>` +
+                            `&bull; <strong style="background:#fef08a; padding:1px 6px; border-radius:3px; color:#854d0e;">Not Allowed:</strong> ${data.labour_disallowed_count || 0} &rarr; Col H (Yellow cell)<br>` +
+                            `&bull; <strong style="background:#f1f5f9; padding:1px 6px; border-radius:3px; color:#475569;">Left Blank:</strong> ${data.labour_blank_count || 0} &rarr; Blank (not in bill)</div>`;
+                    }
+                    modalHtml += `</div>`;
+                    document.getElementById("modal-desc").innerHTML = modalHtml;
+                    document.getElementById("success-modal").classList.add("show");
+                    refreshExcelFile();
+                } else {
+                    showAlert(data.error || "Failed to write tallied items into Excel.", "error");
+                }
+            } catch (err) {
+                if (btn) btn.disabled = false;
+                updateTallyReviewBadges();
+                showAlert("Server error during writing tallied items.", "error");
+            }
         }
 
         async function writeTalliedCostsToExcel() {

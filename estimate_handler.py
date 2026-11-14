@@ -2085,6 +2085,290 @@ def write_labour_to_excel(file_path, sheet_name=None, labour_items=None, start_r
                     pass
 
 
+def write_estimate_all_to_excel(file_path, sheet_name=None, parts=None, parts_start_row=None, labour=None, labour_start_row=None, bill_no=""):
+    """
+    Writes both extracted parts (PARTS COMPUTATION) and labour charges (LABOUR COMPUTATION) into Excel in one click:
+    - Parts: S.No (Col A), blank Bill No (Col B), Particular (Col C), Taxable Amount (Col D)
+    - Labour: S.No (Col A), blank Bill No (Col B), Particular (Col C), Taxable Amount (Col D)
+    Preserves 100% of user formulas via single Excel COM session.
+    """
+    if not os.path.exists(file_path):
+        return {"success": False, "error": f"File not found: {file_path}"}
+
+    parts = parts or []
+    labour = labour or []
+
+    if not parts and not labour:
+        return {"success": False, "error": "No parts or labour items provided to write."}
+
+    # Safety check for file lock
+    try:
+        with open(file_path, "r+b"):
+            pass
+    except PermissionError:
+        return {
+            "success": False,
+            "error": "The Excel file is currently open in Microsoft Excel. Please close it first."
+        }
+    except Exception as e:
+        return {"success": False, "error": f"File access error: {str(e)}"}
+
+    # Create safety backup
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_path = f"{file_path}.bak_{timestamp}"
+    try:
+        shutil.copy2(file_path, backup_path)
+        _prune_old_backups(file_path)
+    except Exception as e:
+        print(f"Warning creating backup: {e}")
+
+    # Inspect sheet and determine exact target columns and start rows
+    sheet_info = inspect_estimate_excel(file_path, target_sheet=sheet_name)
+    if not sheet_info.get("success"):
+        return {"success": False, "error": sheet_info.get("error", "Failed to inspect Excel file.")}
+
+    target_sheet_name = sheet_info.get("selected_sheet")
+    part_col_1based = sheet_info.get("particular_col", 3)
+    est_col_1based = sheet_info.get("estimate_col", 4)
+    bill_col_1based = sheet_info.get("bill_no_col", 2)
+    es_col_1based = sheet_info.get("es_col", 1)
+
+    detected_parts_start = sheet_info.get("data_start_row", 171)
+    if parts_start_row is None or int(parts_start_row) <= 0:
+        parts_start_row = detected_parts_start
+    else:
+        parts_start_row = int(parts_start_row)
+
+    detected_labour_start = sheet_info.get("labour_start_row", 359)
+    if labour_start_row is None or int(labour_start_row) <= 0:
+        labour_start_row = detected_labour_start
+    else:
+        labour_start_row = int(labour_start_row)
+
+    ext = os.path.splitext(file_path)[1].lower()
+
+    if ext == ".xls":
+        try:
+            import xlrd
+            from xlutils.copy import copy
+
+            rb = xlrd.open_workbook(file_path, formatting_info=True)
+            sheet_names = rb.sheet_names()
+
+            sheet_idx = 0
+            if target_sheet_name in sheet_names:
+                sheet_idx = sheet_names.index(target_sheet_name)
+            else:
+                for idx, sn in enumerate(sheet_names):
+                    if sn.strip().lower() == str(target_sheet_name).strip().lower():
+                        sheet_idx = idx
+                        target_sheet_name = sn
+                        break
+
+            rb_sheet = rb.sheet_by_index(sheet_idx)
+            cell_updates = []
+
+            # 1. Process Parts
+            parts_written = 0
+            parts_first_r = None
+            parts_last_r = None
+            if parts:
+                current_r = max(0, parts_start_row - 1)
+                item_num = 1
+                for p in parts:
+                    desc = p.get("particular", "").strip()
+                    amt = clean_num(p.get("amount", 0.0))
+                    while current_r < rb_sheet.nrows:
+                        rinfo = rb_sheet.rowinfo_map.get(current_r) if hasattr(rb_sheet, "rowinfo_map") else None
+                        if rinfo and rinfo.hidden:
+                            current_r += 1
+                        else:
+                            break
+                    r_1based = current_r + 1
+                    if parts_first_r is None:
+                        parts_first_r = r_1based
+                    parts_last_r = r_1based
+
+                    cell_updates.append((r_1based, es_col_1based, item_num))
+                    cell_updates.append((r_1based, bill_col_1based, ""))
+                    cell_updates.append((r_1based, part_col_1based, desc))
+                    cell_updates.append((r_1based, est_col_1based, amt))
+                    current_r += 1
+                    item_num += 1
+                    parts_written += 1
+
+            # 2. Process Labour
+            labour_written = 0
+            labour_first_r = None
+            labour_last_r = None
+            if labour:
+                current_r = max(0, labour_start_row - 1)
+                item_num = 1
+                for it in labour:
+                    desc = it.get("particular", "").strip()
+                    amt = clean_num(it.get("amount", 0.0))
+                    while current_r < rb_sheet.nrows:
+                        rinfo = rb_sheet.rowinfo_map.get(current_r) if hasattr(rb_sheet, "rowinfo_map") else None
+                        if rinfo and rinfo.hidden:
+                            current_r += 1
+                        else:
+                            break
+                    r_1based = current_r + 1
+                    if labour_first_r is None:
+                        labour_first_r = r_1based
+                    labour_last_r = r_1based
+
+                    cell_updates.append((r_1based, es_col_1based, item_num))
+                    cell_updates.append((r_1based, bill_col_1based, ""))
+                    cell_updates.append((r_1based, part_col_1based, desc))
+                    cell_updates.append((r_1based, est_col_1based, amt))
+                    current_r += 1
+                    item_num += 1
+                    labour_written += 1
+
+            # Preserve 100% of user formulas with Excel COM
+            com_success = _write_cells_with_excel_com(file_path, target_sheet_name, cell_updates)
+            if not com_success:
+                wb = copy(rb)
+                sheet = wb.get_sheet(sheet_idx)
+                for r_1, c_1, val in cell_updates:
+                    sheet.write(r_1 - 1, c_1 - 1, val)
+                wb.save(file_path)
+
+            invalidate_estimate_cache(file_path)
+
+            return {
+                "success": True,
+                "parts_count": parts_written,
+                "labour_count": labour_written,
+                "parts_start_row": parts_first_r or parts_start_row,
+                "parts_end_row": parts_last_r or (parts_start_row + parts_written - 1 if parts_written else parts_start_row),
+                "labour_start_row": labour_first_r or labour_start_row,
+                "labour_end_row": labour_last_r or (labour_start_row + labour_written - 1 if labour_written else labour_start_row),
+                "backup_created": backup_path,
+                "file_path": file_path,
+                "sheet": target_sheet_name
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Error writing to .xls file: {str(e)}"}
+
+    else:
+        # Modern .xlsx / .xlsm using openpyxl + Excel COM
+        wb = None
+        try:
+            import openpyxl
+
+            wb = openpyxl.load_workbook(file_path)
+            if target_sheet_name in wb.sheetnames:
+                sheet = wb[target_sheet_name]
+            else:
+                matched = False
+                for sn in wb.sheetnames:
+                    if sn.strip().lower() == str(target_sheet_name).strip().lower():
+                        sheet = wb[sn]
+                        target_sheet_name = sn
+                        matched = True
+                        break
+                if not matched:
+                    sheet = wb.active
+                    target_sheet_name = sheet.title
+
+            cell_updates = []
+
+            # 1. Process Parts
+            parts_written = 0
+            parts_first_r = None
+            parts_last_r = None
+            if parts:
+                current_r = parts_start_row
+                item_num = 1
+                for p in parts:
+                    desc = p.get("particular", "").strip()
+                    amt = clean_num(p.get("amount", 0.0))
+                    while current_r <= sheet.max_row:
+                        dim = sheet.row_dimensions.get(current_r)
+                        if dim and dim.hidden:
+                            current_r += 1
+                        else:
+                            break
+                    if parts_first_r is None:
+                        parts_first_r = current_r
+                    parts_last_r = current_r
+
+                    cell_updates.append((current_r, es_col_1based, item_num))
+                    cell_updates.append((current_r, bill_col_1based, ""))
+                    cell_updates.append((current_r, part_col_1based, desc))
+                    cell_updates.append((current_r, est_col_1based, amt))
+                    current_r += 1
+                    item_num += 1
+                    parts_written += 1
+
+            # 2. Process Labour
+            labour_written = 0
+            labour_first_r = None
+            labour_last_r = None
+            if labour:
+                current_r = labour_start_row
+                item_num = 1
+                for it in labour:
+                    desc = it.get("particular", "").strip()
+                    amt = clean_num(it.get("amount", 0.0))
+                    while current_r <= sheet.max_row:
+                        dim = sheet.row_dimensions.get(current_r)
+                        if dim and dim.hidden:
+                            current_r += 1
+                        else:
+                            break
+                    if labour_first_r is None:
+                        labour_first_r = current_r
+                    labour_last_r = current_r
+
+                    cell_updates.append((current_r, es_col_1based, item_num))
+                    cell_updates.append((current_r, bill_col_1based, ""))
+                    cell_updates.append((current_r, part_col_1based, desc))
+                    cell_updates.append((current_r, est_col_1based, amt))
+                    current_r += 1
+                    item_num += 1
+                    labour_written += 1
+
+            try:
+                wb.close()
+            except Exception:
+                pass
+            wb = None
+
+            com_success = _write_cells_with_excel_com(file_path, target_sheet_name, cell_updates)
+            if not com_success:
+                wb = openpyxl.load_workbook(file_path)
+                sheet = wb[target_sheet_name] if target_sheet_name in wb.sheetnames else wb.active
+                for r_1, c_1, val in cell_updates:
+                    sheet.cell(row=r_1, column=c_1, value=val if val != "" else None)
+                wb.save(file_path)
+
+            invalidate_estimate_cache(file_path)
+
+            return {
+                "success": True,
+                "parts_count": parts_written,
+                "labour_count": labour_written,
+                "parts_start_row": parts_first_r or parts_start_row,
+                "parts_end_row": parts_last_r or (parts_start_row + parts_written - 1 if parts_written else parts_start_row),
+                "labour_start_row": labour_first_r or labour_start_row,
+                "labour_end_row": labour_last_r or (labour_start_row + labour_written - 1 if labour_written else labour_start_row),
+                "backup_created": backup_path,
+                "file_path": file_path,
+                "sheet": target_sheet_name
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Error writing to Excel: {str(e)}"}
+        finally:
+            if wb is not None:
+                try:
+                    wb.close()
+                except Exception:
+                    pass
+
+
 
 # ==============================================================================
 # PART MATERIAL CATEGORIZATION & RECONCILIATION / TALLY WITH FINAL BILL
@@ -3216,3 +3500,333 @@ def write_tallied_labour_to_excel(file_path, sheet_name=None, tallied_labour=Non
             "disallowed_count": disallowed_count,
             "blank_count": blank_count
         }
+
+
+def _build_single_tallied_row_updates(it, r_1based, is_labour=False, existing_particular="", existing_estimate=""):
+    """
+    Helper to generate cell updates (Cols 2 to 8) for a single reconciled/tallied item.
+    - Col 2: Bill S.No
+    - Col 3: Particular
+    - Col 4: Estimate Amount
+    - Col 5, 6, 7: Allowed Cost by Category
+    - Col 8: Disallowed / Excess Cost
+    """
+    updates = []
+    cat = it.get("category", "Blank")
+    cost = float(it.get("final_cost", 0.0) or it.get("cost", 0.0) or 0.0)
+    excess_cost = float(it.get("excess_cost", 0.0) or 0.0)
+    is_bill_only = bool(it.get("bill_only"))
+    is_matched = bool(it.get("matched"))
+    b_srl = it.get("bill_srl") or ""
+
+    name = str(it.get("bill_particular") if is_bill_only else (it.get("est_particular") or it.get("est_desc") or "")).strip()
+    est_amt = float(it.get("est_amount", 0.0) or 0.0)
+
+    # Col 2 (Bill S.No)
+    if b_srl:
+        try:
+            srl_val = int(b_srl)
+        except (ValueError, TypeError):
+            srl_val = str(b_srl)
+        updates.append((r_1based, 2, srl_val))
+    else:
+        updates.append((r_1based, 2, ""))
+
+    # Col 3 (Particular)
+    if is_bill_only:
+        updates.append((r_1based, 3, name))
+    else:
+        if not str(existing_particular).strip() and name:
+            updates.append((r_1based, 3, name))
+
+    # Col 4 (Estimate)
+    if is_bill_only:
+        updates.append((r_1based, 4, ""))
+    else:
+        if (existing_estimate == "" or existing_estimate is None) and est_amt > 0:
+            updates.append((r_1based, 4, est_amt))
+
+    # Categories for Col 5, 6, 7
+    valid_cats = ["Opening/rft", "Denting", "Painting"] if is_labour else ["Metal", "Non Metal", "Glass"]
+    if is_bill_only:
+        updates.append((r_1based, 5, ""))
+        updates.append((r_1based, 6, ""))
+        updates.append((r_1based, 7, ""))
+        updates.append((r_1based, 8, cost))
+    elif is_matched and cat in valid_cats:
+        target_col = 5 if cat == valid_cats[0] else (6 if cat == valid_cats[1] else 7)
+        for c_idx in [5, 6, 7]:
+            if c_idx == target_col:
+                updates.append((r_1based, c_idx, cost))
+            else:
+                updates.append((r_1based, c_idx, ""))
+        if excess_cost > 0:
+            updates.append((r_1based, 8, excess_cost))
+        else:
+            updates.append((r_1based, 8, ""))
+    elif cat == "Not Allowed":
+        updates.append((r_1based, 5, ""))
+        updates.append((r_1based, 6, ""))
+        updates.append((r_1based, 7, ""))
+        updates.append((r_1based, 8, cost if cost > 0 else est_amt))
+    else:
+        # Estimate Only (Blank): Col E, F, G, H all left completely blank!
+        updates.append((r_1based, 5, ""))
+        updates.append((r_1based, 6, ""))
+        updates.append((r_1based, 7, ""))
+        updates.append((r_1based, 8, ""))
+
+    return updates
+
+
+def write_tallied_all_to_excel(file_path, sheet_name=None, tallied_parts=None, parts_start_row=None, tallied_labour=None, labour_start_row=None):
+    """
+    Writes both reconciled / tallied parts and labour costs into Excel in one single click:
+    - Parts: Metal Col E, Non Metal Col F, Glass Col G, Not Allowed / Excess Col H
+    - Labour: Opening/rft Col E, Denting Col F, Painting Col G, Not Allowed / Excess Col H
+    - Estimate-only items: Col E, F, G, H left completely BLANK
+    - Bill-only items: Col H with cost
+    Preserves 100% of user formulas via single Excel COM session.
+    """
+    if not file_path or not os.path.exists(file_path):
+        return {"success": False, "error": f"Target Assessment Excel not found: {file_path}"}
+
+    tallied_parts = tallied_parts or []
+    tallied_labour = tallied_labour or []
+
+    if not tallied_parts and not tallied_labour:
+        return {"success": False, "error": "No tallied items to write."}
+
+    # Safety check for file lock
+    try:
+        with open(file_path, "r+b"):
+            pass
+    except PermissionError:
+        return {
+            "success": False,
+            "error": "The Excel file is currently open in Microsoft Excel. Please close it first."
+        }
+    except Exception as e:
+        return {"success": False, "error": f"File access error: {str(e)}"}
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_path = f"{file_path}.bak_{timestamp}"
+    try:
+        shutil.copy2(file_path, backup_path)
+        _prune_old_backups(file_path)
+    except Exception as e:
+        print(f"Warning creating backup: {e}")
+
+    ext = os.path.splitext(file_path)[1].lower()
+    is_xls = ext == ".xls"
+
+    sheet_info = inspect_estimate_excel(file_path, target_sheet=sheet_name)
+    if not sheet_info.get("success"):
+        return {"success": False, "error": sheet_info.get("error", "Failed to inspect sheet.")}
+
+    target_sheet_name = sheet_info.get("selected_sheet")
+    detected_parts_start = sheet_info.get("data_start_row", 171)
+    if parts_start_row is None or int(parts_start_row) <= 0:
+        parts_start_row = detected_parts_start
+    else:
+        parts_start_row = int(parts_start_row)
+
+    detected_labour_start = sheet_info.get("labour_start_row", 359)
+    if labour_start_row is None or int(labour_start_row) <= 0:
+        labour_start_row = detected_labour_start
+    else:
+        labour_start_row = int(labour_start_row)
+
+    # Statistics for parts
+    parts_metal = sum(1 for it in tallied_parts if it.get("category") == "Metal")
+    parts_non_metal = sum(1 for it in tallied_parts if it.get("category") == "Non Metal")
+    parts_glass = sum(1 for it in tallied_parts if it.get("category") == "Glass")
+    parts_disallowed = sum(1 for it in tallied_parts if it.get("category") == "Not Allowed" or (it.get("excess_cost") or 0) > 0)
+    parts_blank = sum(1 for it in tallied_parts if not it.get("matched") and not it.get("bill_only"))
+
+    # Statistics for labour
+    labour_opening = sum(1 for it in tallied_labour if it.get("category") == "Opening/rft")
+    labour_denting = sum(1 for it in tallied_labour if it.get("category") == "Denting")
+    labour_painting = sum(1 for it in tallied_labour if it.get("category") == "Painting")
+    labour_disallowed = sum(1 for it in tallied_labour if it.get("category") == "Not Allowed" or (it.get("excess_cost") or 0) > 0)
+    labour_blank = sum(1 for it in tallied_labour if not it.get("matched") and not it.get("bill_only"))
+
+    cell_updates = []
+    parts_first_r = None
+    parts_last_r = None
+    parts_written = 0
+    labour_first_r = None
+    labour_last_r = None
+    labour_written = 0
+
+    if is_xls:
+        import xlrd
+        rb = xlrd.open_workbook(file_path, formatting_info=True)
+        sheet_idx = 0
+        if target_sheet_name:
+            for i, sname in enumerate(rb.sheet_names()):
+                if sname.lower() == target_sheet_name.lower():
+                    sheet_idx = i
+                    break
+        rb_sheet = rb.sheet_by_index(sheet_idx)
+
+        # 1. Tallied Parts
+        if tallied_parts:
+            current_r = parts_start_row - 1
+            item_num = 1
+            for it in tallied_parts:
+                while current_r < rb_sheet.nrows:
+                    rinfo = rb_sheet.rowinfo_map.get(current_r) if hasattr(rb_sheet, "rowinfo_map") else None
+                    if rinfo and rinfo.hidden:
+                        current_r += 1
+                    else:
+                        break
+                r_1based = current_r + 1
+                if parts_first_r is None:
+                    parts_first_r = r_1based
+                parts_last_r = r_1based
+
+                existing_c = rb_sheet.cell_value(current_r, 2) if current_r < rb_sheet.nrows else ""
+                existing_d = rb_sheet.cell_value(current_r, 3) if current_r < rb_sheet.nrows else ""
+
+                cell_updates.append((r_1based, 1, item_num))
+                row_cells = _build_single_tallied_row_updates(it, r_1based, is_labour=False, existing_particular=existing_c, existing_estimate=existing_d)
+                cell_updates.extend(row_cells)
+
+                current_r += 1
+                item_num += 1
+                parts_written += 1
+
+        # 2. Tallied Labour
+        if tallied_labour:
+            current_r = labour_start_row - 1
+            item_num = 1
+            for it in tallied_labour:
+                while current_r < rb_sheet.nrows:
+                    rinfo = rb_sheet.rowinfo_map.get(current_r) if hasattr(rb_sheet, "rowinfo_map") else None
+                    if rinfo and rinfo.hidden:
+                        current_r += 1
+                    else:
+                        break
+                r_1based = current_r + 1
+                if labour_first_r is None:
+                    labour_first_r = r_1based
+                labour_last_r = r_1based
+
+                existing_c = rb_sheet.cell_value(current_r, 2) if current_r < rb_sheet.nrows else ""
+                existing_d = rb_sheet.cell_value(current_r, 3) if current_r < rb_sheet.nrows else ""
+
+                cell_updates.append((r_1based, 1, item_num))
+                row_cells = _build_single_tallied_row_updates(it, r_1based, is_labour=True, existing_particular=existing_c, existing_estimate=existing_d)
+                cell_updates.extend(row_cells)
+
+                current_r += 1
+                item_num += 1
+                labour_written += 1
+
+        com_success = _write_cells_with_excel_com(file_path, target_sheet_name, cell_updates)
+        if not com_success:
+            from xlutils.copy import copy
+            wb = copy(rb)
+            sheet = wb.get_sheet(sheet_idx)
+            for r_1, c_1, val in cell_updates:
+                sheet.write(r_1 - 1, c_1 - 1, val)
+            wb.save(file_path)
+
+    else:
+        # Modern .xlsx / .xlsm using openpyxl + Excel COM
+        import openpyxl
+        wb = openpyxl.load_workbook(file_path)
+        sheet = wb[target_sheet_name] if target_sheet_name in wb.sheetnames else wb.active
+
+        # 1. Tallied Parts
+        if tallied_parts:
+            current_r = parts_start_row
+            item_num = 1
+            for it in tallied_parts:
+                while current_r <= sheet.max_row:
+                    dim = sheet.row_dimensions.get(current_r)
+                    if dim and dim.hidden:
+                        current_r += 1
+                    else:
+                        break
+                r_1based = current_r
+                if parts_first_r is None:
+                    parts_first_r = r_1based
+                parts_last_r = r_1based
+
+                existing_c = sheet.cell(row=r_1based, column=3).value or ""
+                existing_d = sheet.cell(row=r_1based, column=4).value or ""
+
+                cell_updates.append((r_1based, 1, item_num))
+                row_cells = _build_single_tallied_row_updates(it, r_1based, is_labour=False, existing_particular=existing_c, existing_estimate=existing_d)
+                cell_updates.extend(row_cells)
+
+                current_r += 1
+                item_num += 1
+                parts_written += 1
+
+        # 2. Tallied Labour
+        if tallied_labour:
+            current_r = labour_start_row
+            item_num = 1
+            for it in tallied_labour:
+                while current_r <= sheet.max_row:
+                    dim = sheet.row_dimensions.get(current_r)
+                    if dim and dim.hidden:
+                        current_r += 1
+                    else:
+                        break
+                r_1based = current_r
+                if labour_first_r is None:
+                    labour_first_r = r_1based
+                labour_last_r = r_1based
+
+                existing_c = sheet.cell(row=r_1based, column=3).value or ""
+                existing_d = sheet.cell(row=r_1based, column=4).value or ""
+
+                cell_updates.append((r_1based, 1, item_num))
+                row_cells = _build_single_tallied_row_updates(it, r_1based, is_labour=True, existing_particular=existing_c, existing_estimate=existing_d)
+                cell_updates.extend(row_cells)
+
+                current_r += 1
+                item_num += 1
+                labour_written += 1
+
+        try:
+            wb.close()
+        except Exception:
+            pass
+        wb = None
+
+        com_success = _write_cells_with_excel_com(file_path, target_sheet_name, cell_updates)
+        if not com_success:
+            wb = openpyxl.load_workbook(file_path)
+            sheet = wb[target_sheet_name] if target_sheet_name in wb.sheetnames else wb.active
+            for r_1, c_1, val in cell_updates:
+                sheet.cell(row=r_1, column=c_1, value=val if val != "" else None)
+            wb.save(file_path)
+
+    invalidate_estimate_cache(file_path)
+
+    return {
+        "success": True,
+        "parts_written": parts_written,
+        "labour_written": labour_written,
+        "parts_start_row": parts_first_r or parts_start_row,
+        "parts_end_row": parts_last_r or (parts_start_row + parts_written - 1 if parts_written else parts_start_row),
+        "labour_start_row": labour_first_r or labour_start_row,
+        "labour_end_row": labour_last_r or (labour_start_row + labour_written - 1 if labour_written else labour_start_row),
+        "sheet": target_sheet_name,
+        "backup_created": backup_path,
+        "parts_metal_count": parts_metal,
+        "parts_non_metal_count": parts_non_metal,
+        "parts_glass_count": parts_glass,
+        "parts_disallowed_count": parts_disallowed,
+        "parts_blank_count": parts_blank,
+        "labour_opening_count": labour_opening,
+        "labour_denting_count": labour_denting,
+        "labour_painting_count": labour_painting,
+        "labour_disallowed_count": labour_disallowed,
+        "labour_blank_count": labour_blank
+    }

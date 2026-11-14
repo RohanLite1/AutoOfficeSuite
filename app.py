@@ -30,12 +30,14 @@ from estimate_handler import (
     inspect_estimate_excel,
     write_parts_to_excel,
     write_labour_to_excel,
+    write_estimate_all_to_excel,
     tally_estimate_with_bill,
     write_tallied_costs_to_excel,
     categorize_part_material,
     categorize_labour,
     tally_estimate_labour_with_bill,
-    write_tallied_labour_to_excel
+    write_tallied_labour_to_excel,
+    write_tallied_all_to_excel
 )
 
 if getattr(sys, "frozen", False):
@@ -912,6 +914,61 @@ def write_labour_api():
         return jsonify({"success": False, "error": f"Error writing labour to Excel: {str(e)}"})
 
 
+@app.route("/api/write-estimate-all", methods=["POST"])
+def write_estimate_all_api():
+    """Writes selected parts (Col C, D) and selected labour (Col B, C, D) in one single click."""
+    try:
+        data = request.json or {}
+        cfg = load_config()
+
+        file_path = data.get("file_path") or cfg.get("estimate_excel_path") or cfg.get("master_excel_path")
+        sheet_name = data.get("sheet_name") or cfg.get("estimate_selected_sheet")
+        parts = data.get("parts", [])
+        labour = data.get("labour", [])
+        parts_start_row = int(data.get("parts_start_row") or cfg.get("estimate_start_row") or 171)
+        labour_start_row = int(data.get("labour_start_row") or cfg.get("estimate_labour_start_row") or 359)
+        bill_no = data.get("bill_no", "")
+
+        if not file_path or not os.path.exists(file_path):
+            return jsonify({"success": False, "error": f"Target Estimate Excel file not specified or does not exist: {file_path}"})
+
+        if not parts and not labour:
+            return jsonify({"success": False, "error": "No parts or labour items selected to write."})
+
+        res = write_estimate_all_to_excel(
+            file_path=file_path,
+            sheet_name=sheet_name,
+            parts=parts,
+            parts_start_row=parts_start_row,
+            labour=labour,
+            labour_start_row=labour_start_row,
+            bill_no=bill_no
+        )
+
+        if res.get("success"):
+            norm_path = os.path.normpath(os.path.abspath(file_path))
+            mtime = os.path.getmtime(norm_path)
+            size_kb = os.path.getsize(norm_path) / 1024
+            res["file_path"] = norm_path
+            res["filename"] = os.path.basename(norm_path)
+            res["folder"] = os.path.dirname(norm_path)
+            res["last_modified"] = datetime.fromtimestamp(mtime).strftime("%d-%b-%Y %I:%M:%S %p")
+            res["file_size"] = f"{size_kb:.1f} KB"
+
+            cfg["estimate_excel_path"] = norm_path
+            if res.get("sheet"):
+                cfg["estimate_selected_sheet"] = res["sheet"]
+            if res.get("parts_end_row"):
+                cfg["estimate_start_row"] = res["parts_end_row"] + 1
+            if res.get("labour_end_row"):
+                cfg["estimate_labour_start_row"] = res["labour_end_row"] + 1
+            save_config(cfg)
+
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Error writing parts and labour to Excel: {str(e)}"})
+
+
 @app.route("/api/extract-final-bill", methods=["POST"])
 def extract_final_bill_api():
     """Extracts parts and labour from the workshop's final tax invoice/bill PDF."""
@@ -1103,6 +1160,50 @@ def write_tallied_labour_api():
         return jsonify(res)
     except Exception as e:
         return jsonify({"success": False, "error": f"Error writing tallied labour to Excel: {str(e)}"})
+
+
+@app.route("/api/write-tallied-all", methods=["POST"])
+def write_tallied_all_api():
+    """Writes reconciled/tallied parts and labour into Excel in one single click."""
+    try:
+        data = request.json or {}
+        cfg = load_config()
+
+        file_path = data.get("file_path") or cfg.get("estimate_excel_path") or cfg.get("master_excel_path")
+        sheet_name = data.get("sheet_name") or cfg.get("estimate_selected_sheet")
+        parts_start_row = int(data.get("parts_start_row") or cfg.get("estimate_start_row") or 171)
+        labour_start_row = int(data.get("labour_start_row") or cfg.get("estimate_labour_start_row") or 359)
+        tallied_parts = data.get("tallied_parts", [])
+        tallied_labour = data.get("tallied_labour", [])
+
+        if not file_path or not os.path.exists(file_path):
+            return jsonify({"success": False, "error": f"Target Assessment Excel not found: {file_path}"})
+
+        if not tallied_parts and not tallied_labour:
+            return jsonify({"success": False, "error": "No tallied items to write."})
+
+        res = write_tallied_all_to_excel(
+            file_path=file_path,
+            sheet_name=sheet_name,
+            tallied_parts=tallied_parts,
+            parts_start_row=parts_start_row,
+            tallied_labour=tallied_labour,
+            labour_start_row=labour_start_row
+        )
+
+        if res.get("success"):
+            norm_path = os.path.normpath(os.path.abspath(file_path))
+            mtime = os.path.getmtime(norm_path)
+            size_kb = os.path.getsize(norm_path) / 1024
+            res["file_path"] = norm_path
+            res["filename"] = os.path.basename(norm_path)
+            res["folder"] = os.path.dirname(norm_path)
+            res["last_modified"] = datetime.fromtimestamp(mtime).strftime("%d-%b-%Y %I:%M:%S %p")
+            res["file_size"] = f"{size_kb:.1f} KB"
+
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Error writing tallied parts and labour to Excel: {str(e)}"})
 
 
 @app.route("/api/open-estimate-excel", methods=["POST"])
