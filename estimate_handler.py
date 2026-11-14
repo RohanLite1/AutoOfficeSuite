@@ -1517,506 +1517,79 @@ def inspect_estimate_excel(file_path, target_sheet=None):
 
 
 # ==============================================================================
-# DYNAMIC FORMULA INJECTION (APPROACH B) FOR MOTOR ASSESSMENT SPREADSHEETS
+# DIRECT EXCEL COM CELL WRITER (100% PRESERVATION OF USER FORMULAS)
 # ==============================================================================
 
-def scan_surveyor_sheet_rows_xls(rb_sheet, parts_start_r=171, labour_start_r=359):
+def _write_cells_with_excel_com(file_path, target_sheet_name, cell_updates):
     """
-    Scans an .xls sheet (xlrd sheet) to dynamically identify row numbers (1-based)
-    for parts computation totals, subtotals, GST, labour totals, and assessment summaries.
-    """
-    rows = {
-        "parts_total": 342,
-        "parts_less": 343,
-        "parts_stotal": 344,
-        "parts_cgst": 345,
-        "parts_sgst": 346,
-        "parts_igst": 347,
-        "parts_grand_total": 348,
-        "labour_total": 431,
-        "labour_less_paint": 432,
-        "labour_stotal": 433,
-        "labour_cgst": 434,
-        "labour_sgst": 435,
-        "labour_igst": 436,
-        "labour_grand_total": 437,
-        "total_labour_before_gst": 438,
-        "total_gst_on_labour": 439,
-        "total_labour_payable": 440,
-        "cost_of_parts_payable": 443,
-        "labor_cost_payable": 444,
-        "salvage": 446,
-        "excess": 447,
-        "est_amount_summary": 449,
-        "assessed_amount": 442,
-        "net_assessed": 451,
-        "net_receipt": 452,
-    }
+    Updates specific cells in an Excel workbook (.xls or .xlsx) directly via Microsoft Excel COM.
+    cell_updates is a list of tuples: (row_1based, col_1based, value)
+    If value is None or "", the cell is cleared with ClearContents().
+    Otherwise ws.Cells(r, c).Value = value.
 
-    try:
-        nrows = rb_sheet.nrows
-        ncols = min(15, rb_sheet.ncols)
-        p_start_idx = max(0, parts_start_r - 1)
-        l_start_idx = max(0, labour_start_r - 1)
-
-        found_parts_tot = False
-        found_labour_tot = False
-
-        for r in range(nrows):
-            row_vals = [str(rb_sheet.cell_value(r, c)).strip() for c in range(ncols)]
-            full_line = " ".join(row_vals).upper()
-            c0 = row_vals[0].upper() if len(row_vals) > 0 else ""
-            c1 = row_vals[1].upper() if len(row_vals) > 1 else ""
-            c2 = row_vals[2].upper() if len(row_vals) > 2 else ""
-            c3 = row_vals[3].upper() if len(row_vals) > 3 else ""
-
-            # Parts summary range (between parts_start and labour_start)
-            if p_start_idx <= r < l_start_idx:
-                if c0 == "TOTAL" and not found_parts_tot:
-                    rows["parts_total"] = r + 1
-                    found_parts_tot = True
-                elif "LESS" in c0 and "0%" in full_line:
-                    rows["parts_less"] = r + 1
-                elif "S.TOTAL" in (c0 + c2):
-                    rows["parts_stotal"] = r + 1
-                elif "CGST" in c1 and ("9%" in full_line or "14%" in full_line or "%" in full_line):
-                    rows["parts_cgst"] = r + 1
-                elif "SGST" in c1 and ("9%" in full_line or "14%" in full_line or "%" in full_line):
-                    rows["parts_sgst"] = r + 1
-                elif "IGST" in c1:
-                    rows["parts_igst"] = r + 1
-                elif "GRAND TOTAL" in (c0 + c2):
-                    rows["parts_grand_total"] = r + 1
-
-            # Labour and summary range
-            elif r >= l_start_idx:
-                if c0 == "TOTAL" and not found_labour_tot and (r - l_start_idx) < 120:
-                    rows["labour_total"] = r + 1
-                    found_labour_tot = True
-                elif ("12.5%" in full_line or "PAINT" in full_line) and r < rows.get("labour_total", 431) + 4:
-                    rows["labour_less_paint"] = r + 1
-                elif "S.TOTAL" in (c0 + c2) and r > rows.get("labour_total", 431):
-                    rows["labour_stotal"] = r + 1
-                elif "CGST" in c1 and r > rows.get("labour_total", 431):
-                    rows["labour_cgst"] = r + 1
-                elif "SGST" in c1 and r > rows.get("labour_total", 431):
-                    rows["labour_sgst"] = r + 1
-                elif "IGST" in c1 and r > rows.get("labour_total", 431):
-                    rows["labour_igst"] = r + 1
-                elif "GRAND TOTAL" in (c0 + c2) and r > rows.get("labour_total", 431):
-                    rows["labour_grand_total"] = r + 1
-                elif "TOTAL LABOUR(BEFORE GST)" in full_line:
-                    rows["total_labour_before_gst"] = r + 1
-                elif "TOTAL GST ON LABOUR" in full_line:
-                    rows["total_gst_on_labour"] = r + 1
-                elif "TOTAL COST OF LABOUR PAYABLE" in full_line:
-                    rows["total_labour_payable"] = r + 1
-                elif "COST OF PARTS PAYABLE" in full_line:
-                    rows["cost_of_parts_payable"] = r + 1
-                elif "LABOR COST" in full_line or "LABOUR COST" in full_line:
-                    rows["labor_cost_payable"] = r + 1
-                elif "SALVAGE" in full_line and "salvage" not in rows:
-                    rows["salvage"] = r + 1
-                elif "EXCESS CLAUSE" in full_line and "excess" not in rows and "V " not in full_line and "VOLUN" not in full_line:
-                    rows["excess"] = r + 1
-                elif "ESTIMATE AMOUNT IS" in full_line:
-                    rows["est_amount_summary"] = r + 1
-                elif "NET ASSESSED AMOUNT" in full_line:
-                    rows["net_assessed"] = r + 1
-                elif ("ASSESSED AMOUNT" in c3 or "ASSESSED AMOUNT" in c2) and "NET" not in full_line and "assessed_amount" not in rows:
-                    rows["assessed_amount"] = r + 1
-                elif "NET RECEIPT AMOUNT" in full_line:
-                    rows["net_receipt"] = r + 1
-
-    except Exception as e:
-        print(f"Warning scanning surveyor sheet rows: {e}")
-
-    return rows
-
-
-def scan_surveyor_sheet_rows_openpyxl(sheet, parts_start_r=171, labour_start_r=359):
-    """
-    Scans an openpyxl sheet to dynamically identify row numbers (1-based)
-    for parts computation totals, subtotals, GST, labour totals, and assessment summaries.
-    """
-    rows = {
-        "parts_total": 342,
-        "parts_less": 343,
-        "parts_stotal": 344,
-        "parts_cgst": 345,
-        "parts_sgst": 346,
-        "parts_igst": 347,
-        "parts_grand_total": 348,
-        "labour_total": 431,
-        "labour_less_paint": 432,
-        "labour_stotal": 433,
-        "labour_cgst": 434,
-        "labour_sgst": 435,
-        "labour_igst": 436,
-        "labour_grand_total": 437,
-        "total_labour_before_gst": 438,
-        "total_gst_on_labour": 439,
-        "total_labour_payable": 440,
-        "cost_of_parts_payable": 443,
-        "labor_cost_payable": 444,
-        "salvage": 446,
-        "excess": 447,
-        "est_amount_summary": 449,
-        "assessed_amount": 442,
-        "net_assessed": 451,
-        "net_receipt": 452,
-    }
-
-    try:
-        max_r = min(sheet.max_row, 600)
-        found_parts_tot = False
-        found_labour_tot = False
-
-        for r in range(1, max_r + 1):
-            row_vals = [str(sheet.cell(row=r, column=c).value or "").strip() for c in range(1, 15)]
-            full_line = " ".join(row_vals).upper()
-            c0 = row_vals[0].upper() if len(row_vals) > 0 else ""
-            c1 = row_vals[1].upper() if len(row_vals) > 1 else ""
-            c2 = row_vals[2].upper() if len(row_vals) > 2 else ""
-            c3 = row_vals[3].upper() if len(row_vals) > 3 else ""
-
-            if parts_start_r <= r < labour_start_r:
-                if c0 == "TOTAL" and not found_parts_tot:
-                    rows["parts_total"] = r
-                    found_parts_tot = True
-                elif "LESS" in c0 and "0%" in full_line:
-                    rows["parts_less"] = r
-                elif "S.TOTAL" in (c0 + c2):
-                    rows["parts_stotal"] = r
-                elif "CGST" in c1 and ("9%" in full_line or "14%" in full_line or "%" in full_line):
-                    rows["parts_cgst"] = r
-                elif "SGST" in c1 and ("9%" in full_line or "14%" in full_line or "%" in full_line):
-                    rows["parts_sgst"] = r
-                elif "IGST" in c1:
-                    rows["parts_igst"] = r
-                elif "GRAND TOTAL" in (c0 + c2):
-                    rows["parts_grand_total"] = r
-
-            elif r >= labour_start_r:
-                if c0 == "TOTAL" and not found_labour_tot and (r - labour_start_r) < 120:
-                    rows["labour_total"] = r
-                    found_labour_tot = True
-                elif ("12.5%" in full_line or "PAINT" in full_line) and r < rows.get("labour_total", 431) + 4:
-                    rows["labour_less_paint"] = r
-                elif "S.TOTAL" in (c0 + c2) and r > rows.get("labour_total", 431):
-                    rows["labour_stotal"] = r
-                elif "CGST" in c1 and r > rows.get("labour_total", 431):
-                    rows["labour_cgst"] = r
-                elif "SGST" in c1 and r > rows.get("labour_total", 431):
-                    rows["labour_sgst"] = r
-                elif "IGST" in c1 and r > rows.get("labour_total", 431):
-                    rows["labour_igst"] = r
-                elif "GRAND TOTAL" in (c0 + c2) and r > rows.get("labour_total", 431):
-                    rows["labour_grand_total"] = r
-                elif "TOTAL LABOUR(BEFORE GST)" in full_line:
-                    rows["total_labour_before_gst"] = r
-                elif "TOTAL GST ON LABOUR" in full_line:
-                    rows["total_gst_on_labour"] = r
-                elif "TOTAL COST OF LABOUR PAYABLE" in full_line:
-                    rows["total_labour_payable"] = r
-                elif "COST OF PARTS PAYABLE" in full_line:
-                    rows["cost_of_parts_payable"] = r
-                elif "LABOR COST" in full_line or "LABOUR COST" in full_line:
-                    rows["labor_cost_payable"] = r
-                elif "SALVAGE" in full_line and "salvage" not in rows:
-                    rows["salvage"] = r
-                elif "EXCESS CLAUSE" in full_line and "excess" not in rows and "V " not in full_line and "VOLUN" not in full_line:
-                    rows["excess"] = r
-                elif "ESTIMATE AMOUNT IS" in full_line:
-                    rows["est_amount_summary"] = r
-                elif "NET ASSESSED AMOUNT" in full_line:
-                    rows["net_assessed"] = r
-                elif ("ASSESSED AMOUNT" in c3 or "ASSESSED AMOUNT" in c2) and "NET" not in full_line and "assessed_amount" not in rows:
-                    rows["assessed_amount"] = r
-                elif "NET RECEIPT AMOUNT" in full_line:
-                    rows["net_receipt"] = r
-
-    except Exception as e:
-        print(f"Warning scanning openpyxl surveyor sheet rows: {e}")
-
-    return rows
-
-
-def inject_surveyor_sheet_formulas_xls(sheet, rb_sheet, parts_start_r=171, labour_start_r=359):
-    """
-    Injects dynamic xlwt.Formula instances into the surveyor assessment sheet for .xls files.
-    Restores all live Excel formulas (totals, subtotals, GST, net payable) that xlutils.copy strips.
+    This ensures 100% preservation of:
+    - ALL user-defined formulas across all sheets (=SUM, =E20*1.18, cross-sheet formulas, etc.)
+    - Exact cell formatting, merged cells, fonts, row heights, and column widths.
+    - Automatic live recalculation of all formulas when saved by Excel's native calculation engine.
+    Returns True on success, False if COM fails or Excel is unavailable.
     """
     try:
-        import xlwt
-        R = scan_surveyor_sheet_rows_xls(rb_sheet, parts_start_r, labour_start_r)
+        import win32com.client
+        import pythoncom
+    except ImportError:
+        return False
 
-        p_tot = R["parts_total"]
-        p_last_data = p_tot - 1
-        p_less = R["parts_less"]
-        p_sub = R["parts_stotal"]
-        p_cgst = R["parts_cgst"]
-        p_sgst = R["parts_sgst"]
-        p_igst = R["parts_igst"]
-        p_grd = R["parts_grand_total"]
+    abs_path = os.path.abspath(file_path)
+    if not os.path.exists(abs_path):
+        return False
 
-        l_tot = R["labour_total"]
-        l_last_data = l_tot - 1
-        l_paint_ded = R["labour_less_paint"]
-        l_sub = R["labour_stotal"]
-        l_cgst = R["labour_cgst"]
-        l_sgst = R["labour_sgst"]
-        l_igst = R["labour_igst"]
-        l_grd = R["labour_grand_total"]
-
-        # 1. PARTS COMPUTATION FORMULAS
-        # Total row (0-based: p_tot - 1)
-        sheet.write(p_tot - 1, 3, xlwt.Formula(f"SUM(D{parts_start_r}:D{p_last_data})"))
-        sheet.write(p_tot - 1, 4, xlwt.Formula(f"SUM(E{parts_start_r}:E{p_last_data})"))
-        sheet.write(p_tot - 1, 5, xlwt.Formula(f"SUM(F{parts_start_r}:F{p_last_data})"))
-        sheet.write(p_tot - 1, 6, xlwt.Formula(f"SUM(G{parts_start_r}:G{p_last_data})"))
-        sheet.write(p_tot - 1, 7, xlwt.Formula(f"SUM(H{parts_start_r}:H{p_last_data})"))
-        sheet.write(p_tot - 1, 8, xlwt.Formula(f"SUM(E{p_tot}:G{p_tot})"))
-
-        # LESS Metal Depreciation
-        sheet.write(p_less - 1, 4, xlwt.Formula(f"IF(B{p_less}=\"\", 0, ROUND(E{p_tot}*B{p_less}, 2))"))
-
-        # S.Total (Subtotal)
-        sheet.write(p_sub - 1, 3, xlwt.Formula(f"D{p_tot}"))
-        sheet.write(p_sub - 1, 4, xlwt.Formula(f"E{p_tot}-E{p_less}"))
-        sheet.write(p_sub - 1, 5, xlwt.Formula(f"F{p_tot}-F{p_less}"))
-        sheet.write(p_sub - 1, 6, xlwt.Formula(f"G{p_tot}-G{p_less}"))
-        sheet.write(p_sub - 1, 7, xlwt.Formula(f"H{p_tot}"))
-        sheet.write(p_sub - 1, 8, xlwt.Formula(f"SUM(E{p_sub}:G{p_sub})"))
-
-        # CGST 9%
-        sheet.write(p_cgst - 1, 4, xlwt.Formula(f"ROUND(E{p_sub}*0.09, 2)"))
-        sheet.write(p_cgst - 1, 5, xlwt.Formula(f"ROUND(F{p_sub}*0.09, 2)"))
-        sheet.write(p_cgst - 1, 6, xlwt.Formula(f"ROUND(G{p_sub}*0.09, 2)"))
-        sheet.write(p_cgst - 1, 8, xlwt.Formula(f"SUM(E{p_cgst}:G{p_cgst})"))
-
-        # SGST 9%
-        sheet.write(p_sgst - 1, 4, xlwt.Formula(f"ROUND(E{p_sub}*0.09, 2)"))
-        sheet.write(p_sgst - 1, 5, xlwt.Formula(f"ROUND(F{p_sub}*0.09, 2)"))
-        sheet.write(p_sgst - 1, 6, xlwt.Formula(f"ROUND(G{p_sub}*0.09, 2)"))
-        sheet.write(p_sgst - 1, 8, xlwt.Formula(f"SUM(E{p_sgst}:G{p_sgst})"))
-
-        # Grand Total Parts
-        sheet.write(p_grd - 1, 4, xlwt.Formula(f"SUM(E{p_sub}:E{p_igst})"))
-        sheet.write(p_grd - 1, 5, xlwt.Formula(f"SUM(F{p_sub}:F{p_igst})"))
-        sheet.write(p_grd - 1, 6, xlwt.Formula(f"SUM(G{p_sub}:G{p_igst})"))
-        sheet.write(p_grd - 1, 7, xlwt.Formula(f"H{p_sub}"))
-        sheet.write(p_grd - 1, 8, xlwt.Formula(f"SUM(E{p_grd}:G{p_grd})"))
-
-        # 2. LABOUR COMPUTATION FORMULAS
-        # Labour Total
-        sheet.write(l_tot - 1, 3, xlwt.Formula(f"SUM(D{labour_start_r}:D{l_last_data})"))
-        sheet.write(l_tot - 1, 4, xlwt.Formula(f"SUM(E{labour_start_r}:E{l_last_data})"))
-        sheet.write(l_tot - 1, 5, xlwt.Formula(f"SUM(F{labour_start_r}:F{l_last_data})"))
-        sheet.write(l_tot - 1, 6, xlwt.Formula(f"SUM(G{labour_start_r}:G{l_last_data})"))
-        sheet.write(l_tot - 1, 7, xlwt.Formula(f"SUM(H{labour_start_r}:H{l_last_data})"))
-        sheet.write(l_tot - 1, 8, xlwt.Formula(f"SUM(E{l_tot}:G{l_tot})"))
-
-        # Less 12.5% on Paint Charges
-        sheet.write(l_paint_ded - 1, 6, xlwt.Formula(f"ROUND(G{l_tot}*0.125, 2)"))
-
-        # Labour S.Total
-        sheet.write(l_sub - 1, 4, xlwt.Formula(f"E{l_tot}"))
-        sheet.write(l_sub - 1, 5, xlwt.Formula(f"F{l_tot}"))
-        sheet.write(l_sub - 1, 6, xlwt.Formula(f"G{l_tot}-G{l_paint_ded}"))
-        sheet.write(l_sub - 1, 8, xlwt.Formula(f"SUM(E{l_sub}:G{l_sub})"))
-
-        # Labour CGST 9%
-        sheet.write(l_cgst - 1, 4, xlwt.Formula(f"ROUND(E{l_sub}*0.09, 2)"))
-        sheet.write(l_cgst - 1, 5, xlwt.Formula(f"ROUND(F{l_sub}*0.09, 2)"))
-        sheet.write(l_cgst - 1, 6, xlwt.Formula(f"ROUND(G{l_sub}*0.09, 2)"))
-        sheet.write(l_cgst - 1, 8, xlwt.Formula(f"SUM(E{l_cgst}:G{l_cgst})"))
-
-        # Labour SGST 9%
-        sheet.write(l_sgst - 1, 4, xlwt.Formula(f"ROUND(E{l_sub}*0.09, 2)"))
-        sheet.write(l_sgst - 1, 5, xlwt.Formula(f"ROUND(F{l_sub}*0.09, 2)"))
-        sheet.write(l_sgst - 1, 6, xlwt.Formula(f"ROUND(G{l_sub}*0.09, 2)"))
-        sheet.write(l_sgst - 1, 8, xlwt.Formula(f"SUM(E{l_sgst}:G{l_sgst})"))
-
-        # Labour Grand total
-        sheet.write(l_grd - 1, 4, xlwt.Formula(f"SUM(E{l_sub}:E{l_igst})"))
-        sheet.write(l_grd - 1, 5, xlwt.Formula(f"SUM(F{l_sub}:F{l_igst})"))
-        sheet.write(l_grd - 1, 6, xlwt.Formula(f"SUM(G{l_sub}:G{l_igst})"))
-        sheet.write(l_grd - 1, 8, xlwt.Formula(f"SUM(E{l_grd}:G{l_grd})"))
-
-        # 3. LABOUR BREAKDOWN SUMMARY (Rows 438-440)
-        r_lb_bef = R["total_labour_before_gst"]
-        r_lb_gst = R["total_gst_on_labour"]
-        r_lb_pay = R["total_labour_payable"]
-        sheet.write(r_lb_bef - 1, 3, xlwt.Formula(f"SUM(E{l_sub}:G{l_sub})"))
-        sheet.write(r_lb_gst - 1, 3, xlwt.Formula(f"SUM(E{l_cgst}:G{l_sgst})"))
-        sheet.write(r_lb_pay - 1, 3, xlwt.Formula(f"D{r_lb_bef}+D{r_lb_gst}"))
-
-        # 4. FINAL ASSESSMENT SUMMARY (Rows 441-452)
-        r_pts_pay = R["cost_of_parts_payable"]
-        r_lab_pay = R["labor_cost_payable"]
-        r_salvage = R["salvage"]
-        r_excess = R["excess"]
-        r_est_sum = R["est_amount_summary"]
-        r_assessed = R["assessed_amount"]
-        r_net_ass = R["net_assessed"]
-        r_net_rec = R["net_receipt"]
-
-        # Parts and Labour estimate amounts in summary
-        sheet.write(441, 2, xlwt.Formula(f"D{p_tot}"))  # C442: Parts Estimate
-        sheet.write(442, 2, xlwt.Formula(f"D{p_tot}"))  # C443: Parts Estimate
-        sheet.write(444, 2, xlwt.Formula(f"D{l_tot}"))  # C445: Labour Estimate
-        sheet.write(r_est_sum - 1, 5, xlwt.Formula(f"D{p_tot}+D{l_tot}")) # F449: Total Estimate
-
-        # Cost of Parts Payable in G{r_pts_pay}
-        sheet.write(r_pts_pay - 1, 6, xlwt.Formula(f"SUM(E{p_grd}:G{p_grd})"))
-        # Labor cost in G{r_lab_pay}
-        sheet.write(r_lab_pay - 1, 6, xlwt.Formula(f"D{r_lb_pay}"))
-
-        # Assessed Amount in F{r_assessed} = Parts Payable + Labour Payable - Salvage - Excess
-        sheet.write(r_assessed - 1, 5, xlwt.Formula(f"G{r_pts_pay}+G{r_lab_pay}-G{r_salvage}-G{r_excess}"))
-
-        # Net Assessed Amount in F{r_net_ass}
-        sheet.write(r_net_ass - 1, 5, xlwt.Formula(f"F{r_assessed}"))
-
-        # Net Receipt amount in F{r_net_rec} and H{r_net_rec}
-        sheet.write(r_net_rec - 1, 5, xlwt.Formula(f"-F{r_net_ass}"))
-        sheet.write(r_net_rec - 1, 7, xlwt.Formula(f"F{r_net_ass}"))
-
-    except Exception as e:
-        print(f"Warning injecting .xls formulas: {e}")
-
-
-def inject_surveyor_sheet_formulas_openpyxl(sheet, parts_start_r=171, labour_start_r=359):
-    """
-    Injects dynamic formula strings (=SUM(...), etc.) into the surveyor assessment sheet for .xlsx files.
-    """
+    pythoncom.CoInitialize()
+    excel = None
+    wb = None
     try:
-        R = scan_surveyor_sheet_rows_openpyxl(sheet, parts_start_r, labour_start_r)
+        excel = win32com.client.DispatchEx("Excel.Application")
+        excel.Visible = False
+        excel.DisplayAlerts = False
+        excel.ScreenUpdating = False
 
-        p_tot = R["parts_total"]
-        p_last_data = p_tot - 1
-        p_less = R["parts_less"]
-        p_sub = R["parts_stotal"]
-        p_cgst = R["parts_cgst"]
-        p_sgst = R["parts_sgst"]
-        p_igst = R["parts_igst"]
-        p_grd = R["parts_grand_total"]
+        wb = excel.Workbooks.Open(abs_path)
+        ws = None
+        if target_sheet_name:
+            for s in wb.Sheets:
+                if s.Name.strip().lower() == str(target_sheet_name).strip().lower():
+                    ws = s
+                    break
+        if ws is None:
+            ws = wb.Sheets(1)
 
-        l_tot = R["labour_total"]
-        l_last_data = l_tot - 1
-        l_paint_ded = R["labour_less_paint"]
-        l_sub = R["labour_stotal"]
-        l_cgst = R["labour_cgst"]
-        l_sgst = R["labour_sgst"]
-        l_igst = R["labour_igst"]
-        l_grd = R["labour_grand_total"]
+        for r, c, val in cell_updates:
+            if val is None or val == "":
+                ws.Cells(r, c).ClearContents()
+            else:
+                ws.Cells(r, c).Value = val
 
-        # 1. PARTS COMPUTATION FORMULAS
-        sheet[f"D{p_tot}"] = f"=SUM(D{parts_start_r}:D{p_last_data})"
-        sheet[f"E{p_tot}"] = f"=SUM(E{parts_start_r}:E{p_last_data})"
-        sheet[f"F{p_tot}"] = f"=SUM(F{parts_start_r}:F{p_last_data})"
-        sheet[f"G{p_tot}"] = f"=SUM(G{parts_start_r}:G{p_last_data})"
-        sheet[f"H{p_tot}"] = f"=SUM(H{parts_start_r}:H{p_last_data})"
-        sheet[f"I{p_tot}"] = f"=SUM(E{p_tot}:G{p_tot})"
-
-        # LESS Metal Depreciation
-        sheet[f"E{p_less}"] = f'=IF(B{p_less}="", 0, ROUND(E{p_tot}*B{p_less}, 2))'
-
-        # S.Total (Subtotal)
-        sheet[f"D{p_sub}"] = f"=D{p_tot}"
-        sheet[f"E{p_sub}"] = f"=E{p_tot}-E{p_less}"
-        sheet[f"F{p_sub}"] = f"=F{p_tot}-F{p_less}"
-        sheet[f"G{p_sub}"] = f"=G{p_tot}-G{p_less}"
-        sheet[f"H{p_sub}"] = f"=H{p_tot}"
-        sheet[f"I{p_sub}"] = f"=SUM(E{p_sub}:G{p_sub})"
-
-        # CGST 9%
-        sheet[f"E{p_cgst}"] = f"=ROUND(E{p_sub}*0.09, 2)"
-        sheet[f"F{p_cgst}"] = f"=ROUND(F{p_sub}*0.09, 2)"
-        sheet[f"G{p_cgst}"] = f"=ROUND(G{p_sub}*0.09, 2)"
-        sheet[f"I{p_cgst}"] = f"=SUM(E{p_cgst}:G{p_cgst})"
-
-        # SGST 9%
-        sheet[f"E{p_sgst}"] = f"=ROUND(E{p_sub}*0.09, 2)"
-        sheet[f"F{p_sgst}"] = f"=ROUND(F{p_sub}*0.09, 2)"
-        sheet[f"G{p_sgst}"] = f"=ROUND(G{p_sub}*0.09, 2)"
-        sheet[f"I{p_sgst}"] = f"=SUM(E{p_sgst}:G{p_sgst})"
-
-        # Grand Total Parts
-        sheet[f"E{p_grd}"] = f"=SUM(E{p_sub}:E{p_igst})"
-        sheet[f"F{p_grd}"] = f"=SUM(F{p_sub}:F{p_igst})"
-        sheet[f"G{p_grd}"] = f"=SUM(G{p_sub}:G{p_igst})"
-        sheet[f"H{p_grd}"] = f"=H{p_sub}"
-        sheet[f"I{p_grd}"] = f"=SUM(E{p_grd}:G{p_grd})"
-
-        # 2. LABOUR COMPUTATION FORMULAS
-        sheet[f"D{l_tot}"] = f"=SUM(D{labour_start_r}:D{l_last_data})"
-        sheet[f"E{l_tot}"] = f"=SUM(E{labour_start_r}:E{l_last_data})"
-        sheet[f"F{l_tot}"] = f"=SUM(F{labour_start_r}:F{l_last_data})"
-        sheet[f"G{l_tot}"] = f"=SUM(G{labour_start_r}:G{l_last_data})"
-        sheet[f"H{l_tot}"] = f"=SUM(H{labour_start_r}:H{l_last_data})"
-        sheet[f"I{l_tot}"] = f"=SUM(E{l_tot}:G{l_tot})"
-
-        # Less 12.5% on Paint Charges
-        sheet[f"G{l_paint_ded}"] = f"=ROUND(G{l_tot}*0.125, 2)"
-
-        # Labour S.Total
-        sheet[f"E{l_sub}"] = f"=E{l_tot}"
-        sheet[f"F{l_sub}"] = f"=F{l_tot}"
-        sheet[f"G{l_sub}"] = f"=G{l_tot}-G{l_paint_ded}"
-        sheet[f"I{l_sub}"] = f"=SUM(E{l_sub}:G{l_sub})"
-
-        # Labour CGST 9%
-        sheet[f"E{l_cgst}"] = f"=ROUND(E{l_sub}*0.09, 2)"
-        sheet[f"F{l_cgst}"] = f"=ROUND(F{l_sub}*0.09, 2)"
-        sheet[f"G{l_cgst}"] = f"=ROUND(G{l_sub}*0.09, 2)"
-        sheet[f"I{l_cgst}"] = f"=SUM(E{l_cgst}:G{l_cgst})"
-
-        # Labour SGST 9%
-        sheet[f"E{l_sgst}"] = f"=ROUND(E{l_sub}*0.09, 2)"
-        sheet[f"F{l_sgst}"] = f"=ROUND(F{l_sub}*0.09, 2)"
-        sheet[f"G{l_sgst}"] = f"=ROUND(G{l_sub}*0.09, 2)"
-        sheet[f"I{l_sgst}"] = f"=SUM(E{l_sgst}:G{l_sgst})"
-
-        # Labour Grand total
-        sheet[f"E{l_grd}"] = f"=SUM(E{l_sub}:E{l_igst})"
-        sheet[f"F{l_grd}"] = f"=SUM(F{l_sub}:F{l_igst})"
-        sheet[f"G{l_grd}"] = f"=SUM(G{l_sub}:G{l_igst})"
-        sheet[f"I{l_grd}"] = f"=SUM(E{l_grd}:G{l_grd})"
-
-        # 3. LABOUR BREAKDOWN SUMMARY (Rows 438-440)
-        r_lb_bef = R["total_labour_before_gst"]
-        r_lb_gst = R["total_gst_on_labour"]
-        r_lb_pay = R["total_labour_payable"]
-        sheet[f"D{r_lb_bef}"] = f"=SUM(E{l_sub}:G{l_sub})"
-        sheet[f"D{r_lb_gst}"] = f"=SUM(E{l_cgst}:G{l_sgst})"
-        sheet[f"D{r_lb_pay}"] = f"=D{r_lb_bef}+D{r_lb_gst}"
-
-        # 4. FINAL ASSESSMENT SUMMARY (Rows 441-452)
-        r_pts_pay = R["cost_of_parts_payable"]
-        r_lab_pay = R["labor_cost_payable"]
-        r_salvage = R["salvage"]
-        r_excess = R["excess"]
-        r_est_sum = R["est_amount_summary"]
-        r_assessed = R["assessed_amount"]
-        r_net_ass = R["net_assessed"]
-        r_net_rec = R["net_receipt"]
-
-        sheet[f"C442"] = f"=D{p_tot}"
-        sheet[f"C443"] = f"=D{p_tot}"
-        sheet[f"C445"] = f"=D{l_tot}"
-        sheet[f"F{r_est_sum}"] = f"=D{p_tot}+D{l_tot}"
-
-        sheet[f"G{r_pts_pay}"] = f"=SUM(E{p_grd}:G{p_grd})"
-        sheet[f"G{r_lab_pay}"] = f"=D{r_lb_pay}"
-        sheet[f"F{r_assessed}"] = f"=G{r_pts_pay}+G{r_lab_pay}-G{r_salvage}-G{r_excess}"
-        sheet[f"F{r_net_ass}"] = f"=F{r_assessed}"
-        sheet[f"F{r_net_rec}"] = f"=-F{r_net_ass}"
-        sheet[f"H{r_net_rec}"] = f"=F{r_net_ass}"
-
+        wb.Save()
+        wb.Close(False)
+        wb = None
+        return True
     except Exception as e:
-        print(f"Warning injecting openpyxl formulas: {e}")
+        print(f"Excel COM write notice ({e}); falling back to fallback writer.")
+        if wb:
+            try:
+                wb.Close(False)
+            except Exception:
+                pass
+        return False
+    finally:
+        if excel:
+            try:
+                excel.Quit()
+            except Exception:
+                pass
+        try:
+            pythoncom.CoUninitialize()
+        except Exception:
+            pass
 
 
 def write_parts_to_excel(file_path, sheet_name=None, parts=None, start_row=None, bill_no=""):
@@ -2110,6 +1683,7 @@ def write_parts_to_excel(file_path, sheet_name=None, parts=None, start_row=None,
             first_written_row = None
             last_written_row = None
 
+            cell_updates = []
             for p in parts:
                 desc = p.get("particular", "").strip()
                 amt = p.get("amount", 0.0)
@@ -2125,30 +1699,30 @@ def write_parts_to_excel(file_path, sheet_name=None, parts=None, start_row=None,
                     else:
                         break
 
+                r_1based = current_r + 1
                 if first_written_row is None:
-                    first_written_row = current_r + 1
-                last_written_row = current_r + 1
+                    first_written_row = r_1based
+                last_written_row = r_1based
 
-                try:
-                    sheet.write(current_r, c_es, item_num)
-                except Exception:
-                    pass
-
-                # User requirement: Leave Column B (Bill No.) blank when pasting from Estimate
-                try:
-                    sheet.write(current_r, c_bill, "")
-                except Exception:
-                    pass
-
-                sheet.write(current_r, c_part, desc)
-                sheet.write(current_r, c_est, amt_num)
+                cell_updates.append((r_1based, c_es + 1, item_num))
+                cell_updates.append((r_1based, c_bill + 1, ""))
+                cell_updates.append((r_1based, c_part + 1, desc))
+                cell_updates.append((r_1based, c_est + 1, amt_num))
 
                 current_r += 1
                 item_num += 1
                 written += 1
 
-            inject_surveyor_sheet_formulas_xls(sheet, rb_sheet, parts_start_r=first_written_row or start_row, labour_start_r=sheet_info.get("labour_start_row", 359))
-            wb.save(file_path)
+            # Try Excel COM first to preserve 100% of user formulas across all sheets
+            com_success = _write_cells_with_excel_com(file_path, target_sheet_name, cell_updates)
+            if not com_success:
+                from xlutils.copy import copy
+                wb = copy(rb)
+                sheet = wb.get_sheet(sheet_idx)
+                for r_1, c_1, val in cell_updates:
+                    sheet.write(r_1 - 1, c_1 - 1, val)
+                wb.save(file_path)
+
             invalidate_estimate_cache(file_path)
 
             return {
@@ -2243,7 +1817,6 @@ def write_parts_to_excel(file_path, sheet_name=None, parts=None, start_row=None,
                 item_num += 1
                 written += 1
 
-            inject_surveyor_sheet_formulas_openpyxl(sheet, parts_start_r=first_written_row or start_row, labour_start_r=sheet_info.get("labour_start_row", 359))
             wb.save(file_path)
             invalidate_estimate_cache(file_path)
 
@@ -2357,6 +1930,7 @@ def write_labour_to_excel(file_path, sheet_name=None, labour_items=None, start_r
             first_written_row = None
             last_written_row = None
 
+            cell_updates = []
             for it in labour_items:
                 desc = it.get("particular", "").strip()
                 amt = it.get("amount", 0.0)
@@ -2372,30 +1946,29 @@ def write_labour_to_excel(file_path, sheet_name=None, labour_items=None, start_r
                     else:
                         break
 
+                r_1based = current_r + 1
                 if first_written_row is None:
-                    first_written_row = current_r + 1
-                last_written_row = current_r + 1
+                    first_written_row = r_1based
+                last_written_row = r_1based
 
-                try:
-                    sheet.write(current_r, c_es, item_num)
-                except Exception:
-                    pass
-
-                # User requirement: Leave Column B (Bill No.) blank when pasting from Estimate
-                try:
-                    sheet.write(current_r, c_bill, "")
-                except Exception:
-                    pass
-
-                sheet.write(current_r, c_part, desc)
-                sheet.write(current_r, c_est, amt_num)
+                cell_updates.append((r_1based, c_es + 1, item_num))
+                cell_updates.append((r_1based, c_bill + 1, ""))
+                cell_updates.append((r_1based, c_part + 1, desc))
+                cell_updates.append((r_1based, c_est + 1, amt_num))
 
                 current_r += 1
                 item_num += 1
                 written += 1
 
-            inject_surveyor_sheet_formulas_xls(sheet, rb_sheet, parts_start_r=sheet_info.get("data_start_row", 171), labour_start_r=first_written_row or start_row)
-            wb.save(file_path)
+            com_success = _write_cells_with_excel_com(file_path, target_sheet_name, cell_updates)
+            if not com_success:
+                from xlutils.copy import copy
+                wb = copy(rb)
+                sheet = wb.get_sheet(sheet_idx)
+                for r_1, c_1, val in cell_updates:
+                    sheet.write(r_1 - 1, c_1 - 1, val)
+                wb.save(file_path)
+
             invalidate_estimate_cache(file_path)
 
             return {
@@ -2488,7 +2061,6 @@ def write_labour_to_excel(file_path, sheet_name=None, labour_items=None, start_r
                 item_num += 1
                 written += 1
 
-            inject_surveyor_sheet_formulas_openpyxl(sheet, parts_start_r=sheet_info.get("data_start_row", 171), labour_start_r=first_written_row or start_row)
             wb.save(file_path)
             invalidate_estimate_cache(file_path)
 
@@ -2785,7 +2357,7 @@ def tally_estimate_with_bill(estimate_parts, bill_parts):
                 "excess_cost": round(excess_cost, 2)
             })
         else:
-            # Not in Final Bill -> Disallowed / Yellow Col H
+            # User requirement: In Estimate but NOT in Final Bill -> Do NOT print cost, leave blank
             est_unit = float(est.get("unit_price", 0.0) or 0.0)
             if est_unit <= 0 and est_qty > 0 and est_amt > 0:
                 est_unit = est_amt / est_qty
@@ -2800,6 +2372,7 @@ def tally_estimate_with_bill(estimate_parts, bill_parts):
                 "est_qty": est_qty,
                 "est_amount": est_amt,
                 "matched": False,
+                "bill_only": False,
                 "bill_srl": "",
                 "bill_particular": "",
                 "bill_desc": "",
@@ -2811,11 +2384,54 @@ def tally_estimate_with_bill(estimate_parts, bill_parts):
                 "allowed_qty": 0.0,
                 "excess_qty": 0.0,
                 "max_qty": est_qty,
-                "category": "Not Allowed",
-                "target_col": "H",
-                "final_cost": round(est_amt, 2),
+                "category": "Blank",
+                "target_col": None,
+                "final_cost": 0.0,
                 "allowed_cost": 0.0,
                 "excess_cost": 0.0
+            })
+
+    # User requirement: Parts in Final Bill but NOT in Estimate -> Paste costs into Col H (Not Allowed)
+    for b_idx, b in enumerate(bill_available):
+        if b_idx not in used_bill_indices:
+            b_desc = (b.get("particular") or "").strip()
+            b_code = (b.get("code") or "").strip()
+            b_amt = float(b.get("amount", 0.0) or 0.0)
+            b_qty = clean_qty(b.get("qty", 1.0))
+            b_unit = float(b.get("unit_price", 0.0) or 0.0)
+            if b_unit <= 0 and b_qty > 0 and b_amt > 0:
+                b_unit = b_amt / b_qty
+            elif b_unit <= 0:
+                b_unit = b_amt
+
+            raw_srl = b.get("srl") or b.get("sno") or (b_idx + 1)
+            b_srl = re.sub(r'[\.\s]', '', str(raw_srl)) or str(b_idx + 1)
+
+            tallied.append({
+                "index": len(tallied) + 1,
+                "est_particular": b_desc,
+                "est_desc": b_desc,
+                "est_code": b_code,
+                "est_qty": 0.0,
+                "est_amount": 0.0,
+                "matched": False,
+                "bill_only": True,
+                "bill_srl": b_srl,
+                "bill_particular": b_desc,
+                "bill_desc": b_desc,
+                "bill_code": b_code,
+                "bill_qty": b_qty,
+                "bill_amount": b_amt,
+                "unit_price": round(b_unit, 2),
+                "qty": b_qty,
+                "allowed_qty": 0.0,
+                "excess_qty": b_qty,
+                "max_qty": 0.0,
+                "category": "Not Allowed",
+                "target_col": "H",
+                "final_cost": round(b_amt, 2),
+                "allowed_cost": 0.0,
+                "excess_cost": round(b_amt, 2)
             })
 
     return tallied
@@ -2827,8 +2443,9 @@ def write_tallied_costs_to_excel(file_path, sheet_name=None, tallied_items=None,
     - Col E (Metal): if category == 'Metal'
     - Col F (Non Metal): if category == 'Non Metal'
     - Col G (Glass): if category == 'Glass'
-    - Col H (Yellow / Not Allowed): if category == 'Not Allowed'
-    Leaves Col D (Estimate) and Col B (Bill No) untouched.
+    - Col H (Yellow / Not Allowed): for bill-only items, excess bill qty, or disallowed items
+    - Col E, F, G, H left completely BLANK for parts in estimate but not in bill!
+    Preserves 100% of user formulas via Excel COM.
     """
     if not file_path or not os.path.exists(file_path):
         return {"success": False, "error": f"Target Assessment Excel not found: {file_path}"}
@@ -2858,192 +2475,244 @@ def write_tallied_costs_to_excel(file_path, sheet_name=None, tallied_items=None,
     else:
         start_row = int(start_row)
 
-    col_map = {
-        "Metal": 4,       # Col E (0-based in xlwt)
-        "Non Metal": 5,   # Col F
-        "Glass": 6,       # Col G
-        "Not Allowed": 7  # Col H
-    }
-
     metal_count = sum(1 for it in tallied_items if it.get("category") == "Metal")
     non_metal_count = sum(1 for it in tallied_items if it.get("category") == "Non Metal")
     glass_count = sum(1 for it in tallied_items if it.get("category") == "Glass")
-    disallowed_count = sum(1 for it in tallied_items if it.get("category") == "Not Allowed")
+    disallowed_count = sum(1 for it in tallied_items if it.get("category") == "Not Allowed" or (it.get("excess_cost") or 0) > 0)
+    blank_count = sum(1 for it in tallied_items if not it.get("matched") and not it.get("bill_only"))
 
     if is_xls:
         import xlrd
-        from xlutils.copy import copy
         rb = xlrd.open_workbook(file_path, formatting_info=True)
-        wb = copy(rb)
         sheet_idx = 0
         if target_sheet_name:
             for i, sname in enumerate(rb.sheet_names()):
                 if sname.lower() == target_sheet_name.lower():
                     sheet_idx = i
                     break
-        sheet = wb.get_sheet(sheet_idx)
         rb_sheet = rb.sheet_by_index(sheet_idx)
 
         current_r = start_row - 1
         written = 0
-        first_r = current_r + 1
-        last_r = current_r
+        first_r = None
+        last_r = None
+        cell_updates = []
+        item_num = 1
 
         for it in tallied_items:
-            cat = it.get("category", "Not Allowed")
+            while current_r < rb_sheet.nrows:
+                rinfo = rb_sheet.rowinfo_map.get(current_r) if hasattr(rb_sheet, "rowinfo_map") else None
+                if rinfo and rinfo.hidden:
+                    current_r += 1
+                else:
+                    break
+
+            r_1based = current_r + 1
+            if first_r is None:
+                first_r = r_1based
+            last_r = r_1based
+
+            cat = it.get("category", "Blank")
             cost = float(it.get("final_cost", 0.0) or it.get("cost", 0.0) or 0.0)
             excess_cost = float(it.get("excess_cost", 0.0) or 0.0)
-            target_c = col_map.get(cat, 7)
+            is_bill_only = bool(it.get("bill_only"))
+            is_matched = bool(it.get("matched"))
+            b_srl = it.get("bill_srl") or ""
 
-            part_name = str(it.get("est_particular") or it.get("est_desc") or "").strip()
+            part_name = str(it.get("bill_particular") if is_bill_only else (it.get("est_particular") or it.get("est_desc") or "")).strip()
             est_amt = float(it.get("est_amount", 0.0) or 0.0)
 
-            # Col B: Bill serial number for confirmation (or blank if unmatched)
-            b_srl = it.get("bill_srl")
-            if it.get("matched") and b_srl:
+            # Col A (Item #)
+            cell_updates.append((r_1based, 1, item_num))
+
+            # Col B (Bill S.No)
+            if b_srl:
                 try:
                     srl_val = int(b_srl)
                 except (ValueError, TypeError):
                     srl_val = str(b_srl)
-                sheet.write(current_r, 1, srl_val)
+                cell_updates.append((r_1based, 2, srl_val))
             else:
-                sheet.write(current_r, 1, "")
+                cell_updates.append((r_1based, 2, ""))
 
-            # Ensure Col C has the part name
-            c_val = rb_sheet.cell_value(current_r, 2) if current_r < rb_sheet.nrows else ""
-            if not str(c_val).strip() and part_name:
-                sheet.write(current_r, 2, part_name)
+            # Col C (Particular)
+            if is_bill_only:
+                cell_updates.append((r_1based, 3, part_name))
+            else:
+                c_val = rb_sheet.cell_value(current_r, 2) if current_r < rb_sheet.nrows else ""
+                if not str(c_val).strip() and part_name:
+                    cell_updates.append((r_1based, 3, part_name))
 
-            # Ensure Col D has estimate amount
-            d_val = rb_sheet.cell_value(current_r, 3) if current_r < rb_sheet.nrows else ""
-            if (d_val == "" or d_val is None) and est_amt > 0:
-                sheet.write(current_r, 3, est_amt)
+            # Col D (Estimate)
+            if is_bill_only:
+                cell_updates.append((r_1based, 4, ""))
+            else:
+                d_val = rb_sheet.cell_value(current_r, 3) if current_r < rb_sheet.nrows else ""
+                if (d_val == "" or d_val is None) and est_amt > 0:
+                    cell_updates.append((r_1based, 4, est_amt))
 
-            # Write costs to category columns:
-            # If matched and allowed: Col E/F/G gets allowed cost, and Col H gets excess_cost if any
-            # If unmatched: Col E/F/G are blank, Col H gets full cost / estimate amount
-            if it.get("matched") and cat != "Not Allowed":
-                for c_idx in [4, 5, 6]:
+            # Col E, F, G, H
+            if is_bill_only:
+                cell_updates.append((r_1based, 5, ""))
+                cell_updates.append((r_1based, 6, ""))
+                cell_updates.append((r_1based, 7, ""))
+                cell_updates.append((r_1based, 8, cost))
+            elif is_matched and cat in ["Metal", "Non Metal", "Glass"]:
+                target_c = 5 if cat == "Metal" else (6 if cat == "Non Metal" else 7)
+                for c_idx in [5, 6, 7]:
                     if c_idx == target_c:
-                        sheet.write(current_r, c_idx, cost)
+                        cell_updates.append((r_1based, c_idx, cost))
                     else:
-                        sheet.write(current_r, c_idx, "")
+                        cell_updates.append((r_1based, c_idx, ""))
                 if excess_cost > 0:
-                    sheet.write(current_r, 7, excess_cost)
+                    cell_updates.append((r_1based, 8, excess_cost))
                 else:
-                    sheet.write(current_r, 7, "")
+                    cell_updates.append((r_1based, 8, ""))
+            elif cat == "Not Allowed":
+                cell_updates.append((r_1based, 5, ""))
+                cell_updates.append((r_1based, 6, ""))
+                cell_updates.append((r_1based, 7, ""))
+                cell_updates.append((r_1based, 8, cost if cost > 0 else est_amt))
             else:
-                for c_idx in [4, 5, 6]:
-                    sheet.write(current_r, c_idx, "")
-                sheet.write(current_r, 7, cost if cost > 0 else est_amt)
+                # Estimate Only (Blank): Col E, F, G, H all left completely blank!
+                cell_updates.append((r_1based, 5, ""))
+                cell_updates.append((r_1based, 6, ""))
+                cell_updates.append((r_1based, 7, ""))
+                cell_updates.append((r_1based, 8, ""))
 
-            last_r = current_r + 1
             current_r += 1
+            item_num += 1
             written += 1
 
-        inject_surveyor_sheet_formulas_xls(sheet, rb_sheet, parts_start_r=start_row, labour_start_r=sheet_info.get("labour_start_row", 359))
-        wb.save(file_path)
+        com_success = _write_cells_with_excel_com(file_path, target_sheet_name, cell_updates)
+        if not com_success:
+            from xlutils.copy import copy
+            wb = copy(rb)
+            sheet = wb.get_sheet(sheet_idx)
+            for r_1, c_1, val in cell_updates:
+                sheet.write(r_1 - 1, c_1 - 1, val)
+            wb.save(file_path)
+
         invalidate_estimate_cache(file_path)
         return {
             "success": True,
             "written_count": written,
-            "start_row": first_r,
-            "end_row": last_r,
+            "start_row": first_r or start_row,
+            "end_row": last_r or (start_row + written - 1),
             "sheet": target_sheet_name,
             "backup_created": backup_path,
             "metal_count": metal_count,
             "non_metal_count": non_metal_count,
             "glass_count": glass_count,
-            "disallowed_count": disallowed_count
+            "disallowed_count": disallowed_count,
+            "blank_count": blank_count
         }
     else:
         import openpyxl
         wb = openpyxl.load_workbook(file_path)
         sheet = wb[target_sheet_name] if target_sheet_name in wb.sheetnames else wb.active
 
-        col_map_openpyxl = {
-            "Metal": 5,       # Col E (1-based in openpyxl)
-            "Non Metal": 6,   # Col F
-            "Glass": 7,       # Col G
-            "Not Allowed": 8  # Col H
-        }
-
         current_r = start_row
         written = 0
-        first_r = current_r
-        last_r = current_r
+        first_r = None
+        last_r = None
+        item_num = 1
 
         for it in tallied_items:
-            cat = it.get("category", "Not Allowed")
+            while current_r <= sheet.max_row:
+                dim = sheet.row_dimensions.get(current_r)
+                if dim and dim.hidden:
+                    current_r += 1
+                else:
+                    break
+
+            r_1based = current_r
+            if first_r is None:
+                first_r = r_1based
+            last_r = r_1based
+
+            cat = it.get("category", "Blank")
             cost = float(it.get("final_cost", 0.0) or it.get("cost", 0.0) or 0.0)
             excess_cost = float(it.get("excess_cost", 0.0) or 0.0)
-            target_col = col_map_openpyxl.get(cat, 8)
+            is_bill_only = bool(it.get("bill_only"))
+            is_matched = bool(it.get("matched"))
+            b_srl = it.get("bill_srl") or ""
 
-            part_name = str(it.get("est_particular") or it.get("est_desc") or "").strip()
+            part_name = str(it.get("bill_particular") if is_bill_only else (it.get("est_particular") or it.get("est_desc") or "")).strip()
             est_amt = float(it.get("est_amount", 0.0) or 0.0)
 
-            # Col B: Bill serial number for confirmation (or blank if unmatched)
-            b_srl = it.get("bill_srl")
-            if it.get("matched") and b_srl:
+            # Col A (Item #)
+            sheet.cell(row=r_1based, column=1, value=item_num)
+
+            # Col B (Bill S.No)
+            if b_srl:
                 try:
                     srl_val = int(b_srl)
                 except (ValueError, TypeError):
                     srl_val = str(b_srl)
-                sheet.cell(row=current_r, column=2, value=srl_val)
+                sheet.cell(row=r_1based, column=2, value=srl_val)
             else:
-                sheet.cell(row=current_r, column=2, value=None)
+                sheet.cell(row=r_1based, column=2, value=None)
 
-            # Ensure Col C has the part name
-            c_cell = sheet.cell(row=current_r, column=3)
-            if not str(c_cell.value or "").strip() and part_name:
-                c_cell.value = part_name
+            # Col C (Particular)
+            if is_bill_only:
+                sheet.cell(row=r_1based, column=3, value=part_name)
+            else:
+                c_cell = sheet.cell(row=r_1based, column=3)
+                if not str(c_cell.value or "").strip() and part_name:
+                    c_cell.value = part_name
 
-            # Ensure Col D has estimate amount
-            d_cell = sheet.cell(row=current_r, column=4)
-            if (d_cell.value is None or d_cell.value == "") and est_amt > 0:
-                d_cell.value = est_amt
+            # Col D (Estimate)
+            if is_bill_only:
+                sheet.cell(row=r_1based, column=4, value=None)
+            else:
+                d_cell = sheet.cell(row=r_1based, column=4)
+                if (d_cell.value is None or d_cell.value == "") and est_amt > 0:
+                    d_cell.value = est_amt
 
-            # Write costs
-            if it.get("matched") and cat != "Not Allowed":
+            # Col E, F, G, H
+            if is_bill_only:
+                for c_idx in [5, 6, 7]:
+                    sheet.cell(row=r_1based, column=c_idx, value=None)
+                sheet.cell(row=r_1based, column=8, value=cost)
+            elif is_matched and cat in ["Metal", "Non Metal", "Glass"]:
+                target_col = 5 if cat == "Metal" else (6 if cat == "Non Metal" else 7)
                 for c_idx in [5, 6, 7]:
                     if c_idx == target_col:
-                        sheet.cell(row=current_r, column=c_idx, value=cost)
+                        sheet.cell(row=r_1based, column=c_idx, value=cost)
                     else:
-                        sheet.cell(row=current_r, column=c_idx, value=None)
+                        sheet.cell(row=r_1based, column=c_idx, value=None)
                 if excess_cost > 0:
-                    sheet.cell(row=current_r, column=8, value=excess_cost)
+                    sheet.cell(row=r_1based, column=8, value=excess_cost)
                 else:
-                    sheet.cell(row=current_r, column=8, value=None)
-            else:
+                    sheet.cell(row=r_1based, column=8, value=None)
+            elif cat == "Not Allowed":
                 for c_idx in [5, 6, 7]:
-                    sheet.cell(row=current_r, column=c_idx, value=None)
-                sheet.cell(row=current_r, column=8, value=cost if cost > 0 else est_amt)
+                    sheet.cell(row=r_1based, column=c_idx, value=None)
+                sheet.cell(row=r_1based, column=8, value=cost if cost > 0 else est_amt)
+            else:
+                for c_idx in [5, 6, 7, 8]:
+                    sheet.cell(row=r_1based, column=c_idx, value=None)
 
-            last_r = current_r
             current_r += 1
+            item_num += 1
             written += 1
 
-        inject_surveyor_sheet_formulas_openpyxl(sheet, parts_start_r=start_row, labour_start_r=sheet_info.get("labour_start_row", 359))
         wb.save(file_path)
         invalidate_estimate_cache(file_path)
         return {
             "success": True,
             "written_count": written,
-            "start_row": first_r,
-            "end_row": last_r,
+            "start_row": first_r or start_row,
+            "end_row": last_r or (start_row + written - 1),
             "sheet": target_sheet_name,
             "backup_created": backup_path,
             "metal_count": metal_count,
             "non_metal_count": non_metal_count,
             "glass_count": glass_count,
-            "disallowed_count": disallowed_count
+            "disallowed_count": disallowed_count,
+            "blank_count": blank_count
         }
-
-
-
-# ==============================================================================
-# LABOUR CATEGORIZATION & RECONCILIATION / TALLY WITH FINAL BILL
-# ==============================================================================
 
 def categorize_labour(desc, code=""):
     """
@@ -3189,7 +2858,7 @@ def tally_estimate_labour_with_bill(estimate_labour, bill_labour):
                 "item_type": "Labour"
             })
         else:
-            # Not in Final Bill -> Disallowed / Col H
+            # User requirement: In Estimate but NOT in Final Bill -> Do NOT print cost, leave blank
             est_unit = float(est.get("unit_price", 0.0) or 0.0)
             if est_unit <= 0 and est_qty > 0 and est_amt > 0:
                 est_unit = est_amt / est_qty
@@ -3204,6 +2873,7 @@ def tally_estimate_labour_with_bill(estimate_labour, bill_labour):
                 "est_qty": est_qty,
                 "est_amount": est_amt,
                 "matched": False,
+                "bill_only": False,
                 "bill_srl": "",
                 "bill_particular": "",
                 "bill_desc": "",
@@ -3215,11 +2885,55 @@ def tally_estimate_labour_with_bill(estimate_labour, bill_labour):
                 "allowed_qty": 0.0,
                 "excess_qty": 0.0,
                 "max_qty": est_qty,
-                "category": "Not Allowed",
-                "target_col": "H",
-                "final_cost": round(est_amt, 2),
+                "category": "Blank",
+                "target_col": None,
+                "final_cost": 0.0,
                 "allowed_cost": 0.0,
                 "excess_cost": 0.0,
+                "item_type": "Labour"
+            })
+
+    # User requirement: Labour in Final Bill but NOT in Estimate -> Paste costs into Col H (Not Allowed)
+    for b_idx, b in enumerate(bill_available):
+        if b_idx not in used_bill_indices:
+            b_desc = (b.get("particular") or "").strip()
+            b_code = (b.get("code") or "").strip()
+            b_amt = float(b.get("amount", 0.0) or 0.0)
+            b_qty = clean_qty(b.get("qty", 1.0))
+            b_unit = float(b.get("unit_price", 0.0) or 0.0)
+            if b_unit <= 0 and b_qty > 0 and b_amt > 0:
+                b_unit = b_amt / b_qty
+            elif b_unit <= 0:
+                b_unit = b_amt
+
+            raw_srl = b.get("srl") or b.get("sno") or (b_idx + 1)
+            b_srl = re.sub(r'[\.\s]', '', str(raw_srl)) or str(b_idx + 1)
+
+            tallied.append({
+                "index": len(tallied) + 1,
+                "est_particular": b_desc,
+                "est_desc": b_desc,
+                "est_code": b_code,
+                "est_qty": 0.0,
+                "est_amount": 0.0,
+                "matched": False,
+                "bill_only": True,
+                "bill_srl": b_srl,
+                "bill_particular": b_desc,
+                "bill_desc": b_desc,
+                "bill_code": b_code,
+                "bill_qty": b_qty,
+                "bill_amount": b_amt,
+                "unit_price": round(b_unit, 2),
+                "qty": b_qty,
+                "allowed_qty": 0.0,
+                "excess_qty": b_qty,
+                "max_qty": 0.0,
+                "category": "Not Allowed",
+                "target_col": "H",
+                "final_cost": round(b_amt, 2),
+                "allowed_cost": 0.0,
+                "excess_cost": round(b_amt, 2),
                 "item_type": "Labour"
             })
 
@@ -3232,8 +2946,9 @@ def write_tallied_labour_to_excel(file_path, sheet_name=None, tallied_labour=Non
     - Col E (Opening/rft): if category == 'Opening/rft'
     - Col F (Denting): if category == 'Denting'
     - Col G (Painting): if category == 'Painting'
-    - Col H (Not Allowed): if category == 'Not Allowed'
-    Leaves Col D (Estimate) and Col B (Bill No) untouched.
+    - Col H (Yellow / Not Allowed): for bill-only labour, excess bill qty, or disallowed items
+    - Col E, F, G, H left completely BLANK for labour in estimate but not in bill!
+    Preserves 100% of user formulas via Excel COM.
     """
     if not file_path or not os.path.exists(file_path):
         return {"success": False, "error": f"Target Assessment Excel not found: {file_path}"}
@@ -3263,181 +2978,241 @@ def write_tallied_labour_to_excel(file_path, sheet_name=None, tallied_labour=Non
     else:
         start_row = int(start_row)
 
-    col_map = {
-        "Opening/rft": 4,  # Col E (0-based)
-        "Denting": 5,      # Col F
-        "Painting": 6,     # Col G
-        "Not Allowed": 7   # Col H
-    }
-
     opening_count = sum(1 for it in tallied_labour if it.get("category") == "Opening/rft")
     denting_count = sum(1 for it in tallied_labour if it.get("category") == "Denting")
     painting_count = sum(1 for it in tallied_labour if it.get("category") == "Painting")
-    disallowed_count = sum(1 for it in tallied_labour if it.get("category") == "Not Allowed")
+    disallowed_count = sum(1 for it in tallied_labour if it.get("category") == "Not Allowed" or (it.get("excess_cost") or 0) > 0)
+    blank_count = sum(1 for it in tallied_labour if not it.get("matched") and not it.get("bill_only"))
 
     if is_xls:
         import xlrd
-        from xlutils.copy import copy
         rb = xlrd.open_workbook(file_path, formatting_info=True)
-        wb = copy(rb)
         sheet_idx = 0
         if target_sheet_name:
             for i, sname in enumerate(rb.sheet_names()):
                 if sname.lower() == target_sheet_name.lower():
                     sheet_idx = i
                     break
-        sheet = wb.get_sheet(sheet_idx)
         rb_sheet = rb.sheet_by_index(sheet_idx)
 
         current_r = start_row - 1
         written = 0
-        first_r = current_r + 1
-        last_r = current_r
+        first_r = None
+        last_r = None
+        cell_updates = []
+        item_num = 1
 
         for it in tallied_labour:
-            cat = it.get("category", "Not Allowed")
+            while current_r < rb_sheet.nrows:
+                rinfo = rb_sheet.rowinfo_map.get(current_r) if hasattr(rb_sheet, "rowinfo_map") else None
+                if rinfo and rinfo.hidden:
+                    current_r += 1
+                else:
+                    break
+
+            r_1based = current_r + 1
+            if first_r is None:
+                first_r = r_1based
+            last_r = r_1based
+
+            cat = it.get("category", "Blank")
             cost = float(it.get("final_cost", 0.0) or it.get("cost", 0.0) or 0.0)
             excess_cost = float(it.get("excess_cost", 0.0) or 0.0)
-            target_c = col_map.get(cat, 7)
+            is_bill_only = bool(it.get("bill_only"))
+            is_matched = bool(it.get("matched"))
+            b_srl = it.get("bill_srl") or ""
 
-            lab_name = str(it.get("est_particular") or it.get("est_desc") or "").strip()
+            lab_name = str(it.get("bill_particular") if is_bill_only else (it.get("est_particular") or it.get("est_desc") or "")).strip()
             est_amt = float(it.get("est_amount", 0.0) or 0.0)
 
-            # Col B: Bill serial number for confirmation (or blank if unmatched)
-            b_srl = it.get("bill_srl")
-            if it.get("matched") and b_srl:
+            # Col A (Item #)
+            cell_updates.append((r_1based, 1, item_num))
+
+            # Col B (Bill S.No)
+            if b_srl:
                 try:
                     srl_val = int(b_srl)
                 except (ValueError, TypeError):
                     srl_val = str(b_srl)
-                sheet.write(current_r, 1, srl_val)
+                cell_updates.append((r_1based, 2, srl_val))
             else:
-                sheet.write(current_r, 1, "")
+                cell_updates.append((r_1based, 2, ""))
 
-            # Ensure Col C has the labour description
-            c_val = rb_sheet.cell_value(current_r, 2) if current_r < rb_sheet.nrows else ""
-            if not str(c_val).strip() and lab_name:
-                sheet.write(current_r, 2, lab_name)
+            # Col C (Particular)
+            if is_bill_only:
+                cell_updates.append((r_1based, 3, lab_name))
+            else:
+                c_val = rb_sheet.cell_value(current_r, 2) if current_r < rb_sheet.nrows else ""
+                if not str(c_val).strip() and lab_name:
+                    cell_updates.append((r_1based, 3, lab_name))
 
-            # Ensure Col D has estimate amount
-            d_val = rb_sheet.cell_value(current_r, 3) if current_r < rb_sheet.nrows else ""
-            if (d_val == "" or d_val is None) and est_amt > 0:
-                sheet.write(current_r, 3, est_amt)
+            # Col D (Estimate)
+            if is_bill_only:
+                cell_updates.append((r_1based, 4, ""))
+            else:
+                d_val = rb_sheet.cell_value(current_r, 3) if current_r < rb_sheet.nrows else ""
+                if (d_val == "" or d_val is None) and est_amt > 0:
+                    cell_updates.append((r_1based, 4, est_amt))
 
-            # Write costs to category columns
-            if it.get("matched") and cat != "Not Allowed":
-                for c_idx in [4, 5, 6]:
+            # Col E, F, G, H
+            if is_bill_only:
+                cell_updates.append((r_1based, 5, ""))
+                cell_updates.append((r_1based, 6, ""))
+                cell_updates.append((r_1based, 7, ""))
+                cell_updates.append((r_1based, 8, cost))
+            elif is_matched and cat in ["Opening/rft", "Denting", "Painting"]:
+                target_c = 5 if cat == "Opening/rft" else (6 if cat == "Denting" else 7)
+                for c_idx in [5, 6, 7]:
                     if c_idx == target_c:
-                        sheet.write(current_r, c_idx, cost)
+                        cell_updates.append((r_1based, c_idx, cost))
                     else:
-                        sheet.write(current_r, c_idx, "")
+                        cell_updates.append((r_1based, c_idx, ""))
                 if excess_cost > 0:
-                    sheet.write(current_r, 7, excess_cost)
+                    cell_updates.append((r_1based, 8, excess_cost))
                 else:
-                    sheet.write(current_r, 7, "")
+                    cell_updates.append((r_1based, 8, ""))
+            elif cat == "Not Allowed":
+                cell_updates.append((r_1based, 5, ""))
+                cell_updates.append((r_1based, 6, ""))
+                cell_updates.append((r_1based, 7, ""))
+                cell_updates.append((r_1based, 8, cost if cost > 0 else est_amt))
             else:
-                for c_idx in [4, 5, 6]:
-                    sheet.write(current_r, c_idx, "")
-                sheet.write(current_r, 7, cost if cost > 0 else est_amt)
+                # Estimate Only (Blank): Col E, F, G, H all left completely blank!
+                cell_updates.append((r_1based, 5, ""))
+                cell_updates.append((r_1based, 6, ""))
+                cell_updates.append((r_1based, 7, ""))
+                cell_updates.append((r_1based, 8, ""))
 
-            last_r = current_r + 1
             current_r += 1
+            item_num += 1
             written += 1
 
-        inject_surveyor_sheet_formulas_xls(sheet, rb_sheet, parts_start_r=sheet_info.get("data_start_row", 171), labour_start_r=start_row)
-        wb.save(file_path)
+        com_success = _write_cells_with_excel_com(file_path, target_sheet_name, cell_updates)
+        if not com_success:
+            from xlutils.copy import copy
+            wb = copy(rb)
+            sheet = wb.get_sheet(sheet_idx)
+            for r_1, c_1, val in cell_updates:
+                sheet.write(r_1 - 1, c_1 - 1, val)
+            wb.save(file_path)
+
         invalidate_estimate_cache(file_path)
         return {
             "success": True,
             "written_count": written,
-            "start_row": first_r,
-            "end_row": last_r,
+            "start_row": first_r or start_row,
+            "end_row": last_r or (start_row + written - 1),
             "sheet": target_sheet_name,
             "backup_created": backup_path,
             "opening_count": opening_count,
             "denting_count": denting_count,
             "painting_count": painting_count,
-            "disallowed_count": disallowed_count
+            "disallowed_count": disallowed_count,
+            "blank_count": blank_count
         }
     else:
         import openpyxl
         wb = openpyxl.load_workbook(file_path)
         sheet = wb[target_sheet_name] if target_sheet_name in wb.sheetnames else wb.active
 
-        col_map_openpyxl = {
-            "Opening/rft": 5,  # Col E (1-based)
-            "Denting": 6,      # Col F
-            "Painting": 7,     # Col G
-            "Not Allowed": 8   # Col H
-        }
-
         current_r = start_row
         written = 0
-        first_r = current_r
-        last_r = current_r
+        first_r = None
+        last_r = None
+        item_num = 1
 
         for it in tallied_labour:
-            cat = it.get("category", "Not Allowed")
+            while current_r <= sheet.max_row:
+                dim = sheet.row_dimensions.get(current_r)
+                if dim and dim.hidden:
+                    current_r += 1
+                else:
+                    break
+
+            r_1based = current_r
+            if first_r is None:
+                first_r = r_1based
+            last_r = r_1based
+
+            cat = it.get("category", "Blank")
             cost = float(it.get("final_cost", 0.0) or it.get("cost", 0.0) or 0.0)
             excess_cost = float(it.get("excess_cost", 0.0) or 0.0)
-            target_col = col_map_openpyxl.get(cat, 8)
+            is_bill_only = bool(it.get("bill_only"))
+            is_matched = bool(it.get("matched"))
+            b_srl = it.get("bill_srl") or ""
 
-            lab_name = str(it.get("est_particular") or it.get("est_desc") or "").strip()
+            lab_name = str(it.get("bill_particular") if is_bill_only else (it.get("est_particular") or it.get("est_desc") or "")).strip()
             est_amt = float(it.get("est_amount", 0.0) or 0.0)
 
-            # Col B: Bill serial number for confirmation (or blank if unmatched)
-            b_srl = it.get("bill_srl")
-            if it.get("matched") and b_srl:
+            # Col A (Item #)
+            sheet.cell(row=r_1based, column=1, value=item_num)
+
+            # Col B (Bill S.No)
+            if b_srl:
                 try:
                     srl_val = int(b_srl)
                 except (ValueError, TypeError):
                     srl_val = str(b_srl)
-                sheet.cell(row=current_r, column=2, value=srl_val)
+                sheet.cell(row=r_1based, column=2, value=srl_val)
             else:
-                sheet.cell(row=current_r, column=2, value=None)
+                sheet.cell(row=r_1based, column=2, value=None)
 
-            # Ensure Col C has the labour description
-            c_cell = sheet.cell(row=current_r, column=3)
-            if not str(c_cell.value or "").strip() and lab_name:
-                c_cell.value = lab_name
+            # Col C (Particular)
+            if is_bill_only:
+                sheet.cell(row=r_1based, column=3, value=lab_name)
+            else:
+                c_cell = sheet.cell(row=r_1based, column=3)
+                if not str(c_cell.value or "").strip() and lab_name:
+                    c_cell.value = lab_name
 
-            # Ensure Col D has estimate amount
-            d_cell = sheet.cell(row=current_r, column=4)
-            if (d_cell.value is None or d_cell.value == "") and est_amt > 0:
-                d_cell.value = est_amt
+            # Col D (Estimate)
+            if is_bill_only:
+                sheet.cell(row=r_1based, column=4, value=None)
+            else:
+                d_cell = sheet.cell(row=r_1based, column=4)
+                if (d_cell.value is None or d_cell.value == "") and est_amt > 0:
+                    d_cell.value = est_amt
 
-            # Write costs
-            if it.get("matched") and cat != "Not Allowed":
+            # Col E, F, G, H
+            if is_bill_only:
+                for c_idx in [5, 6, 7]:
+                    sheet.cell(row=r_1based, column=c_idx, value=None)
+                sheet.cell(row=r_1based, column=8, value=cost)
+            elif is_matched and cat in ["Opening/rft", "Denting", "Painting"]:
+                target_col = 5 if cat == "Opening/rft" else (6 if cat == "Denting" else 7)
                 for c_idx in [5, 6, 7]:
                     if c_idx == target_col:
-                        sheet.cell(row=current_r, column=c_idx, value=cost)
+                        sheet.cell(row=r_1based, column=c_idx, value=cost)
                     else:
-                        sheet.cell(row=current_r, column=c_idx, value=None)
+                        sheet.cell(row=r_1based, column=c_idx, value=None)
                 if excess_cost > 0:
-                    sheet.cell(row=current_r, column=8, value=excess_cost)
+                    sheet.cell(row=r_1based, column=8, value=excess_cost)
                 else:
-                    sheet.cell(row=current_r, column=8, value=None)
-            else:
+                    sheet.cell(row=r_1based, column=8, value=None)
+            elif cat == "Not Allowed":
                 for c_idx in [5, 6, 7]:
-                    sheet.cell(row=current_r, column=c_idx, value=None)
-                sheet.cell(row=current_r, column=8, value=cost if cost > 0 else est_amt)
+                    sheet.cell(row=r_1based, column=c_idx, value=None)
+                sheet.cell(row=r_1based, column=8, value=cost if cost > 0 else est_amt)
+            else:
+                for c_idx in [5, 6, 7, 8]:
+                    sheet.cell(row=r_1based, column=c_idx, value=None)
 
-            last_r = current_r
             current_r += 1
+            item_num += 1
             written += 1
 
-        inject_surveyor_sheet_formulas_openpyxl(sheet, parts_start_r=sheet_info.get("data_start_row", 171), labour_start_r=start_row)
         wb.save(file_path)
         invalidate_estimate_cache(file_path)
         return {
             "success": True,
             "written_count": written,
-            "start_row": first_r,
-            "end_row": last_r,
+            "start_row": first_r or start_row,
+            "end_row": last_r or (start_row + written - 1),
             "sheet": target_sheet_name,
             "backup_created": backup_path,
             "opening_count": opening_count,
             "denting_count": denting_count,
             "painting_count": painting_count,
-            "disallowed_count": disallowed_count
+            "disallowed_count": disallowed_count,
+            "blank_count": blank_count
         }

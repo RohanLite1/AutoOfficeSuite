@@ -463,6 +463,12 @@
             font-weight: 800;
         }
 
+        .cat-btn.active-blank {
+            background: #64748b;
+            color: white;
+            font-weight: 700;
+        }
+
         .dest-col-pill {
             display: inline-flex;
             align-items: center;
@@ -1698,6 +1704,7 @@
                     <button type="button" class="filter-tab active" id="tab-tally-all" onclick="setTallyCategoryFilter('all')">All (<span id="tally-count-all">0</span>)</button>
                     <button type="button" class="filter-tab" id="tab-tally-matched" onclick="setTallyCategoryFilter('matched')">Matched (<span id="tally-count-matched">0</span>)</button>
                     <button type="button" class="filter-tab" id="tab-tally-disallowed" onclick="setTallyCategoryFilter('disallowed')" style="color:#854d0e;">Col H: Not Allowed (<span id="tally-count-disallowed">0</span>)</button>
+                    <button type="button" class="filter-tab" id="tab-tally-blank" onclick="setTallyCategoryFilter('blank')" style="color:#64748b;">Blank (<span id="tally-count-blank">0</span>)</button>
                     <button type="button" class="filter-tab" id="tab-tally-c1" onclick="setTallyCategoryFilter('c1')"><span id="tab-tally-c1-label">Col E: Metal</span> (<span id="tally-count-c1">0</span>)</button>
                     <button type="button" class="filter-tab" id="tab-tally-c2" onclick="setTallyCategoryFilter('c2')"><span id="tab-tally-c2-label">Col F: Non-Metal</span> (<span id="tally-count-c2">0</span>)</button>
                     <button type="button" class="filter-tab" id="tab-tally-c3" onclick="setTallyCategoryFilter('c3')"><span id="tab-tally-c3-label">Col G: Glass</span> (<span id="tally-count-c3">0</span>)</button>
@@ -2743,7 +2750,7 @@
                 if (thQty) thQty.innerText = "Units / Qty";
             }
 
-            ['all', 'matched', 'disallowed', 'c1', 'c2', 'c3'].forEach(f => {
+            ['all', 'matched', 'disallowed', 'blank', 'c1', 'c2', 'c3'].forEach(f => {
                 const tab = document.getElementById(`tab-tally-${f}`);
                 if (tab) {
                     if (f === 'all') tab.classList.add('active');
@@ -2765,9 +2772,11 @@
             if (elVLabour) elVLabour.innerText = labourCount;
 
             const partsMatched = talliedItems.filter(t => t.matched).length;
-            const partsDisallowed = talliedItems.filter(t => t.category === "Not Allowed").length;
+            const partsDisallowed = talliedItems.filter(t => t.category === "Not Allowed" || (t.excess_cost && t.excess_cost > 0)).length;
+            const partsBlank = talliedItems.filter(t => !t.matched && !t.bill_only).length;
             const labourMatched = talliedLabourItems.filter(t => t.matched).length;
-            const labourDisallowed = talliedLabourItems.filter(t => t.category === "Not Allowed").length;
+            const labourDisallowed = talliedLabourItems.filter(t => t.category === "Not Allowed" || (t.excess_cost && t.excess_cost > 0)).length;
+            const labourBlank = talliedLabourItems.filter(t => !t.matched && !t.bill_only).length;
 
             const chipP = document.getElementById("stat-tally-parts-chip");
             if (chipP) chipP.innerText = `${partsMatched}/${partsCount}`;
@@ -2780,7 +2789,8 @@
             const currentList = isLabour ? talliedLabourItems : talliedItems;
             const allCount = currentList.length;
             const matchedCount = currentList.filter(t => t.matched).length;
-            const disallowedCount = currentList.filter(t => t.category === "Not Allowed").length;
+            const disallowedCount = currentList.filter(t => t.category === "Not Allowed" || t.bill_only || (t.excess_cost && t.excess_cost > 0)).length;
+            const blankCount = currentList.filter(t => !t.matched && !t.bill_only).length;
 
             let c1Count = 0, c2Count = 0, c3Count = 0;
             if (isLabour) {
@@ -2796,6 +2806,7 @@
             const elAll = document.getElementById("tally-count-all"); if (elAll) elAll.innerText = allCount;
             const elMatched = document.getElementById("tally-count-matched"); if (elMatched) elMatched.innerText = matchedCount;
             const elDis = document.getElementById("tally-count-disallowed"); if (elDis) elDis.innerText = disallowedCount;
+            const elBlank = document.getElementById("tally-count-blank"); if (elBlank) elBlank.innerText = blankCount;
             const elC1 = document.getElementById("tally-count-c1"); if (elC1) elC1.innerText = c1Count;
             const elC2 = document.getElementById("tally-count-c2"); if (elC2) elC2.innerText = c2Count;
             const elC3 = document.getElementById("tally-count-c3"); if (elC3) elC3.innerText = c3Count;
@@ -2926,14 +2937,41 @@
             targetList[index].category = newCategory;
             if (isLabour) {
                 if (newCategory === "Opening/rft") targetList[index].target_col = "E";
-                else if (newCategory === "Denting") targetList[index].target_col = "F";
-                else if (newCategory === "Painting") targetList[index].target_col = "G";
-                else targetList[index].target_col = "H";
+                if (newCategory === "Blank") {
+                    targetList[index].target_col = null;
+                    targetList[index].final_cost = 0.0;
+                    targetList[index].allowed_cost = 0.0;
+                } else if (newCategory === "Opening/rft") {
+                    targetList[index].target_col = "E";
+                } else if (newCategory === "Denting") {
+                    targetList[index].target_col = "F";
+                } else if (newCategory === "Painting") {
+                    targetList[index].target_col = "G";
+                } else {
+                    targetList[index].target_col = "H";
+                }
+                if (newCategory !== "Blank" && targetList[index].final_cost === 0 && targetList[index].est_amount) {
+                    targetList[index].final_cost = targetList[index].est_amount;
+                    targetList[index].allowed_cost = targetList[index].est_amount;
+                }
             } else {
-                if (newCategory === "Metal") targetList[index].target_col = "E";
-                else if (newCategory === "Non Metal") targetList[index].target_col = "F";
-                else if (newCategory === "Glass") targetList[index].target_col = "G";
-                else targetList[index].target_col = "H";
+                if (newCategory === "Blank") {
+                    targetList[index].target_col = null;
+                    targetList[index].final_cost = 0.0;
+                    targetList[index].allowed_cost = 0.0;
+                } else if (newCategory === "Metal") {
+                    targetList[index].target_col = "E";
+                } else if (newCategory === "Non Metal") {
+                    targetList[index].target_col = "F";
+                } else if (newCategory === "Glass") {
+                    targetList[index].target_col = "G";
+                } else {
+                    targetList[index].target_col = "H";
+                }
+                if (newCategory !== "Blank" && targetList[index].final_cost === 0 && targetList[index].est_amount) {
+                    targetList[index].final_cost = targetList[index].est_amount;
+                    targetList[index].allowed_cost = targetList[index].est_amount;
+                }
             }
             updateTallyReviewBadges();
             renderTallyTable();
@@ -2941,7 +2979,7 @@
 
         function setTallyCategoryFilter(filter) {
             tallyUiState.filter = filter;
-            ['all', 'matched', 'disallowed', 'c1', 'c2', 'c3'].forEach(f => {
+            ['all', 'matched', 'disallowed', 'blank', 'c1', 'c2', 'c3'].forEach(f => {
                 const tab = document.getElementById(`tab-tally-${f}`);
                 if (tab) {
                     if (f === filter) tab.classList.add('active');
@@ -2977,7 +3015,9 @@
             if (filter === "matched") {
                 filtered = filtered.filter(t => t.matched);
             } else if (filter === "disallowed") {
-                filtered = filtered.filter(t => t.category === "Not Allowed");
+                filtered = filtered.filter(t => t.category === "Not Allowed" || t.bill_only || (t.excess_cost && t.excess_cost > 0));
+            } else if (filter === "blank") {
+                filtered = filtered.filter(t => !t.matched && !t.bill_only);
             } else if (filter === "c1") {
                 filtered = filtered.filter(t => t.category === (isLabour ? "Opening/rft" : "Metal"));
             } else if (filter === "c2") {
@@ -3002,30 +3042,41 @@
 
             tbody.innerHTML = filtered.map(item => {
                 const idx = item.originalIndex;
-                const cat = item.category || "Not Allowed";
+                const cat = item.category || (item.bill_only ? "Not Allowed" : "Blank");
                 const isMatched = item.matched;
-                const itemName = (item.est_particular || item.est_desc || item.particular || "").trim();
+                const itemName = (item.bill_only ? (item.bill_particular || item.bill_desc || "") : (item.est_particular || item.est_desc || item.particular || "")).trim();
                 const billName = (item.bill_particular || item.bill_desc || item.bill_name || "").trim();
                 const currentQty = (item.qty !== undefined && item.qty !== null) ? item.qty : (item.est_qty || 1);
                 const unitPrice = (item.unit_price !== undefined && item.unit_price !== null) ? item.unit_price : 0;
                 const cost = (item.final_cost !== undefined && item.final_cost !== null) ? item.final_cost : 0;
                 const excessQty = (item.excess_qty !== undefined && item.excess_qty !== null) ? item.excess_qty : 0;
                 const excessCost = (item.excess_cost !== undefined && item.excess_cost !== null) ? item.excess_cost : 0;
-                const isCapped = item.bill_qty && item.est_qty && (item.bill_qty > item.est_qty);
                 const unitLabel = isLabour ? 'unit' : 'pc';
 
-                let matchStatusHtml = isMatched
-                    ? `<div style="display:flex; flex-direction:column; gap:4px;">
+                let matchStatusHtml = "";
+                if (item.bill_only) {
+                    matchStatusHtml = `<div style="display:flex; flex-direction:column; gap:4px;">
+                        <span class="badge-disallowed" style="background:#fee2e2; color:#991b1b; border:1px solid #fecaca;" title="Present in Final Bill but NOT in Estimate &rarr; Not Allowed (Col H)">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:3px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg> Bill Only (Not Allowed)
+                        </span>
+                        ${item.bill_srl ? `<span class="badge-bill-srl" title="Bill Item #${item.bill_srl}">Bill #${escapeHtml(String(item.bill_srl))}</span>` : ''}
+                    </div>`;
+                } else if (isMatched) {
+                    matchStatusHtml = `<div style="display:flex; flex-direction:column; gap:4px;">
                         <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                             <span class="badge-matched"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:3px;"><polyline points="20 6 9 17 4 12"></polyline></svg> In Final Bill</span>
                             ${item.bill_srl ? `<span class="badge-bill-srl" title="Bill Item #${item.bill_srl} - will be written to Col B in Excel">Bill #${escapeHtml(String(item.bill_srl))}</span>` : ''}
                         </div>
                         ${billName ? `<span style="font-size:11.5px; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; max-width:210px;" title="${escapeHtml(billName)}">${escapeHtml(billName)}</span>` : ''}
-                      </div>`
-                    : `<span class="badge-disallowed" title="Not found in Final Bill - will be pasted to Col H"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:3px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg> Not in Final Bill</span>`;
+                      </div>`;
+                } else {
+                    matchStatusHtml = `<span class="badge-disallowed" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;" title="In Estimate but not billed &rarr; Left blank"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:3px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg> Not in Bill (Blank)</span>`;
+                }
 
                 let destColPill = "";
-                if (isLabour) {
+                if (cat === "Blank" || (!isMatched && !item.bill_only && cat !== "Not Allowed" && cat !== "Metal" && cat !== "Non Metal" && cat !== "Glass" && cat !== "Opening/rft" && cat !== "Denting" && cat !== "Painting")) {
+                    destColPill = `<span class="dest-col-pill" style="background:#f1f5f9; color:#64748b; border:1px dashed #cbd5e1;">Blank (Col E-H)</span>`;
+                } else if (isLabour) {
                     if (cat === "Opening/rft") destColPill = `<span class="dest-col-pill dest-col-opening">Col E: Opening/rft</span>`;
                     else if (cat === "Denting") destColPill = `<span class="dest-col-pill dest-col-denting">Col F: Denting</span>`;
                     else if (cat === "Painting") destColPill = `<span class="dest-col-pill dest-col-painting">Col G: Painting</span>`;
@@ -3041,10 +3092,11 @@
                 if (isLabour) {
                     catButtonsHtml = `
                         <div class="cat-group">
-                            <button type="button" class="cat-btn ${cat === 'Opening/rft' ? 'active-opening' : ''}" onclick="setTallyItemCategory(${idx}, 'Opening/rft')">Opening/rft [E]</button>
+                            <button type="button" class="cat-btn ${cat === 'Opening/rft' ? 'active-opening' : ''}" onclick="setTallyItemCategory(${idx}, 'Opening/rft')">Opening [E]</button>
                             <button type="button" class="cat-btn ${cat === 'Denting' ? 'active-denting' : ''}" onclick="setTallyItemCategory(${idx}, 'Denting')">Denting [F]</button>
-                            <button type="button" class="cat-btn ${cat === 'Painting' ? 'active-painting' : ''}" onclick="setTallyItemCategory(${idx}, 'Painting')">Painting [G]</button>
-                            <button type="button" class="cat-btn ${cat === 'Not Allowed' ? 'active-disallowed' : ''}" onclick="setTallyItemCategory(${idx}, 'Not Allowed')">Not Allowed [H]</button>
+                            <button type="button" class="cat-btn ${cat === 'Painting' ? 'active-painting' : ''}" onclick="setTallyItemCategory(${idx}, 'Painting')">Paint [G]</button>
+                            <button type="button" class="cat-btn ${cat === 'Not Allowed' ? 'active-disallowed' : ''}" onclick="setTallyItemCategory(${idx}, 'Not Allowed')">Disallowed [H]</button>
+                            <button type="button" class="cat-btn ${cat === 'Blank' ? 'active-blank' : ''}" onclick="setTallyItemCategory(${idx}, 'Blank')" title="Leave Col E-H Blank">Blank</button>
                         </div>
                     `;
                 } else {
@@ -3053,19 +3105,27 @@
                             <button type="button" class="cat-btn ${cat === 'Metal' ? 'active-metal' : ''}" onclick="setTallyItemCategory(${idx}, 'Metal')">Metal [E]</button>
                             <button type="button" class="cat-btn ${cat === 'Non Metal' ? 'active-nonmetal' : ''}" onclick="setTallyItemCategory(${idx}, 'Non Metal')">Non-Metal [F]</button>
                             <button type="button" class="cat-btn ${cat === 'Glass' ? 'active-glass' : ''}" onclick="setTallyItemCategory(${idx}, 'Glass')">Glass [G]</button>
-                            <button type="button" class="cat-btn ${cat === 'Not Allowed' ? 'active-disallowed' : ''}" onclick="setTallyItemCategory(${idx}, 'Not Allowed')">Not Allowed [H]</button>
+                            <button type="button" class="cat-btn ${cat === 'Not Allowed' ? 'active-disallowed' : ''}" onclick="setTallyItemCategory(${idx}, 'Not Allowed')">Disallowed [H]</button>
+                            <button type="button" class="cat-btn ${cat === 'Blank' ? 'active-blank' : ''}" onclick="setTallyItemCategory(${idx}, 'Blank')" title="Leave Col E-H Blank">Blank</button>
                         </div>
                     `;
                 }
 
+                let rowBgStyle = "";
+                if (item.bill_only) {
+                    rowBgStyle = "background: rgba(254, 226, 226, 0.18);";
+                } else if (cat === 'Not Allowed') {
+                    rowBgStyle = "background: rgba(254, 240, 138, 0.15);";
+                }
+
                 return `
-                    <tr style="${cat === 'Not Allowed' ? 'background: rgba(254, 240, 138, 0.15);' : ''}">
+                    <tr style="${rowBgStyle}">
                         <td style="font-weight:700; color:var(--text-light); text-align:center;">${idx + 1}</td>
                         <td>
                             <div style="font-weight:700; color:var(--text-main); font-size:13px;">${escapeHtml(itemName)}</div>
                         </td>
                         <td style="text-align:right; font-weight:700; color:#059669;">
-                            ₹${(item.est_amount || 0).toFixed(2)}
+                            ${item.bill_only ? '<span style="color:var(--text-light); font-weight:normal;">&mdash;</span>' : `₹${(item.est_amount || 0).toFixed(2)}`}
                         </td>
                         <td>
                             ${matchStatusHtml}
@@ -3142,7 +3202,8 @@
                         `&bull; <strong>Metal:</strong> ${data.metal_count || 0} parts &rarr; Col E<br>` +
                         `&bull; <strong>Non Metal:</strong> ${data.non_metal_count || 0} parts &rarr; Col F<br>` +
                         `&bull; <strong>Glass:</strong> ${data.glass_count || 0} parts &rarr; Col G<br>` +
-                        `&bull; <strong style="background:#fef08a; padding:1px 6px; border-radius:3px; color:#854d0e;">Not Allowed:</strong> ${data.disallowed_count || 0} parts &rarr; Col H (Yellow cell)` +
+                        `&bull; <strong style="background:#fef08a; padding:1px 6px; border-radius:3px; color:#854d0e;">Not Allowed:</strong> ${data.disallowed_count || 0} parts &rarr; Col H (Yellow cell)<br>` +
+                        `&bull; <strong style="background:#f1f5f9; padding:1px 6px; border-radius:3px; color:#475569;">Left Blank:</strong> ${data.blank_count || 0} parts &rarr; Blank (not in bill)` +
                         `</div>`;
                     document.getElementById("success-modal").classList.add("show");
                     refreshExcelFile();
@@ -3200,7 +3261,8 @@
                         `&bull; <strong>Opening/rft:</strong> ${data.opening_count || 0} items &rarr; Col E<br>` +
                         `&bull; <strong>Denting:</strong> ${data.denting_count || 0} items &rarr; Col F<br>` +
                         `&bull; <strong>Painting:</strong> ${data.painting_count || 0} items &rarr; Col G<br>` +
-                        `&bull; <strong style="background:#fef08a; padding:1px 6px; border-radius:3px; color:#854d0e;">Not Allowed:</strong> ${data.disallowed_count || 0} items &rarr; Col H (Yellow cell)` +
+                        `&bull; <strong style="background:#fef08a; padding:1px 6px; border-radius:3px; color:#854d0e;">Not Allowed:</strong> ${data.disallowed_count || 0} items &rarr; Col H (Yellow cell)<br>` +
+                        `&bull; <strong style="background:#f1f5f9; padding:1px 6px; border-radius:3px; color:#475569;">Left Blank:</strong> ${data.blank_count || 0} items &rarr; Blank (not in bill)` +
                         `</div>`;
                     document.getElementById("success-modal").classList.add("show");
                     refreshExcelFile();

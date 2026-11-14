@@ -957,7 +957,8 @@ def tally_parts_api():
         tallied = tally_estimate_with_bill(est_parts, bill_parts)
 
         matched_count = sum(1 for t in tallied if t.get("matched"))
-        disallowed_count = sum(1 for t in tallied if not t.get("matched"))
+        disallowed_count = sum(1 for t in tallied if t.get("category") == "Not Allowed" or (t.get("excess_cost") or 0) > 0)
+        blank_count = sum(1 for t in tallied if not t.get("matched") and not t.get("bill_only"))
 
         metal_items = [t for t in tallied if t.get("category") == "Metal"]
         non_metal_items = [t for t in tallied if t.get("category") == "Non Metal"]
@@ -970,6 +971,7 @@ def tally_parts_api():
             "total_count": len(tallied),
             "matched_count": matched_count,
             "disallowed_count": disallowed_count,
+            "blank_count": blank_count,
             "metal_count": len(metal_items),
             "non_metal_count": len(non_metal_items),
             "glass_count": len(glass_items),
@@ -1036,7 +1038,8 @@ def tally_labour_api():
         tallied = tally_estimate_labour_with_bill(est_labour, bill_labour)
 
         matched_count = sum(1 for t in tallied if t.get("matched"))
-        disallowed_count = sum(1 for t in tallied if not t.get("matched"))
+        disallowed_count = sum(1 for t in tallied if t.get("category") == "Not Allowed" or (t.get("excess_cost") or 0) > 0)
+        blank_count = sum(1 for t in tallied if not t.get("matched") and not t.get("bill_only"))
 
         opening_items = [t for t in tallied if t.get("category") == "Opening/rft"]
         denting_items = [t for t in tallied if t.get("category") == "Denting"]
@@ -1049,6 +1052,7 @@ def tally_labour_api():
             "total_count": len(tallied),
             "matched_count": matched_count,
             "disallowed_count": disallowed_count,
+            "blank_count": blank_count,
             "opening_count": len(opening_items),
             "denting_count": len(denting_items),
             "painting_count": len(painting_items),

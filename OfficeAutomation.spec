@@ -31,6 +31,10 @@ hidden_imports = [
     'tkinter',
     'tkinter.filedialog',
     'estimate_handler',
+    'win32com',
+    'win32com.client',
+    'pythoncom',
+    'pywintypes',
 ]
 
 a = Analysis(
