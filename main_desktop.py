@@ -137,17 +137,26 @@ def main():
                 return ""
 
         api = DesktopApi()
-        webview.create_window(
-            title="Office Automation - Estimate Parts Extractor",
+        window = webview.create_window(
+            title="Office Automation Suite - Precision Parts & Labour Assessment",
             url=app_url,
             width=1340,
             height=860,
             min_size=(960, 600),
+            maximized=True,
             background_color="#0f172a",
             text_select=True,
             confirm_close=False,
             js_api=api
         )
+
+        def on_shown():
+            try:
+                window.maximize()
+            except Exception:
+                pass
+
+        window.events.shown += on_shown
         webview.start(debug=False)
 
     except Exception:
