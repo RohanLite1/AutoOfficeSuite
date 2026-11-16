@@ -142,6 +142,8 @@ def map_table_header(row):
             cols['taxable_amt'] = idx
         elif re.search(r'\b(rate|unit\s*price|price|mrp|unit\s*cost)\b', c_u) or c_u == 'rate':
             cols['rate'] = idx
+        elif re.search(r'\b(amount\s*with\s*tax|total\s*with\s*tax|gross\s*amount|inv(?:oice)?\s*amount)\b', c_u):
+            cols['total_with_tax'] = idx
         elif re.search(r'\b(uom|unit\s*of\s*measure|u\s*o\s*m|^units?$)\b', c_u):
             cols['uom'] = idx
         elif re.search(r'\b(qty|quantity|qnty|part\s*qty)\b', c_u) or 'qty' in c_u:
@@ -232,16 +234,20 @@ def extract_toyota_format(pdf):
                 sno = sno_words[0]["text"]
                 code = " ".join([w["text"] for w in code_words])
                 
+                rate_words = [w for w in line_words if 235 <= w["x0"] < 278]
+                disc_words = [w for w in line_words if 305 <= w["x0"] < 335]
                 taxable_words = [w for w in line_words if 335 <= w["x0"] < 388]
+                total_words = [w for w in line_words if 540 <= w["x0"] < 595]
                 hsn_words = [w for w in line_words if 150 <= w["x0"] < 192]
                 qty_words = [w for w in line_words if 192 <= w["x0"] < 214]
-                rate_words = [w for w in line_words if 235 <= w["x0"] < 278]
                 desc_words = [w for w in line_words if 85 <= w["x0"] < 155]
                 
-                taxable_amt = clean_num(taxable_words[0]["text"]) if taxable_words else 0.0
+                rate = clean_num(rate_words[0]["text"]) if rate_words else 0.0
+                disc = clean_num(disc_words[0]["text"]) if disc_words else 0.0
+                taxable_amt = clean_num(taxable_words[0]["text"]) if taxable_words else (rate if rate > 0 else 0.0)
+                total_amt = clean_num(total_words[0]["text"]) if total_words else (taxable_amt if taxable_amt > 0 else rate)
                 hsn = hsn_words[0]["text"] if hsn_words else ""
                 qty = qty_words[0]["text"] if qty_words else "1"
-                rate = clean_num(rate_words[0]["text"]) if rate_words else taxable_amt
                 desc = " ".join([w["text"] for w in desc_words])
                 
                 page_items.append({
@@ -250,7 +256,10 @@ def extract_toyota_format(pdf):
                     "desc_parts": [desc] if desc else [],
                     "hsn": hsn,
                     "qty": qty,
-                    "unit_price": rate,
+                    "rate": rate,
+                    "taxable": taxable_amt,
+                    "total": total_amt,
+                    "unit_price": rate if rate > 0 else taxable_amt,
                     "amount": taxable_amt,
                     "section": current_section
                 })
@@ -264,13 +273,32 @@ def extract_toyota_format(pdf):
             full_desc = " ".join([p for p in it["desc_parts"] if p]).strip()
             full_desc = re.sub(r"\s+", " ", full_desc).strip()
             is_labour = (it["section"] == "Labour") or is_labour_item(full_desc, "", it["hsn"])
+            
+            qty_f = clean_qty(it["qty"])
+            rate_f = float(it.get("rate") or 0.0)
+            taxable_f = float(it.get("taxable") or 0.0)
+            total_f = float(it.get("total") or 0.0)
+            if total_f <= 0:
+                total_f = taxable_f
+                
+            rate_total = round(rate_f * qty_f, 2) if (qty_f > 0 and rate_f > 0) else (rate_f or taxable_f)
+            
+            costs = {
+                "Taxable Value": taxable_f,
+                "Labour / Unit Price": rate_total,
+                "Amount with Tax": total_f
+            }
+            
             items.append({
+                "srl": str(it.get("sno", len(items) + 1)),
                 "code": it["code"],
                 "particular": full_desc,
                 "hsn": it["hsn"],
                 "qty": it["qty"],
-                "unit_price": it["unit_price"],
-                "amount": it["amount"],
+                "unit_price": rate_f if rate_f > 0 else taxable_f,
+                "amount": taxable_f,
+                "costs": costs,
+                "selected_cost_key": "Taxable Value",
                 "item_type": "Labour" if is_labour else "Part",
                 "selected": True
             })
@@ -932,6 +960,15 @@ def parse_estimate_pdf(pdf_path):
                             uom = str(row[cols["uom"]] or "").strip() if "uom" in cols and cols["uom"] < len(row) else ""
                             hsn = str(row[cols["hsn"]] or "").strip() if "hsn" in cols and cols["hsn"] < len(row) else ""
                             rate = clean_num(row[cols["rate"]]) if "rate" in cols and cols["rate"] < len(row) else amt
+                            tot_tax = clean_num(row[cols["total_with_tax"]]) if "total_with_tax" in cols and cols["total_with_tax"] < len(row) else 0.0
+                            qty_clean = clean_qty(qty)
+                            rate_tot = round(rate * qty_clean, 2) if (qty_clean > 0 and rate > 0) else amt
+                            t_costs = {
+                                "Taxable Value": amt,
+                                "Labour / Unit Price": rate_tot
+                            }
+                            if tot_tax > 0:
+                                t_costs["Amount with Tax"] = tot_tax
 
                             is_labour = (last_table_type == "Labour") or is_labour_item(desc, uom, hsn)
                             table_items.append({
@@ -941,6 +978,8 @@ def parse_estimate_pdf(pdf_path):
                                 "qty": f"{qty} {uom}".strip(),
                                 "unit_price": rate or amt,
                                 "amount": amt,
+                                "costs": t_costs,
+                                "selected_cost_key": "Taxable Value",
                                 "item_type": "Labour" if is_labour else "Part",
                                 "selected": True
                             })
@@ -978,6 +1017,16 @@ def parse_estimate_pdf(pdf_path):
                                 uom = str(row[cols["uom"]] or "").strip() if "uom" in cols and cols["uom"] < len(row) else ""
                                 hsn = str(row[cols["hsn"]] or "").strip() if "hsn" in cols and cols["hsn"] < len(row) else ""
                                 rate = clean_num(row[cols["rate"]]) if "rate" in cols and cols["rate"] < len(row) else amt
+                                tot_tax = clean_num(row[cols["total_with_tax"]]) if "total_with_tax" in cols and cols["total_with_tax"] < len(row) else 0.0
+                                qty_clean = clean_qty(qty)
+                                rate_tot = round(rate * qty_clean, 2) if (qty_clean > 0 and rate > 0) else amt
+                                t_costs = {
+                                    "Taxable Value": amt,
+                                    "Labour / Unit Price": rate_tot
+                                }
+                                if tot_tax > 0:
+                                    t_costs["Amount with Tax"] = tot_tax
+
                                 is_labour = is_labour_item(desc, uom, hsn)
                                 table_items_text.append({
                                     "code": code,
@@ -986,6 +1035,8 @@ def parse_estimate_pdf(pdf_path):
                                     "qty": f"{qty} {uom}".strip(),
                                     "unit_price": rate or amt,
                                     "amount": amt,
+                                    "costs": t_costs,
+                                    "selected_cost_key": "Taxable Value",
                                     "item_type": "Labour" if is_labour else "Part",
                                     "selected": True
                                 })
@@ -1210,6 +1261,55 @@ def parse_estimate_pdf(pdf_path):
             if srl_str.isdigit():
                 it["srl"] = srl_str
 
+    # Universal Cost Basis Enrichment:
+    # Ensure every single item has a well-formed costs dictionary with all relevant columns
+    for it in items:
+        if "costs" not in it or not it["costs"]:
+            it["costs"] = {}
+        
+        amt = float(it.get("amount") or 0.0)
+        u_price = float(it.get("unit_price") or 0.0)
+        qty_num = clean_qty(it.get("qty", 1.0))
+        unit_tot = round(u_price * qty_num, 2) if (qty_num > 0 and u_price > 0) else (u_price or amt)
+
+        if "Taxable Value" not in it["costs"]:
+            it["costs"]["Taxable Value"] = amt
+        if "Labour / Unit Price" not in it["costs"]:
+            if unit_tot > 0 and abs(unit_tot - amt) > 0.01:
+                it["costs"]["Labour / Unit Price"] = unit_tot
+            else:
+                it["costs"]["Labour / Unit Price"] = amt
+        if not it.get("selected_cost_key"):
+            it["selected_cost_key"] = "Taxable Value"
+
+    # Identify all available cost columns across all items
+    priority_order = ["Taxable Value", "Labour / Unit Price", "Amount with Tax"]
+    available_cost_columns = []
+    
+    for p_col in priority_order:
+        if any(p_col in it.get("costs", {}) and it["costs"][p_col] > 0 for it in items):
+            available_cost_columns.append(p_col)
+            
+    for it in items:
+        for k in it.get("costs", {}):
+            if k not in available_cost_columns and it["costs"][k] > 0:
+                available_cost_columns.append(k)
+
+    if not available_cost_columns:
+        available_cost_columns = ["Taxable Value"]
+
+    # Compute totals for each cost column and ensure every item has values for all columns
+    cost_column_totals = {}
+    for col in available_cost_columns:
+        total_for_col = 0.0
+        for it in items:
+            val = it.get("costs", {}).get(col, it.get("amount", 0.0))
+            it.setdefault("costs", {})[col] = float(val or 0.0)
+            total_for_col += float(val or 0.0)
+        cost_column_totals[col] = round(total_for_col, 2)
+
+    default_cost_column = "Taxable Value" if "Taxable Value" in available_cost_columns else available_cost_columns[0]
+
     parts_count = sum(1 for it in items if it["item_type"] == "Part")
     parts_sum = sum(it["amount"] for it in items if it["item_type"] == "Part")
     labour_count = sum(1 for it in items if it["item_type"] == "Labour")
@@ -1228,6 +1328,9 @@ def parse_estimate_pdf(pdf_path):
         "filename": os.path.basename(pdf_path),
         "header": header_info,
         "items": items,
+        "available_cost_columns": available_cost_columns,
+        "default_cost_column": default_cost_column,
+        "cost_column_totals": cost_column_totals,
         "total_parts": parts_count,
         "total_parts_sum": round(parts_sum, 2),
         "total_labour": labour_count,
@@ -2593,7 +2696,7 @@ def tally_estimate_with_bill(estimate_parts, bill_parts):
 
             # Calculate unit price from bill
             b_unit = float(matched_b.get("unit_price", 0.0) or 0.0)
-            if b_unit <= 0 and b_qty > 0 and b_amt > 0:
+            if b_qty > 0 and b_amt > 0:
                 b_unit = b_amt / b_qty
             elif b_unit <= 0 and est_qty > 0 and est_amt > 0:
                 b_unit = est_amt / est_qty
@@ -2638,12 +2741,15 @@ def tally_estimate_with_bill(estimate_parts, bill_parts):
                 "target_col": target_col,
                 "final_cost": round(allowed_cost, 2),
                 "allowed_cost": round(allowed_cost, 2),
-                "excess_cost": round(excess_cost, 2)
+                "excess_cost": round(excess_cost, 2),
+                "costs": matched_b.get("costs", {}),
+                "bill_costs": matched_b.get("costs", {}),
+                "est_costs": est.get("costs", {})
             })
         else:
             # User requirement: In Estimate but NOT in Final Bill -> Do NOT print cost, leave blank
             est_unit = float(est.get("unit_price", 0.0) or 0.0)
-            if est_unit <= 0 and est_qty > 0 and est_amt > 0:
+            if est_qty > 0 and est_amt > 0:
                 est_unit = est_amt / est_qty
             elif est_unit <= 0:
                 est_unit = est_amt
@@ -3100,7 +3206,7 @@ def tally_estimate_labour_with_bill(estimate_labour, bill_labour):
             b_qty = clean_qty(matched_b.get("qty", 1.0))
 
             b_unit = float(matched_b.get("unit_price", 0.0) or 0.0)
-            if b_unit <= 0 and b_qty > 0 and b_amt > 0:
+            if b_qty > 0 and b_amt > 0:
                 b_unit = b_amt / b_qty
             elif b_unit <= 0 and est_qty > 0 and est_amt > 0:
                 b_unit = est_amt / est_qty
@@ -3139,12 +3245,15 @@ def tally_estimate_labour_with_bill(estimate_labour, bill_labour):
                 "final_cost": round(allowed_cost, 2),
                 "allowed_cost": round(allowed_cost, 2),
                 "excess_cost": round(excess_cost, 2),
+                "costs": matched_b.get("costs", {}),
+                "bill_costs": matched_b.get("costs", {}),
+                "est_costs": est.get("costs", {}),
                 "item_type": "Labour"
             })
         else:
             # User requirement: In Estimate but NOT in Final Bill -> Do NOT print cost, leave blank
             est_unit = float(est.get("unit_price", 0.0) or 0.0)
-            if est_unit <= 0 and est_qty > 0 and est_amt > 0:
+            if est_qty > 0 and est_amt > 0:
                 est_unit = est_amt / est_qty
             elif est_unit <= 0:
                 est_unit = est_amt
